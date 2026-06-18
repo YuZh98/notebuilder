@@ -1,0 +1,39 @@
+{
+  "name": "📋 Release notes — reactive-explainer pass",
+  "subtitle": "Authored as a notebook, shown in the app. Eight changes · reactive cards, math, and sharing.",
+  "rooms": [
+    {
+      "id": "r1",
+      "name": "Summary",
+      "title": "## NoteBuilder",
+      "subtitle": "A pass on the wedge: *reactive explainers shared as one offline file*.",
+      "cards": [
+        {
+          "id": "c1", "name": "intro",
+          "slots": [{ "id": "s1", "type": "text", "props": { "text": "## This round, in one line\nThe app got tighter around its wedge — **a reactive explainer you share as one offline HTML file** — and friendlier to **LLM-authored notebooks**. Everything below was verified live and is covered by tests." }, "verbs": {} }],
+          "container": { "flip": false, "look": "card", "bare": false }, "rules": {}, "accent": "", "variety": "1", "place": { "w": 12 }, "content": {}, "tag": [], "state": {}
+        },
+        {
+          "id": "c2", "name": "table",
+          "slots": [{ "id": "s2", "type": "text", "props": { "text": "## What changed this round\n\n| Area | Change | Why |\n| :--- | :--- | :--- |\n| Share | Shared files open in a locked **Reader** + Remix | recipient needs no app |\n| Export | Ships only the notebook, not your catalog | no inventory leak |\n| Value box | Hugs its value, shows in Edit | no clipped digits, no surprises |\n| Fuse | Slot-header toggle + draggable seam | control where the join is |\n| Store | Dropped raw Slider / Number / Formula / Chart | finished cards over primitives |\n| Authoring | New-notebook **JSON / AI** front door | LLM-authored notebooks |\n| First run | Lands in Study on a live example | the reactive *aha* first |" }, "verbs": {} }],
+          "container": { "flip": false, "look": "card", "bare": false }, "rules": {}, "accent": "", "variety": "1", "place": { "w": 12 }, "content": {}, "tag": [], "state": {}
+        },
+        {
+          "id": "c3", "name": "live",
+          "slots": [
+            { "id": "s3", "type": "text", "props": { "text": "## Still one self-contained card\nDrag `n` — the square and the chart react. Variables are **card-scoped**, so this card is complete on its own and travels in a single file." }, "verbs": {} },
+            { "id": "s4", "type": "slider", "props": { "key": "n", "min": 0, "max": 12, "value": 3, "step": 1, "showName": true, "showValue": true, "showSlider": true }, "verbs": {} },
+            { "id": "s5", "type": "compute", "props": { "expr": "n*n", "note": "n squared =" }, "verbs": {} },
+            { "id": "s6", "type": "chart", "props": { "fn": "n*x", "x0": 0, "x1": 10, "y0": 0, "y1": 120, "xticks": 5, "yticks": 4, "hover": true, "label": "y = n · x" }, "verbs": {} }
+          ],
+          "container": { "flip": false, "look": "card", "bare": false }, "rules": {}, "accent": "", "variety": "1", "place": { "w": 12 }, "content": {}, "tag": [], "state": {}
+        },
+        {
+          "id": "c4", "name": "try",
+          "slots": [{ "id": "s7", "type": "text", "props": { "text": "## Try the wedge\nHit **Share** — this becomes one HTML file that opens anywhere as a clean **Reader**. In a shared file, click **Remix** to edit your own copy." }, "verbs": {} }],
+          "container": { "flip": false, "look": "card", "bare": false }, "rules": {}, "accent": "", "variety": "1", "place": { "w": 12 }, "content": {}, "tag": [], "state": {}
+        }
+      ]
+    }
+  ]
+}

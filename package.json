@@ -1,0 +1,23 @@
+{
+  "name": "notebuilder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build reactive explainers and share them as one offline HTML file. Local-first, no accounts, no backend.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs && git diff --exit-code -- index.html",
+    "dev": "node scripts/build.mjs && python3 -m http.server 8950",
+    "test": "playwright test",
+    "lint": "eslint src/app",
+    "format": "prettier --write \"src/**/*.css\" \"scripts/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.css\" \"scripts/**/*.mjs\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.60.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.3.0"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+test-results/
+playwright-report/
+.DS_Store
+*.log
+
+# dev-tool byproduct (written by scripts/extract.mjs; not a build input)
+/scripts/.manifest.json
+
+# local scratch / internal artifacts
+/scratch/
+*.local.*
