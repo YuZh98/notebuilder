@@ -10,3 +10,6 @@ playwright-report/
 # local scratch / internal artifacts
 /scratch/
 *.local.*
+
+# v2 build output
+/v2/dist/
