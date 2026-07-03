@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exportNotebook, importNotebook, validateNotebookJSON } from './json-io';
+import { exportNotebook, importNotebook, validateNotebookJSON, adoptNotebookIdentity } from './json-io';
 import type { Notebook } from './types';
 
 const sampleNotebook: Notebook = {
@@ -138,5 +138,22 @@ describe('validateNotebookJSON', () => {
     json.notebook.sections[0].cards[0].slots = 'oops';
     const errors = validateNotebookJSON(json);
     expect(errors.some((e) => /slots/.test(e))).toBe(true);
+  });
+});
+
+describe('adoptNotebookIdentity', () => {
+  it('rebinds notebook id and section notebookId', () => {
+    const imported = importNotebook(exportNotebook(sampleNotebook));
+    const adopted = adoptNotebookIdentity(imported, 'nb_existing');
+    expect(adopted.id).toBe('nb_existing');
+    for (const s of adopted.sections) expect(s.notebookId).toBe('nb_existing');
+  });
+
+  it('keeps section/card/slot content untouched', () => {
+    const imported = importNotebook(exportNotebook(sampleNotebook));
+    const adopted = adoptNotebookIdentity(imported, 'nb_existing');
+    expect(adopted.name).toBe(imported.name);
+    expect(adopted.sections[0].cards[0].slots[0].props).toEqual({ text: 'Hello **world**' });
+    expect(adopted.sections[0].cards[0].sectionId).toBe(adopted.sections[0].id);
   });
 });

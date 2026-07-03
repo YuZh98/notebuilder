@@ -10,10 +10,13 @@
   import type { ProgressProps } from './lib/slots/progress';
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
   import { isTauri, loadNotebook, saveNotebook, loadReaderState, saveReaderState } from './lib/db';
+  import { adoptNotebookIdentity } from './lib/json-io';
+  import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
+  import { listen } from '@tauri-apps/api/event';
   import { onMount } from 'svelte';
 
-  // Reader state: cardId → slotId → arbitrary state object (in-memory; SQLite persistence deferred)
+  // Reader state: cardId → slotId → arbitrary state object (persisted to SQLite inside Tauri)
   let readerState: Record<string, Record<string, Record<string, unknown>>> = $state({});
 
   // Demo notebook for initial vertical stack validation
@@ -78,8 +81,38 @@
     if (isTauri()) void saveReaderState(map);
   }, 600);
 
+  let shareError = $state('');
+  let shareNotice = $state('');
+
+  async function handleImport() {
+    shareError = '';
+    shareNotice = '';
+    const result = await importNotebookFromFile(notebook.name);
+    if ('error' in result) {
+      shareError = result.error;
+    } else if ('notebook' in result) {
+      // Single-notebook app for now: the import takes over the current notebook's identity
+      // so autosave overwrites it and the next launch loads the imported content.
+      notebook = adoptNotebookIdentity(result.notebook, notebook.id);
+      readerState = {};
+      shareNotice = `Imported "${notebook.name}"`;
+    }
+  }
+
+  async function handleExport() {
+    shareError = '';
+    shareNotice = '';
+    const result = await exportNotebookToFile($state.snapshot(notebook));
+    if ('error' in result) {
+      shareError = result.error;
+    } else if ('path' in result) {
+      shareNotice = `Exported to ${result.path}`;
+    }
+  }
+
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
   onMount(() => {
+    const unlisteners: Array<() => void> = [];
     if (isTauri()) {
       void loadNotebook(notebook.id).then((nb) => {
         if (nb) notebook = nb;
@@ -87,6 +120,8 @@
       void loadReaderState().then((map) => {
         readerState = map;
       });
+      void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
+      void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
     }
     function handleKey(e: KeyboardEvent) {
       if (e.metaKey && e.key === 'Enter') {
@@ -95,7 +130,10 @@
       }
     }
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      unlisteners.forEach((un) => un());
+    };
   });
 
   // Debounced autosave whenever the document or reader state changes.
@@ -157,6 +195,19 @@
     </button>
     <span class="hint">⌘+Enter to toggle</span>
   </header>
+
+  {#if shareError}
+    <div class="banner error" role="alert">
+      <pre>{shareError}</pre>
+      <button class="banner-close" onclick={() => (shareError = '')}>×</button>
+    </div>
+  {/if}
+  {#if shareNotice}
+    <div class="banner notice" role="status">
+      <span>{shareNotice}</span>
+      <button class="banner-close" onclick={() => (shareNotice = '')}>×</button>
+    </div>
+  {/if}
 
   <main>
     {#each notebook.sections as section}
@@ -241,6 +292,41 @@
   .mode-toggle.study {
     background: var(--accent);
     color: var(--bg);
+  }
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .banner pre {
+    flex: 1;
+    white-space: pre-wrap;
+    font: inherit;
+    margin: 0;
+  }
+  .banner span {
+    flex: 1;
+  }
+  .banner.error {
+    background: color-mix(in srgb, #dc2626 15%, var(--surface));
+    border: 1px solid #dc2626;
+  }
+  .banner.notice {
+    background: color-mix(in srgb, var(--accent, #7c3aed) 15%, var(--surface));
+    border: 1px solid var(--accent, #7c3aed);
+  }
+  .banner-close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
   }
   .section h2 {
     font-size: 16px;

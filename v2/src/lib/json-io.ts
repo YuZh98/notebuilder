@@ -101,6 +101,15 @@ export function importNotebook(json: NotebookJSON): Notebook {
   };
 }
 
+/** Rebind an imported notebook onto an existing notebook identity, so it replaces it in storage */
+export function adoptNotebookIdentity(nb: Notebook, id: string): Notebook {
+  return {
+    ...nb,
+    id,
+    sections: nb.sections.map((s) => ({ ...s, notebookId: id })),
+  };
+}
+
 function importSlot(s: SlotJSON): Slot {
   const slotType = getSlot(s.type);
   if (!slotType) throw new Error(`Unknown slot type: ${s.type}`);

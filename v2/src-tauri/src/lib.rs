@@ -1,3 +1,5 @@
+use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem, SubmenuBuilder};
+use tauri::Emitter;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -53,11 +55,55 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:notebuilder.db", migrations)
                 .build(),
         )
+        .setup(|app| {
+            let import = MenuItemBuilder::with_id("import_json", "Import Notebook JSON…")
+                .accelerator("CmdOrCtrl+O")
+                .build(app)?;
+            let export = MenuItemBuilder::with_id("export_json", "Export Notebook JSON…")
+                .accelerator("CmdOrCtrl+Shift+E")
+                .build(app)?;
+
+            let menu = Menu::default(app.handle())?;
+            let mut appended = false;
+            for item in menu.items()? {
+                if let MenuItemKind::Submenu(sub) = item {
+                    if sub.text()? == "File" {
+                        sub.append(&PredefinedMenuItem::separator(app)?)?;
+                        sub.append(&import)?;
+                        sub.append(&export)?;
+                        appended = true;
+                        break;
+                    }
+                }
+            }
+            if !appended {
+                let file = SubmenuBuilder::new(app, "File")
+                    .item(&import)
+                    .item(&export)
+                    .build()?;
+                menu.append(&file)?;
+            }
+            app.set_menu(menu)?;
+            Ok(())
+        })
+        .on_menu_event(|app, event| {
+            match event.id().as_ref() {
+                "import_json" => {
+                    let _ = app.emit("menu://import-json", ());
+                }
+                "export_json" => {
+                    let _ = app.emit("menu://export-json", ());
+                }
+                _ => {}
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
