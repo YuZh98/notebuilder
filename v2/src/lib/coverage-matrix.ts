@@ -11,7 +11,7 @@ export function axisValues(
   if (axis === 'tag') return card.tags ?? [];
   if (axis === 'slotType') return [...new Set(card.slots.map((s) => s.type))];
   // done
-  const done = isCardDone(card.slots, states[card.id] ?? {});
+  const done = isCardDone(card, states[card.id] ?? {});
   return [done ? 'done' : 'not done'];
 }
 

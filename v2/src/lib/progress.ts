@@ -10,7 +10,7 @@ export function computeProgress(
 
   let done = 0;
   for (const card of cards) {
-    if (isCardDone(card.slots, statesByCardThenSlot[card.id] ?? {})) done++;
+    if (isCardDone(card, statesByCardThenSlot[card.id] ?? {})) done++;
   }
 
   return { done, total, pct: Math.round((done / total) * 100) };

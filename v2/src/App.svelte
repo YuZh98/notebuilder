@@ -2,7 +2,7 @@
   import { mode, toggleMode } from './lib/stores/mode';
   import { getSlot } from './lib/slots/registry';
   import { buildCardScope } from './lib/card-scope';
-  import { isCardDone } from './lib/card-done';
+  import { isCardDone, CARD_STATE_KEY } from './lib/card-done';
   import { computeProgress } from './lib/progress';
   import { shouldShow, isLocked } from './lib/verbs';
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
@@ -64,6 +64,18 @@
             id: 'card_4',
             sectionId: 'sec_1',
             position: 3,
+            verbs: { flip: true },
+            slots: [
+              { id: 'slot_ff', type: 'text', props: { text: '**Flashcard:** what is the capital of France?' } },
+            ],
+            back: [
+              { id: 'slot_fb', type: 'text', props: { text: '**Paris.**' } },
+            ],
+          },
+          {
+            id: 'card_5',
+            sectionId: 'sec_1',
+            position: 4,
             slots: [
               { id: 'slot_pr', type: 'progress', props: { scope: 'section', label: 'Section progress', show: { mn: true, pct: true, bar: true } } },
             ],
@@ -144,17 +156,36 @@
     for (const section of notebook.sections) {
       for (const card of section.cards) {
         if (card.id === cardId) {
-          const slot = card.slots.find((s) => s.id === slotId);
+          const slot = [...card.slots, ...(card.back ?? [])].find((s) => s.id === slotId);
           if (slot) slot.props = newProps;
         }
       }
     }
   }
 
+  function isFlipped(card: Card): boolean {
+    return readerState[card.id]?.[CARD_STATE_KEY]?.flipped === true;
+  }
+
+  // Flipping records seenBack so flip cards can count as done once both sides were viewed.
+  function flipCard(card: Card) {
+    const prev = readerState[card.id]?.[CARD_STATE_KEY] ?? {};
+    const flipped = prev.flipped !== true;
+    readerState[card.id] = {
+      ...readerState[card.id],
+      [CARD_STATE_KEY]: { ...prev, flipped, seenBack: prev.seenBack === true || flipped },
+    };
+  }
+
+  function faceSlots(card: Card): typeof card.slots {
+    return card.verbs?.flip && isFlipped(card) ? (card.back ?? []) : card.slots;
+  }
+
   // Scope failures (e.g. a cycle authored in Edit mode) must be visible, not silently empty.
+  // Variables are card-scoped: both faces of a flip card share one scope.
   function cardScope(card: Card): { scope: Record<string, number | boolean>; error: string } {
     try {
-      return { scope: buildCardScope(card.slots, {}), error: '' };
+      return { scope: buildCardScope([...card.slots, ...(card.back ?? [])], {}), error: '' };
     } catch (e) {
       return { scope: {}, error: e instanceof Error ? e.message : String(e) };
     }
@@ -169,15 +200,15 @@
   }
 
   function cardDone(card: Card): boolean {
-    return isCardDone(card.slots, readerState[card.id] ?? {});
+    return isCardDone(card, readerState[card.id] ?? {});
   }
 
   // A slot's prior completable siblings must all be done for a `sequential` slot to appear.
-  function priorComplete(card: Card, i: number): boolean {
+  function priorComplete(cardId: string, slots: Card['slots'], i: number): boolean {
     for (let j = 0; j < i; j++) {
-      const s = card.slots[j];
+      const s = slots[j];
       const t = getSlot(s.type);
-      if (t?.completable && t.isDone && !t.isDone(s.props, slotState(card.id, s.id))) return false;
+      if (t?.completable && t.isDone && !t.isDone(s.props, slotState(cardId, s.id))) return false;
     }
     return true;
   }
@@ -218,23 +249,47 @@
           {@const resolved = $mode === 'study' ? cardScope(card) : { scope: {}, error: '' }}
           {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
-          <div class="card" class:done>
+          {@const face = $mode === 'study' ? faceSlots(card) : card.slots}
+          <div class="card" class:done class:bare={card.verbs?.bare} class:flipped={$mode === 'study' && isFlipped(card)}>
             {#if $mode === 'study' && done}
               <div class="done-badge">Done</div>
+            {/if}
+            {#if $mode === 'study' && card.verbs?.flip}
+              <button class="flip-toggle" onclick={() => flipCard(card)}>
+                {isFlipped(card) ? '↩ Front' : 'Flip ↪'}
+              </button>
             {/if}
             {#if $mode === 'study' && resolved.error}
               <div class="scope-error">Variables unavailable: {resolved.error}</div>
             {/if}
-            {#each card.slots as slot, i}
-              {@const slotType = getSlot(slot.type)}
-              {#if slotType}
-                <div class="slot">
-                  {#if $mode === 'edit'}
+            {#if $mode === 'edit'}
+              {#each card.slots as slot (slot.id)}
+                {@const slotType = getSlot(slot.type)}
+                {#if slotType}
+                  <div class="slot">
                     <slotType.renderEdit props={slot.props} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
-                  {:else}
+                  </div>
+                {/if}
+              {/each}
+              {#if card.verbs?.flip}
+                <div class="back-divider">Back</div>
+                {#each card.back ?? [] as slot (slot.id)}
+                  {@const slotType = getSlot(slot.type)}
+                  {#if slotType}
+                    <div class="slot">
+                      <slotType.renderEdit props={slot.props} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
+                    </div>
+                  {/if}
+                {/each}
+              {/if}
+            {:else}
+              {#each face as slot, i (slot.id)}
+                {@const slotType = getSlot(slot.type)}
+                {#if slotType}
+                  <div class="slot">
                     <VerbWrapper
                       verbs={slot.verbs}
-                      visible={shouldShow(slot.verbs, scope, priorComplete(card, i))}
+                      visible={shouldShow(slot.verbs, scope, priorComplete(card.id, face, i))}
                       locked={isLocked(slot.verbs?.locked, scope)}
                     >
                       {#if slot.type === 'progress'}
@@ -251,10 +306,10 @@
                         />
                       {/if}
                     </VerbWrapper>
-                  {/if}
-                </div>
-              {/if}
-            {/each}
+                  </div>
+                {/if}
+              {/each}
+            {/if}
           </div>
         {/each}
       </section>
@@ -357,6 +412,36 @@
     font-weight: 600;
     color: var(--accent, #7c3aed);
     opacity: 0.8;
+  }
+  .card.bare {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .flip-toggle {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: inherit;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+  .card.done .flip-toggle {
+    right: 60px;
+  }
+  .back-divider {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin: 12px 0 8px;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
   }
   .scope-error {
     font-size: 12px;

@@ -164,18 +164,20 @@ export function validateNotebookJSON(json: unknown): string[] {
         errors.push(`${where} must be an object`);
         return;
       }
-      validateSlotsField(errors, (c as Record<string, unknown>).slots, `${where}.slots`);
+      const slots = (c as Record<string, unknown>).slots;
+      validateSlotsField(errors, slots, `${where}.slots`);
       const back = (c as Record<string, unknown>).back;
       if (back !== undefined) validateSlotsField(errors, back, `${where}.back`);
-      validateCardGraph(errors, (c as Record<string, unknown>).slots, where);
+      // Both faces of a flip card share one scope, so the graph check spans them.
+      const allSlots = [...(Array.isArray(slots) ? slots : []), ...(Array.isArray(back) ? back : [])];
+      validateCardGraph(errors, allSlots, where);
     });
   });
   return errors;
 }
 
 /** Static variable-graph check per card: catches missing dependencies and cycles at import time. */
-function validateCardGraph(errors: string[], slots: unknown, where: string): void {
-  if (!Array.isArray(slots)) return;
+function validateCardGraph(errors: string[], slots: unknown[], where: string): void {
   const decls: GraphDecl[] = [];
   slots.forEach((slot, sli) => {
     if (!slot || typeof slot !== 'object') return;
