@@ -63,6 +63,18 @@ export async function loadNotebook(id: string): Promise<Notebook | null> {
   return rowsToNotebook(nbs[0], sections, cards);
 }
 
+export async function deleteNotebook(id: string): Promise<void> {
+  const d = await db();
+  // reader_state has no FK; clear this notebook's rows before the cascade removes its cards.
+  await d.execute(
+    `DELETE FROM reader_state WHERE card_id IN (
+       SELECT c.id FROM cards c JOIN sections s ON c.section_id = s.id WHERE s.notebook_id = $1
+     )`,
+    [id],
+  );
+  await d.execute('DELETE FROM notebooks WHERE id = $1', [id]);
+}
+
 export async function listNotebooks(): Promise<NotebookRow[]> {
   const d = await db();
   return d.select<NotebookRow[]>('SELECT * FROM notebooks ORDER BY updated_at DESC');

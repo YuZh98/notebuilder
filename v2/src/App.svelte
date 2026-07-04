@@ -1,112 +1,115 @@
 <script lang="ts">
   import { mode, toggleMode } from './lib/stores/mode';
-  import { getSlot } from './lib/slots/registry';
+  import { getSlot, allSlots } from './lib/slots/registry';
   import { buildCardScope } from './lib/card-scope';
   import { isCardDone, CARD_STATE_KEY } from './lib/card-done';
   import { computeProgress } from './lib/progress';
   import { shouldShow, isLocked } from './lib/verbs';
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
+  import NotebookSwitcher from './lib/components/NotebookSwitcher.svelte';
   import type { ProgressProps } from './lib/slots/progress';
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
-  import { isTauri, loadNotebook, saveNotebook, loadReaderState, saveReaderState } from './lib/db';
-  import { adoptNotebookIdentity } from './lib/json-io';
+  import {
+    isTauri,
+    loadNotebook,
+    saveNotebook,
+    deleteNotebook,
+    listNotebooks,
+    loadReaderState,
+    saveReaderState,
+  } from './lib/db';
+  import { demoNotebook } from './lib/demo';
+  import {
+    createNotebook,
+    addSection,
+    renameSection,
+    deleteSection,
+    moveSection,
+    addCard,
+    deleteCard,
+    moveCard,
+    addSlot,
+    deleteSlot,
+  } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
   import { listen } from '@tauri-apps/api/event';
+  import { confirm } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
 
   // Reader state: cardId → slotId → arbitrary state object (persisted to SQLite inside Tauri)
   let readerState: Record<string, Record<string, Record<string, unknown>>> = $state({});
 
-  // Demo notebook for initial vertical stack validation
-  let notebook: Notebook = $state({
-    id: 'nb_1',
-    name: 'My First Notebook',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    sections: [
-      {
-        id: 'sec_1',
-        notebookId: 'nb_1',
-        name: 'Introduction',
-        position: 0,
-        cards: [
-          {
-            id: 'card_1',
-            sectionId: 'sec_1',
-            position: 0,
-            slots: [
-              { id: 'slot_1', type: 'text', props: { text: 'Hello **NoteBuilder** v2!\n\nThis is a `text` slot rendering in *Study* mode.' } },
-            ],
-          },
-          {
-            id: 'card_2',
-            sectionId: 'sec_1',
-            position: 1,
-            slots: [
-              { id: 'slot_s', type: 'slider', props: { key: 'a', value: 2, min: -5, max: 5, step: 0.5 } },
-              { id: 'slot_c', type: 'compute', props: { expr: 'a * a', out: 'aSquared', note: 'a² =' } },
-              { id: 'slot_t', type: 'text', props: { text: 'Slope **a = {{a}}** drives the line below; a² = {{aSquared}}.' }, verbs: { reveal: { key: 'a', op: '>=', val: 0 } } },
-              { id: 'slot_g', type: 'chart', props: { fn: 'a * x', label: 'y = a·x', x0: -5, x1: 5 } },
-            ],
-          },
-          {
-            id: 'card_3',
-            sectionId: 'sec_1',
-            position: 2,
-            slots: [
-              { id: 'slot_q', type: 'text', props: { text: 'What is the derivative of x²?' } },
-              { id: 'slot_ti', type: 'text-input', props: { placeholder: 'Type your answer...', key: 'answer' } },
-            ],
-          },
-          {
-            id: 'card_4',
-            sectionId: 'sec_1',
-            position: 3,
-            verbs: { flip: true },
-            slots: [
-              { id: 'slot_ff', type: 'text', props: { text: '**Flashcard:** what is the capital of France?' } },
-            ],
-            back: [
-              { id: 'slot_fb', type: 'text', props: { text: '**Paris.**' } },
-            ],
-          },
-          {
-            id: 'card_5',
-            sectionId: 'sec_1',
-            position: 4,
-            slots: [
-              { id: 'slot_pr', type: 'progress', props: { scope: 'section', label: 'Section progress', show: { mn: true, pct: true, bar: true } } },
-            ],
-          },
-        ],
-      },
-    ],
-  });
+  let notebook: Notebook = $state(demoNotebook());
+  let notebookList: { id: string; name: string }[] = $state([
+    { id: 'nb_demo', name: 'My First Notebook' },
+  ]);
+
+  let shareError = $state('');
+  let shareNotice = $state('');
+  let newSlotType = $state('text');
 
   // Persistence is active only inside the Tauri app; in a plain browser/tests it no-ops so the demo still runs.
   const persistNotebook = debounce((nb: Notebook) => {
-    if (isTauri()) void saveNotebook(nb);
+    if (isTauri()) void saveNotebook({ ...nb, updatedAt: new Date().toISOString() });
   }, 600);
   const persistReaderState = debounce((map: typeof readerState) => {
     if (isTauri()) void saveReaderState(map);
   }, 600);
 
-  let shareError = $state('');
-  let shareNotice = $state('');
+  function confirmDialog(msg: string, title: string): Promise<boolean> {
+    return isTauri() ? confirm(msg, { title, kind: 'warning' }) : Promise.resolve(window.confirm(msg));
+  }
+
+  // ---- notebook shell ----
+
+  async function switchNotebook(id: string) {
+    if (id === notebook.id) return;
+    const nb = await loadNotebook(id);
+    if (nb) {
+      notebook = nb;
+      notebookList = notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e));
+    }
+  }
+
+  function newNotebook() {
+    const nb = createNotebook(`Notebook ${notebookList.length + 1}`);
+    notebook = nb;
+    notebookList = [{ id: nb.id, name: nb.name }, ...notebookList];
+  }
+
+  function renameNotebook(name: string) {
+    notebook.name = name;
+    notebookList = notebookList.map((e) => (e.id === notebook.id ? { ...e, name } : e));
+  }
+
+  async function removeNotebook() {
+    const ok = await confirmDialog(
+      `Delete notebook "${notebook.name}"? This cannot be undone.`,
+      'Delete Notebook',
+    );
+    if (!ok) return;
+    if (isTauri()) await deleteNotebook(notebook.id);
+    notebookList = notebookList.filter((e) => e.id !== notebook.id);
+    if (notebookList.length > 0 && isTauri()) {
+      await switchNotebook(notebookList[0].id);
+    } else {
+      newNotebook();
+    }
+  }
+
+  // ---- import / export ----
 
   async function handleImport() {
     shareError = '';
     shareNotice = '';
-    const result = await importNotebookFromFile(notebook.name);
+    const result = await importNotebookFromFile();
     if ('error' in result) {
       shareError = result.error;
     } else if ('notebook' in result) {
-      // Single-notebook app for now: the import takes over the current notebook's identity
-      // so autosave overwrites it and the next launch loads the imported content.
-      notebook = adoptNotebookIdentity(result.notebook, notebook.id);
-      readerState = {};
+      notebook = result.notebook;
+      notebookList = [{ id: notebook.id, name: notebook.name }, ...notebookList];
       shareNotice = `Imported "${notebook.name}"`;
     }
   }
@@ -122,16 +125,41 @@
     }
   }
 
+  // ---- section / card / slot CRUD ----
+
+  async function removeSection(section: Section) {
+    if (section.cards.length > 0) {
+      const ok = await confirmDialog(
+        `Delete section "${section.name}" and its ${section.cards.length} card(s)?`,
+        'Delete Section',
+      );
+      if (!ok) return;
+    }
+    deleteSection(notebook, section.id);
+  }
+
+  function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
+    const verbs = { ...card.verbs, [key]: on || undefined };
+    card.verbs = verbs.flip || verbs.bare ? verbs : undefined;
+    if (key === 'flip' && on && !card.back) card.back = [];
+  }
+
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
   onMount(() => {
     const unlisteners: Array<() => void> = [];
     if (isTauri()) {
-      void loadNotebook(notebook.id).then((nb) => {
-        if (nb) notebook = nb;
-      });
-      void loadReaderState().then((map) => {
-        readerState = map;
-      });
+      void (async () => {
+        const rows = await listNotebooks();
+        if (rows.length === 0) {
+          await saveNotebook($state.snapshot(notebook));
+          notebookList = [{ id: notebook.id, name: notebook.name }];
+        } else {
+          notebookList = rows.map((r) => ({ id: r.id, name: r.name }));
+          const nb = await loadNotebook(rows[0].id);
+          if (nb) notebook = nb;
+        }
+        readerState = await loadReaderState();
+      })();
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
     }
@@ -221,7 +249,16 @@
 
 <div class="app">
   <header>
-    <h1>{notebook.name}</h1>
+    <NotebookSwitcher
+      list={notebookList}
+      currentId={notebook.id}
+      currentName={notebook.name}
+      canSwitch={isTauri()}
+      onswitch={(id) => void switchNotebook(id)}
+      oncreate={newNotebook}
+      onrename={renameNotebook}
+      ondelete={() => void removeNotebook()}
+    />
     <button class="mode-toggle" class:study={$mode === 'study'} onclick={toggleMode}>
       {$mode === 'edit' ? 'Edit' : 'Study'}
     </button>
@@ -242,10 +279,23 @@
   {/if}
 
   <main>
-    {#each notebook.sections as section}
+    {#each notebook.sections as section (section.id)}
       <section class="section">
-        <h2>{section.name}</h2>
-        {#each section.cards as card}
+        {#if $mode === 'edit'}
+          <div class="section-head">
+            <input
+              class="section-name"
+              value={section.name}
+              onchange={(e) => renameSection(notebook, section.id, e.currentTarget.value)}
+            />
+            <button title="Move section up" onclick={() => moveSection(notebook, section.id, -1)}>↑</button>
+            <button title="Move section down" onclick={() => moveSection(notebook, section.id, 1)}>↓</button>
+            <button title="Delete section" onclick={() => void removeSection(section)}>✕</button>
+          </div>
+        {:else}
+          <h2>{section.name}</h2>
+        {/if}
+        {#each section.cards as card (card.id)}
           {@const resolved = $mode === 'study' ? cardScope(card) : { scope: {}, error: '' }}
           {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
@@ -263,21 +313,42 @@
               <div class="scope-error">Variables unavailable: {resolved.error}</div>
             {/if}
             {#if $mode === 'edit'}
+              <div class="card-toolbar">
+                <button title="Move card up" onclick={() => moveCard(notebook, card.id, -1)}>↑</button>
+                <button title="Move card down" onclick={() => moveCard(notebook, card.id, 1)}>↓</button>
+                <label><input type="checkbox" checked={card.verbs?.flip === true} onchange={(e) => setCardVerb(card, 'flip', e.currentTarget.checked)} /> flip</label>
+                <label><input type="checkbox" checked={card.verbs?.bare === true} onchange={(e) => setCardVerb(card, 'bare', e.currentTarget.checked)} /> bare</label>
+                <span class="spacer"></span>
+                <button title="Delete card" onclick={() => deleteCard(notebook, card.id)}>✕</button>
+              </div>
               {#each card.slots as slot (slot.id)}
                 {@const slotType = getSlot(slot.type)}
                 {#if slotType}
-                  <div class="slot">
+                  <div class="slot editing">
                     <slotType.renderEdit props={slot.props} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
+                    <button class="slot-del" title="Remove slot" onclick={() => deleteSlot(notebook, card.id, slot.id)}>✕</button>
                   </div>
                 {/if}
               {/each}
+              <div class="slot-adder">
+                <select bind:value={newSlotType}>
+                  {#each allSlots() as t (t.type)}
+                    <option value={t.type}>{t.type}</option>
+                  {/each}
+                </select>
+                <button onclick={() => addSlot(notebook, card.id, newSlotType)}>+ slot</button>
+                {#if card.verbs?.flip}
+                  <button onclick={() => addSlot(notebook, card.id, newSlotType, 'back')}>+ slot (back)</button>
+                {/if}
+              </div>
               {#if card.verbs?.flip}
                 <div class="back-divider">Back</div>
                 {#each card.back ?? [] as slot (slot.id)}
                   {@const slotType = getSlot(slot.type)}
                   {#if slotType}
-                    <div class="slot">
+                    <div class="slot editing">
                       <slotType.renderEdit props={slot.props} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
+                      <button class="slot-del" title="Remove slot" onclick={() => deleteSlot(notebook, card.id, slot.id)}>✕</button>
                     </div>
                   {/if}
                 {/each}
@@ -312,8 +383,14 @@
             {/if}
           </div>
         {/each}
+        {#if $mode === 'edit'}
+          <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ card</button>
+        {/if}
       </section>
     {/each}
+    {#if $mode === 'edit'}
+      <button class="add-section" onclick={() => addSection(notebook)}>+ section</button>
+    {/if}
   </main>
 </div>
 
@@ -330,10 +407,6 @@
     margin-bottom: 24px;
     padding-bottom: 16px;
     border-bottom: 1px solid var(--border);
-  }
-  header h1 {
-    flex: 1;
-    font-size: 20px;
   }
   .hint {
     font-size: 12px;
@@ -393,6 +466,42 @@
     margin-bottom: 12px;
     opacity: 0.7;
   }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .section-name {
+    flex: 1;
+    font-size: 16px;
+    background: transparent;
+    color: inherit;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 4px 6px;
+  }
+  .section-name:hover,
+  .section-name:focus {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+  .section-head button,
+  .card-toolbar button,
+  .slot-del {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.5;
+    padding: 2px 4px;
+  }
+  .section-head button:hover,
+  .card-toolbar button:hover,
+  .slot-del:hover {
+    opacity: 1;
+  }
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -401,8 +510,33 @@
     margin-bottom: 12px;
     position: relative;
   }
+  .card.bare {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
   .card.done {
     border-color: var(--accent, #7c3aed);
+  }
+  .card-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    opacity: 0.85;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .card-toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    opacity: 0.7;
+  }
+  .card-toolbar .spacer {
+    flex: 1;
   }
   .done-badge {
     position: absolute;
@@ -412,11 +546,6 @@
     font-weight: 600;
     color: var(--accent, #7c3aed);
     opacity: 0.8;
-  }
-  .card.bare {
-    background: transparent;
-    border: none;
-    padding: 0;
   }
   .flip-toggle {
     position: absolute;
@@ -453,5 +582,53 @@
   }
   .slot:last-child {
     margin-bottom: 0;
+  }
+  .slot.editing {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .slot.editing > :global(:first-child) {
+    flex: 1;
+  }
+  .slot-adder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .slot-adder select {
+    background: var(--surface);
+    color: inherit;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 2px 6px;
+  }
+  .slot-adder button,
+  .add-card,
+  .add-section {
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.6;
+    padding: 4px 10px;
+  }
+  .slot-adder button:hover,
+  .add-card:hover,
+  .add-section:hover {
+    opacity: 1;
+    border-color: var(--accent, #7c3aed);
+  }
+  .add-card {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .add-section {
+    width: 100%;
+    padding: 8px;
   }
 </style>

@@ -1,4 +1,4 @@
-import { open, save, confirm } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { exportNotebook, importNotebook, validateNotebookJSON } from './json-io';
 import type { NotebookJSON } from './json-io';
@@ -9,8 +9,8 @@ export type ExportResult = { path: string } | { error: string } | { cancelled: t
 
 const JSON_FILTER = [{ name: 'Notebook JSON', extensions: ['json'] }];
 
-/** File → Import: pick a JSON file, validate, and return the parsed notebook. */
-export async function importNotebookFromFile(currentName: string): Promise<ImportResult> {
+/** File → Import: pick a JSON file, validate, and return it as a new notebook. */
+export async function importNotebookFromFile(): Promise<ImportResult> {
   const path = await open({ multiple: false, directory: false, filters: JSON_FILTER });
   if (typeof path !== 'string') return { cancelled: true };
 
@@ -30,12 +30,6 @@ export async function importNotebookFromFile(currentName: string): Promise<Impor
 
   const errors = validateNotebookJSON(json);
   if (errors.length > 0) return { error: `Invalid notebook file:\n${errors.join('\n')}` };
-
-  const ok = await confirm(`Importing will replace the current notebook "${currentName}". Continue?`, {
-    title: 'Import Notebook',
-    kind: 'warning',
-  });
-  if (!ok) return { cancelled: true };
 
   try {
     return { notebook: importNotebook(json as NotebookJSON) };
