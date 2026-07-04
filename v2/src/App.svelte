@@ -290,7 +290,7 @@
                     <VerbWrapper
                       verbs={slot.verbs}
                       visible={shouldShow(slot.verbs, scope, priorComplete(card.id, face, i))}
-                      locked={isLocked(slot.verbs?.locked, scope)}
+                      locked={isLocked(slot.verbs?.locked, priorComplete(card.id, face, i))}
                     >
                       {#if slot.type === 'progress'}
                         <ProgressStudy

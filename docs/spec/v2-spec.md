@@ -180,7 +180,7 @@ interface SlotType {
 | **emphasis** | `true` | Visual emphasis styling |
 | **hint** | `{content}` | Progressive disclosure — tap to reveal help |
 | **sequential** | `true` | Slot appears only when all previous completable slots are done |
-| **locked** | `{condition}` | Slot disabled until condition met (uses isDone of prior card/slot) |
+| **locked** | `true` | Slot disabled until all prior completable slots are done (uses the unified isDone concept) |
 
 ---
 

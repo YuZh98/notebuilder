@@ -1,4 +1,3 @@
-import { evalExpr } from './expr';
 import type { Scope } from './variable-graph';
 import type { VerbConfig } from './types';
 
@@ -39,16 +38,14 @@ export function shouldShow(
 }
 
 /**
- * A slot is locked when locked.condition evaluates to falsy/0.
- * Returns false (unlocked) when locked is absent.
+ * A locked slot is disabled until all prior completable slots are done
+ * (the same unified done concept sequential consumes — but disabled, not hidden).
  */
 export function isLocked(
   locked: VerbConfig['locked'],
-  scope: Scope,
+  priorComplete: boolean,
 ): boolean {
-  if (!locked) return false;
-  const result = evalExpr(locked.condition, scope);
-  return !result;
+  return locked === true && !priorComplete;
 }
 
 /**

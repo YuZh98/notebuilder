@@ -15,7 +15,7 @@ export type VerbConfig = {
   emphasis?: boolean;
   hint?: { content: string };
   sequential?: boolean;
-  locked?: { condition: string };
+  locked?: boolean;
 };
 
 /** A slot instance within a card */

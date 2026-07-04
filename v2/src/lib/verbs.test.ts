@@ -116,27 +116,20 @@ describe('shouldShow', () => {
 
 describe('isLocked', () => {
   it('returns false when locked is undefined', () => {
-    expect(isLocked(undefined, {})).toBe(false);
+    expect(isLocked(undefined, true)).toBe(false);
+    expect(isLocked(undefined, false)).toBe(false);
   });
 
-  it('returns true when condition evaluates to 0 (falsy)', () => {
-    expect(isLocked({ condition: 'x == 5' }, { x: 0 })).toBe(true);
+  it('locked slot is disabled while prior completables are not done', () => {
+    expect(isLocked(true, false)).toBe(true);
   });
 
-  it('returns false when condition evaluates to truthy (non-zero)', () => {
-    expect(isLocked({ condition: 'x == 5' }, { x: 5 })).toBe(false);
+  it('locked slot unlocks once prior completables are done', () => {
+    expect(isLocked(true, true)).toBe(false);
   });
 
-  it('returns true when condition is a boolean false expression', () => {
-    expect(isLocked({ condition: 'done' }, { done: false })).toBe(true);
-  });
-
-  it('returns false when condition is a boolean true expression', () => {
-    expect(isLocked({ condition: 'done' }, { done: true })).toBe(false);
-  });
-
-  it('returns true when condition references missing key (evaluates to 0)', () => {
-    expect(isLocked({ condition: 'missing' }, {})).toBe(true);
+  it('locked:false never disables', () => {
+    expect(isLocked(false, false)).toBe(false);
   });
 });
 
