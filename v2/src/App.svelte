@@ -549,6 +549,7 @@
   }
   .flip-toggle {
     position: absolute;
+    z-index: 1;
     top: 8px;
     right: 12px;
     background: none;
