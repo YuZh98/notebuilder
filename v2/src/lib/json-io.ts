@@ -1,6 +1,7 @@
 import type { Notebook, Section, Card, Slot } from './types';
 import { getSlot } from './slots/registry';
 import { findGraphIssues, type GraphDecl } from './variable-graph';
+import { uid } from './uid';
 
 const SCHEMA_VERSION = 1;
 
@@ -31,11 +32,6 @@ type SlotJSON = {
   fuse?: boolean;
   fuseW?: number;
 };
-
-let _idCounter = 0;
-function uid(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}_${(++_idCounter).toString(36)}`;
-}
 
 /** Export a Notebook to the interchange JSON format */
 export function exportNotebook(notebook: Notebook): NotebookJSON {
