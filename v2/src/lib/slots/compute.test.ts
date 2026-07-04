@@ -44,3 +44,9 @@ describe('computeSlot', () => {
     });
   });
 });
+
+describe('computeSlot.evaluate', () => {
+  it('evaluates the expression against a scope and returns its write', () => {
+    expect(computeSlot.evaluate!({ expr: 'a * a', out: 'sq' }, { a: 3 })).toEqual({ sq: 9 });
+  });
+});

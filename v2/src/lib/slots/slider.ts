@@ -30,7 +30,10 @@ export const sliderSlot: SlotType<SliderProps> = {
   },
 
   variables(props: SliderProps): { reads: VarDeclaration[]; writes: VarDeclaration[] } {
-    return { reads: [], writes: props.key ? [{ key: props.key, type: 'number' }] : [] };
+    return {
+      reads: [],
+      writes: props.key ? [{ key: props.key, type: 'number', default: Number(props.value) || 0 }] : [],
+    };
   },
 
   validate(props: SliderProps): string[] {

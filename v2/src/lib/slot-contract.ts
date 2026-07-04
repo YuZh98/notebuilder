@@ -22,8 +22,15 @@ export interface SlotType<P extends SlotProps = SlotProps> {
   /** Factory: returns default props for a new slot instance */
   create(): P;
 
-  /** Declared variable interface */
+  /** Declared variable interface. Writes with a `default` seed the card scope. */
   variables(props: P): { reads: VarDeclaration[]; writes: VarDeclaration[] };
+
+  /**
+   * Compute the values of this slot's declared writes from the current scope.
+   * Slots that define this become variable-graph nodes; writer slots without it
+   * are scope seeds via their write defaults.
+   */
+  evaluate?(props: P, scope: Scope): Scope;
 
   /** Progress tracking — only required if completable */
   isDone?(props: P, state: Record<string, unknown>): boolean;

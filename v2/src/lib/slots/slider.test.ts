@@ -57,3 +57,10 @@ describe('sliderSlot', () => {
     });
   });
 });
+
+describe('sliderSlot write declaration', () => {
+  it('carries the current value as the write default (seeds card scope)', () => {
+    const result = sliderSlot.variables({ key: 'rate', value: 7 });
+    expect(result.writes).toEqual([{ key: 'rate', type: 'number', default: 7 }]);
+  });
+});
