@@ -1,5 +1,6 @@
 import type { Notebook, Section, Card, Slot } from './types';
 import { getSlot } from './slots/registry';
+import { findGraphIssues, type GraphDecl } from './variable-graph';
 
 const SCHEMA_VERSION = 1;
 
@@ -166,9 +167,33 @@ export function validateNotebookJSON(json: unknown): string[] {
       validateSlotsField(errors, (c as Record<string, unknown>).slots, `${where}.slots`);
       const back = (c as Record<string, unknown>).back;
       if (back !== undefined) validateSlotsField(errors, back, `${where}.back`);
+      validateCardGraph(errors, (c as Record<string, unknown>).slots, where);
     });
   });
   return errors;
+}
+
+/** Static variable-graph check per card: catches missing dependencies and cycles at import time. */
+function validateCardGraph(errors: string[], slots: unknown, where: string): void {
+  if (!Array.isArray(slots)) return;
+  const decls: GraphDecl[] = [];
+  slots.forEach((slot, sli) => {
+    if (!slot || typeof slot !== 'object') return;
+    const { type, props } = slot as Record<string, unknown>;
+    const slotType = typeof type === 'string' ? getSlot(type) : undefined;
+    if (!slotType || !props || typeof props !== 'object') return;
+    try {
+      const { reads, writes } = slotType.variables(props as Record<string, unknown>);
+      decls.push({
+        id: `${where}.slots[${sli}] (${type})`,
+        reads: reads.map((r) => r.key),
+        writes: writes.map((w) => w.key),
+      });
+    } catch {
+      // invalid props already reported by slot validation; graph check skips them
+    }
+  });
+  for (const issue of findGraphIssues(decls)) errors.push(`${where}: ${issue}`);
 }
 
 function validateSlotsField(errors: string[], slots: unknown, where: string): void {

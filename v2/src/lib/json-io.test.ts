@@ -157,3 +157,35 @@ describe('adoptNotebookIdentity', () => {
     expect(adopted.sections[0].cards[0].sectionId).toBe(adopted.sections[0].id);
   });
 });
+
+describe('validateNotebookJSON graph checks', () => {
+  function nb(slots: unknown[]): unknown {
+    return { version: 1, notebook: { name: 'N', sections: [{ name: 'S', cards: [{ slots }] }] } };
+  }
+
+  it('flags a text read with no writer in the card', () => {
+    const errors = validateNotebookJSON(nb([{ type: 'text', props: { text: 'value: {{ghost}}' } }]));
+    expect(errors.some((e) => e.includes('ghost'))).toBe(true);
+  });
+
+  it('flags a compute cycle', () => {
+    const errors = validateNotebookJSON(
+      nb([
+        { type: 'compute', props: { expr: 'b + 1', out: 'a' } },
+        { type: 'compute', props: { expr: 'a + 1', out: 'b' } },
+      ]),
+    );
+    expect(errors.some((e) => /cycle/i.test(e))).toBe(true);
+  });
+
+  it('accepts a healthy slider→compute→text card', () => {
+    const errors = validateNotebookJSON(
+      nb([
+        { type: 'slider', props: { key: 'a', value: 1 } },
+        { type: 'compute', props: { expr: 'a * 2', out: 'b' } },
+        { type: 'text', props: { text: '{{b}}' } },
+      ]),
+    );
+    expect(errors).toEqual([]);
+  });
+});

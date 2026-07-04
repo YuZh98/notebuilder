@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveGraph, type GraphNode, type Scope } from './variable-graph';
+import { resolveGraph, findGraphIssues, type GraphNode, type Scope } from './variable-graph';
 
 const sq = (id: string, src: string, dst: string): GraphNode => ({
   id,
@@ -54,5 +54,40 @@ describe('resolveGraph', () => {
 
   it('returns inputs unchanged when there are no nodes', () => {
     expect(resolveGraph([], { x: 1 })).toEqual({ x: 1 });
+  });
+});
+
+describe('findGraphIssues', () => {
+  it('returns empty for a healthy graph', () => {
+    expect(
+      findGraphIssues([
+        { id: 'slider_1', reads: [], writes: ['a'] },
+        { id: 'compute_1', reads: ['a'], writes: ['b'] },
+        { id: 'text_1', reads: ['b'], writes: [] },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('flags reads with no writer as missing dependencies', () => {
+    const issues = findGraphIssues([{ id: 'text_1', reads: ['ghost'], writes: [] }]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatch(/missing dependency/i);
+    expect(issues[0]).toContain('ghost');
+  });
+
+  it('flags cycles between writers', () => {
+    const issues = findGraphIssues([
+      { id: 'c1', reads: ['b'], writes: ['a'] },
+      { id: 'c2', reads: ['a'], writes: ['b'] },
+    ]);
+    expect(issues.some((i) => /cycle/i.test(i))).toBe(true);
+  });
+
+  it('does not report a self-satisfied read twice', () => {
+    const issues = findGraphIssues([
+      { id: 't1', reads: ['ghost'], writes: [] },
+      { id: 't2', reads: ['ghost'], writes: [] },
+    ]);
+    expect(issues).toHaveLength(1);
   });
 });

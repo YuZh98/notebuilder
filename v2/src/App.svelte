@@ -151,11 +151,12 @@
     }
   }
 
-  function cardScope(card: Card) {
+  // Scope failures (e.g. a cycle authored in Edit mode) must be visible, not silently empty.
+  function cardScope(card: Card): { scope: Record<string, number | boolean>; error: string } {
     try {
-      return buildCardScope(card.slots, {});
-    } catch {
-      return {};
+      return { scope: buildCardScope(card.slots, {}), error: '' };
+    } catch (e) {
+      return { scope: {}, error: e instanceof Error ? e.message : String(e) };
     }
   }
 
@@ -214,11 +215,15 @@
       <section class="section">
         <h2>{section.name}</h2>
         {#each section.cards as card}
-          {@const scope = $mode === 'study' ? cardScope(card) : {}}
+          {@const resolved = $mode === 'study' ? cardScope(card) : { scope: {}, error: '' }}
+          {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
           <div class="card" class:done>
             {#if $mode === 'study' && done}
               <div class="done-badge">Done</div>
+            {/if}
+            {#if $mode === 'study' && resolved.error}
+              <div class="scope-error">Variables unavailable: {resolved.error}</div>
             {/if}
             {#each card.slots as slot, i}
               {@const slotType = getSlot(slot.type)}
@@ -352,6 +357,11 @@
     font-weight: 600;
     color: var(--accent, #7c3aed);
     opacity: 0.8;
+  }
+  .scope-error {
+    font-size: 12px;
+    color: #dc2626;
+    margin-bottom: 8px;
   }
   .slot {
     margin-bottom: 8px;
