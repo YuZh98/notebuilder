@@ -1,5 +1,6 @@
 import Database from '@tauri-apps/plugin-sql';
 import type { Notebook, Annotation } from './types';
+import type { CardType } from './card-types';
 import { notebookToRows, rowsToNotebook } from './db-map';
 import type { NotebookRow, SectionRow, CardRow } from './db-map';
 
@@ -105,6 +106,30 @@ export async function loadReaderState(): Promise<ReaderStateMap> {
     (map[r.card_id] ??= {})[r.slot_id] = JSON.parse(r.data);
   }
   return map;
+}
+
+// Card types: the Factory/gallery layer. Stored app-wide, not per notebook.
+export async function saveCardType(ct: CardType): Promise<void> {
+  const d = await db();
+  const { id, name, ...data } = ct;
+  await d.execute('INSERT OR REPLACE INTO card_types (id, name, data) VALUES ($1, $2, $3)', [
+    id,
+    name,
+    JSON.stringify(data),
+  ]);
+}
+
+export async function listCardTypes(): Promise<CardType[]> {
+  const d = await db();
+  const rows = await d.select<{ id: string; name: string; data: string }[]>(
+    'SELECT id, name, data FROM card_types ORDER BY created_at',
+  );
+  return rows.map((r) => ({ id: r.id, name: r.name, ...JSON.parse(r.data) }));
+}
+
+export async function deleteCardType(id: string): Promise<void> {
+  const d = await db();
+  await d.execute('DELETE FROM card_types WHERE id = $1', [id]);
 }
 
 // Reader annotations: local-only, never exported.

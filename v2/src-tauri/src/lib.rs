@@ -51,6 +51,19 @@ pub fn run() {
             ",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "card types (Factory/gallery layer)",
+            sql: "
+                CREATE TABLE IF NOT EXISTS card_types (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    data TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+            ",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
