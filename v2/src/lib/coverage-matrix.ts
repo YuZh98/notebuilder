@@ -3,6 +3,14 @@ import type { Card } from './types';
 
 export type MatrixAxis = 'tag' | 'slotType' | 'done';
 
+/** A selected matrix cell, used to filter the visible cards */
+export type MatrixSelection = {
+  rowAxis: MatrixAxis;
+  rowVal: string;
+  colAxis: MatrixAxis;
+  colVal: string;
+};
+
 export function axisValues(
   card: Card,
   axis: MatrixAxis,

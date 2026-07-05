@@ -22,6 +22,7 @@ type CardJSON = {
   slots: SlotJSON[];
   verbs?: { flip?: boolean; bare?: boolean };
   back?: SlotJSON[];
+  tags?: string[];
 };
 
 type SlotJSON = {
@@ -45,6 +46,7 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
           slots: c.slots.map(exportSlot),
           ...(c.verbs && { verbs: c.verbs }),
           ...(c.back && { back: c.back.map(exportSlot) }),
+          ...(c.tags && c.tags.length > 0 && { tags: c.tags }),
         })),
       })),
     },
@@ -79,6 +81,7 @@ export function importNotebook(json: NotebookJSON): Notebook {
       slots: c.slots.map(importSlot),
       ...(c.verbs && { verbs: c.verbs }),
       ...(c.back && { back: c.back.map(importSlot) }),
+      ...(c.tags && { tags: c.tags }),
     }));
     return {
       id: sectionId,

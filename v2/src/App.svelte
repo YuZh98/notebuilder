@@ -8,6 +8,8 @@
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
   import NotebookSwitcher from './lib/components/NotebookSwitcher.svelte';
+  import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
+  import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
   import type { ProgressProps } from './lib/slots/progress';
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
   import {
@@ -58,6 +60,30 @@
   let galleryFor: string | null = $state(null);
   let typeNameFor: string | null = $state(null);
   let typeNameDraft = $state('');
+
+  let showMatrix = $state(false);
+  let matrixFilter: MatrixSelection | null = $state(null);
+
+  const allCards = $derived(notebook.sections.flatMap((s) => s.cards));
+  // null = no filter (show everything)
+  const visibleCardIds = $derived.by(() => {
+    const f = matrixFilter;
+    if (f === null) return null;
+    return new Set(filterCards(allCards, f.rowAxis, f.rowVal, f.colAxis, f.colVal, readerState).map((c) => c.id));
+  });
+
+  function cardVisible(card: Card): boolean {
+    return $mode === 'edit' || visibleCardIds === null || visibleCardIds.has(card.id);
+  }
+
+  function setCardTags(card: Card, raw: string) {
+    const tags = raw
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (tags.length > 0) card.tags = tags;
+    else delete card.tags;
+  }
 
   // Persistence is active only inside the Tauri app; in a plain browser/tests it no-ops so the demo still runs.
   const persistNotebook = debounce((nb: Notebook) => {
@@ -305,6 +331,11 @@
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
     />
+    {#if $mode === 'study'}
+      <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
+        Matrix
+      </button>
+    {/if}
     <button class="mode-toggle" class:study={$mode === 'study'} onclick={toggleMode}>
       {$mode === 'edit' ? 'Edit' : 'Study'}
     </button>
@@ -324,6 +355,15 @@
     </div>
   {/if}
 
+  {#if $mode === 'study' && showMatrix}
+    <CoverageMatrix
+      cards={allCards}
+      states={readerState}
+      selection={matrixFilter}
+      onselect={(sel) => (matrixFilter = sel)}
+    />
+  {/if}
+
   <main>
     {#each notebook.sections as section (section.id)}
       <section class="section">
@@ -341,7 +381,7 @@
         {:else}
           <h2>{section.name}</h2>
         {/if}
-        {#each section.cards as card (card.id)}
+        {#each section.cards.filter(cardVisible) as card (card.id)}
           {@const resolved = $mode === 'study' ? cardScope(card) : { scope: {}, error: '' }}
           {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
@@ -364,6 +404,12 @@
                 <button title="Move card down" onclick={() => moveCard(notebook, card.id, 1)}>↓</button>
                 <label><input type="checkbox" checked={card.verbs?.flip === true} onchange={(e) => setCardVerb(card, 'flip', e.currentTarget.checked)} /> flip</label>
                 <label><input type="checkbox" checked={card.verbs?.bare === true} onchange={(e) => setCardVerb(card, 'bare', e.currentTarget.checked)} /> bare</label>
+                <input
+                  class="tags-input"
+                  placeholder="tags, comma-separated"
+                  value={card.tags?.join(', ') ?? ''}
+                  onchange={(e) => setCardTags(card, e.currentTarget.value)}
+                />
                 <span class="spacer"></span>
                 {#if typeNameFor === card.id}
                   <input
@@ -511,6 +557,28 @@
   .mode-toggle.study {
     background: var(--accent);
     color: var(--bg);
+  }
+  .matrix-toggle {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .matrix-toggle.on {
+    border-color: var(--accent, #7c3aed);
+    color: var(--accent, #7c3aed);
+  }
+  .tags-input {
+    background: transparent;
+    color: inherit;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    padding: 2px 6px;
+    width: 150px;
   }
   .banner {
     display: flex;

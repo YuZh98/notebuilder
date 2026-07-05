@@ -189,3 +189,12 @@ describe('validateNotebookJSON graph checks', () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe('tags round-trip', () => {
+  it('exports and re-imports card tags', () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.sections[0].cards[0].tags = ['algebra', 'easy'];
+    const imported = importNotebook(exportNotebook(nb));
+    expect(imported.sections[0].cards[0].tags).toEqual(['algebra', 'easy']);
+  });
+});
