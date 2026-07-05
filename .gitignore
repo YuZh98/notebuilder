@@ -13,3 +13,6 @@ playwright-report/
 
 # v2 build output
 /v2/dist/
+
+# browser-test artifacts
+/.playwright-mcp/
