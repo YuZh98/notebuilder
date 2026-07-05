@@ -18,7 +18,11 @@
     listNotebooks,
     loadReaderState,
     saveReaderState,
+    saveCardType,
+    listCardTypes,
+    deleteCardType,
   } from './lib/db';
+  import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
   import { demoNotebook } from './lib/demo';
   import {
     createNotebook,
@@ -49,6 +53,11 @@
   let shareError = $state('');
   let shareNotice = $state('');
   let newSlotType = $state('text');
+
+  let cardTypes: CardType[] = $state([...builtinCardTypes]);
+  let galleryFor: string | null = $state(null);
+  let typeNameFor: string | null = $state(null);
+  let typeNameDraft = $state('');
 
   // Persistence is active only inside the Tauri app; in a plain browser/tests it no-ops so the demo still runs.
   const persistNotebook = debounce((nb: Notebook) => {
@@ -144,6 +153,36 @@
     if (key === 'flip' && on && !card.back) card.back = [];
   }
 
+  // ---- gallery / factory ----
+
+  function isBuiltinType(id: string): boolean {
+    return builtinCardTypes.some((b) => b.id === id);
+  }
+
+  function stampFromGallery(sectionId: string, ct: CardType) {
+    const section = notebook.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    section.cards.push(stampCard($state.snapshot(ct) as CardType, sectionId, section.cards.length));
+    galleryFor = null;
+  }
+
+  function saveCardAsType(card: Card) {
+    const name = typeNameDraft.trim();
+    typeNameFor = null;
+    if (!name) return;
+    const ct = cardToType($state.snapshot(card) as Card, name);
+    cardTypes = [...cardTypes, ct];
+    if (isTauri()) void saveCardType(ct);
+    shareNotice = `Saved card type "${name}"`;
+  }
+
+  async function removeCardType(ct: CardType) {
+    const ok = await confirmDialog(`Delete card type "${ct.name}"?`, 'Delete Card Type');
+    if (!ok) return;
+    cardTypes = cardTypes.filter((t) => t.id !== ct.id);
+    if (isTauri()) void deleteCardType(ct.id);
+  }
+
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
   onMount(() => {
     const unlisteners: Array<() => void> = [];
@@ -159,6 +198,13 @@
           if (nb) notebook = nb;
         }
         readerState = await loadReaderState();
+        // Seed built-in card types once; after that the DB is the source of truth.
+        const types = await listCardTypes();
+        if (types.length === 0) {
+          for (const ct of builtinCardTypes) await saveCardType(ct);
+        } else {
+          cardTypes = types;
+        }
       })();
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
@@ -319,6 +365,25 @@
                 <label><input type="checkbox" checked={card.verbs?.flip === true} onchange={(e) => setCardVerb(card, 'flip', e.currentTarget.checked)} /> flip</label>
                 <label><input type="checkbox" checked={card.verbs?.bare === true} onchange={(e) => setCardVerb(card, 'bare', e.currentTarget.checked)} /> bare</label>
                 <span class="spacer"></span>
+                {#if typeNameFor === card.id}
+                  <input
+                    class="type-name-input"
+                    placeholder="Card type name"
+                    bind:value={typeNameDraft}
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter') saveCardAsType(card);
+                      if (e.key === 'Escape') typeNameFor = null;
+                    }}
+                  />
+                  <button onclick={() => saveCardAsType(card)}>save</button>
+                {:else}
+                  <button
+                    title="Save this card as a reusable card type"
+                    onclick={() => {
+                      typeNameFor = card.id;
+                      typeNameDraft = '';
+                    }}>→ type</button>
+                {/if}
                 <button title="Delete card" onclick={() => deleteCard(notebook, card.id)}>✕</button>
               </div>
               {#each card.slots as slot (slot.id)}
@@ -384,7 +449,28 @@
           </div>
         {/each}
         {#if $mode === 'edit'}
-          <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ card</button>
+          <div class="add-row">
+            <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
+            <button
+              class="add-card"
+              onclick={() => (galleryFor = galleryFor === section.id ? null : section.id)}
+            >+ from gallery</button>
+          </div>
+          {#if galleryFor === section.id}
+            <div class="gallery">
+              {#each cardTypes as ct (ct.id)}
+                <div class="gallery-item">
+                  <button class="gallery-stamp" onclick={() => stampFromGallery(section.id, ct)}>
+                    <strong>{ct.name}</strong>
+                    {#if ct.description}<span>{ct.description}</span>{/if}
+                  </button>
+                  {#if !isBuiltinType(ct.id)}
+                    <button class="gallery-del" title="Delete card type" onclick={() => void removeCardType(ct)}>✕</button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
         {/if}
       </section>
     {/each}
@@ -624,9 +710,68 @@
     opacity: 1;
     border-color: var(--accent, #7c3aed);
   }
-  .add-card {
-    width: 100%;
+  .add-row {
+    display: flex;
+    gap: 8px;
     margin-bottom: 12px;
+  }
+  .add-card {
+    flex: 1;
+  }
+  .type-name-input {
+    background: var(--surface);
+    color: inherit;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 2px 6px;
+    width: 140px;
+  }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .gallery-item {
+    position: relative;
+  }
+  .gallery-stamp {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 10px;
+  }
+  .gallery-stamp:hover {
+    border-color: var(--accent, #7c3aed);
+  }
+  .gallery-stamp span {
+    opacity: 0.6;
+    font-size: 11px;
+  }
+  .gallery-del {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.4;
+    padding: 2px;
+  }
+  .gallery-del:hover {
+    opacity: 1;
   }
   .add-section {
     width: 100%;
