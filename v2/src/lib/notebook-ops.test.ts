@@ -10,6 +10,8 @@ import {
   moveCard,
   addSlot,
   deleteSlot,
+  moveCardBefore,
+  moveSectionBefore,
 } from './notebook-ops';
 
 describe('createNotebook', () => {
@@ -120,5 +122,60 @@ describe('slot ops', () => {
     deleteSlot(nb, card.id, back.id);
     expect(card.slots).toEqual([]);
     expect(card.back).toEqual([]);
+  });
+});
+
+describe('moveCardBefore', () => {
+  it('reorders within a section (insert before target)', () => {
+    const nb = createNotebook('N');
+    const sid = nb.sections[0].id;
+    const a = addCard(nb, sid);
+    const b = addCard(nb, sid);
+    const c = addCard(nb, sid);
+    moveCardBefore(nb, c.id, sid, a.id);
+    expect(nb.sections[0].cards.map((x) => x.id)).toEqual([c.id, a.id, b.id]);
+    expect(nb.sections[0].cards.map((x) => x.position)).toEqual([0, 1, 2]);
+  });
+
+  it('accounts for removal when source precedes target', () => {
+    const nb = createNotebook('N');
+    const sid = nb.sections[0].id;
+    const a = addCard(nb, sid);
+    const b = addCard(nb, sid);
+    const c = addCard(nb, sid);
+    moveCardBefore(nb, a.id, sid, c.id);
+    expect(nb.sections[0].cards.map((x) => x.id)).toEqual([b.id, a.id, c.id]);
+  });
+
+  it('moves across sections and updates sectionId', () => {
+    const nb = createNotebook('N');
+    const s2 = addSection(nb, 'Two');
+    const a = addCard(nb, nb.sections[0].id);
+    moveCardBefore(nb, a.id, s2.id, null);
+    expect(nb.sections[0].cards).toEqual([]);
+    expect(s2.cards.map((x) => x.id)).toEqual([a.id]);
+    expect(s2.cards[0].sectionId).toBe(s2.id);
+  });
+
+  it('null target appends to the end', () => {
+    const nb = createNotebook('N');
+    const sid = nb.sections[0].id;
+    const a = addCard(nb, sid);
+    addCard(nb, sid);
+    moveCardBefore(nb, a.id, sid, null);
+    expect(nb.sections[0].cards[1].id).toBe(a.id);
+  });
+});
+
+describe('moveSectionBefore', () => {
+  it('reorders sections', () => {
+    const nb = createNotebook('N');
+    const b = addSection(nb, 'B');
+    const c = addSection(nb, 'C');
+    moveSectionBefore(nb, c.id, nb.sections[0].id);
+    expect(nb.sections.map((s) => s.id)[0]).toBe(c.id);
+    expect(nb.sections.map((s) => s.position)).toEqual([0, 1, 2]);
+    moveSectionBefore(nb, b.id, null);
+    expect(nb.sections[2].id).toBe(b.id);
   });
 });

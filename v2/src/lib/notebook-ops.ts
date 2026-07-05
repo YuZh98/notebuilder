@@ -73,6 +73,44 @@ export function moveCard(nb: Notebook, cardId: string, dir: -1 | 1): void {
   }
 }
 
+/** Drag-and-drop: move a card into targetSectionId, before beforeCardId (null = append). */
+export function moveCardBefore(
+  nb: Notebook,
+  cardId: string,
+  targetSectionId: string,
+  beforeCardId: string | null,
+): void {
+  const target = nb.sections.find((s) => s.id === targetSectionId);
+  if (!target || cardId === beforeCardId) return;
+
+  let card: Card | undefined;
+  for (const section of nb.sections) {
+    const i = section.cards.findIndex((c) => c.id === cardId);
+    if (i !== -1) {
+      [card] = section.cards.splice(i, 1);
+      renumber(section.cards);
+      break;
+    }
+  }
+  if (!card) return;
+
+  card.sectionId = targetSectionId;
+  const at = beforeCardId === null ? target.cards.length : target.cards.findIndex((c) => c.id === beforeCardId);
+  target.cards.splice(at === -1 ? target.cards.length : at, 0, card);
+  renumber(target.cards);
+}
+
+/** Drag-and-drop: move a section before beforeSectionId (null = append). */
+export function moveSectionBefore(nb: Notebook, sectionId: string, beforeSectionId: string | null): void {
+  if (sectionId === beforeSectionId) return;
+  const i = nb.sections.findIndex((s) => s.id === sectionId);
+  if (i === -1) return;
+  const [section] = nb.sections.splice(i, 1);
+  const at = beforeSectionId === null ? nb.sections.length : nb.sections.findIndex((s) => s.id === beforeSectionId);
+  nb.sections.splice(at === -1 ? nb.sections.length : at, 0, section);
+  renumber(nb.sections);
+}
+
 export function addSlot(nb: Notebook, cardId: string, type: string, face: 'front' | 'back' = 'front'): Slot {
   const card = findCard(nb, cardId);
   if (!card) throw new Error(`No such card: ${cardId}`);

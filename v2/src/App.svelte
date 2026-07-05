@@ -45,6 +45,8 @@
     moveCard,
     addSlot,
     deleteSlot,
+    moveCardBefore,
+    moveSectionBefore,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
@@ -211,6 +213,28 @@
     const verbs = { ...card.verbs, [key]: on || undefined };
     card.verbs = verbs.flip || verbs.bare ? verbs : undefined;
     if (key === 'flip' && on && !card.back) card.back = [];
+  }
+
+  // ---- drag reorder (Edit mode) ----
+
+  let dragCardId: string | null = $state(null);
+  let dragSectionId: string | null = $state(null);
+
+  function dropCard(sectionId: string, beforeCardId: string | null, e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragCardId) moveCardBefore(notebook, dragCardId, sectionId, beforeCardId);
+    dragCardId = null;
+  }
+
+  function dropSection(beforeSectionId: string | null, e: DragEvent) {
+    e.preventDefault();
+    if (dragSectionId) moveSectionBefore(notebook, dragSectionId, beforeSectionId);
+    dragSectionId = null;
+  }
+
+  function allowDrop(e: DragEvent) {
+    if (dragCardId || dragSectionId) e.preventDefault();
   }
 
   // ---- gallery / factory ----
@@ -409,7 +433,19 @@
     {#each notebook.sections as section (section.id)}
       <section class="section">
         {#if $mode === 'edit'}
-          <div class="section-head">
+          <div
+            class="section-head"
+            role="presentation"
+            ondragover={allowDrop}
+            ondrop={(e) => dropSection(section.id, e)}
+          >
+            <span
+              class="drag-handle"
+              role="presentation"
+              draggable="true"
+              ondragstart={() => (dragSectionId = section.id)}
+              ondragend={() => (dragSectionId = null)}
+            >⠿</span>
             <input
               class="section-name"
               value={section.name}
@@ -427,7 +463,15 @@
           {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
           {@const face = $mode === 'study' ? faceSlots(card) : card.slots}
-          <div class="card" class:done class:bare={card.verbs?.bare} class:flipped={$mode === 'study' && isFlipped(card)}>
+          <div
+            class="card"
+            class:done
+            class:bare={card.verbs?.bare}
+            class:flipped={$mode === 'study' && isFlipped(card)}
+            role="presentation"
+            ondragover={allowDrop}
+            ondrop={(e) => dropCard(section.id, card.id, e)}
+          >
             {#if $mode === 'study' && done}
               <div class="done-badge">Done</div>
             {/if}
@@ -441,6 +485,13 @@
             {/if}
             {#if $mode === 'edit'}
               <div class="card-toolbar">
+                <span
+                  class="drag-handle"
+                  role="presentation"
+                  draggable="true"
+                  ondragstart={() => (dragCardId = card.id)}
+                  ondragend={() => (dragCardId = null)}
+                >⠿</span>
                 <button title="Move card up" onclick={() => moveCard(notebook, card.id, -1)}>↑</button>
                 <button title="Move card down" onclick={() => moveCard(notebook, card.id, 1)}>↓</button>
                 <label><input type="checkbox" checked={card.verbs?.flip === true} onchange={(e) => setCardVerb(card, 'flip', e.currentTarget.checked)} /> flip</label>
@@ -551,7 +602,7 @@
           </div>
         {/each}
         {#if $mode === 'edit'}
-          <div class="add-row">
+          <div class="add-row" role="presentation" ondragover={allowDrop} ondrop={(e) => dropCard(section.id, null, e)}>
             <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
             <button
               class="add-card"
@@ -577,7 +628,12 @@
       </section>
     {/each}
     {#if $mode === 'edit'}
-      <button class="add-section" onclick={() => addSection(notebook)}>+ section</button>
+      <button
+        class="add-section"
+        ondragover={allowDrop}
+        ondrop={(e) => dropSection(null, e)}
+        onclick={() => addSection(notebook)}
+      >+ section</button>
     {/if}
   </main>
 </div>
@@ -704,6 +760,15 @@
   .section-name:focus {
     border-color: var(--border);
     background: var(--surface);
+  }
+  .drag-handle {
+    cursor: grab;
+    opacity: 0.35;
+    font-size: 13px;
+    user-select: none;
+  }
+  .drag-handle:hover {
+    opacity: 0.8;
   }
   .section-head button,
   .card-toolbar button,
