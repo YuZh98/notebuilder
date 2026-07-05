@@ -64,6 +64,17 @@ pub fn run() {
             ",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "app preferences",
+            sql: "
+                CREATE TABLE IF NOT EXISTS preferences (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+            ",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

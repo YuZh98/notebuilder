@@ -28,6 +28,8 @@
     saveAnnotation,
     deleteAnnotation,
     loadAnnotations,
+    getPreference,
+    setPreference,
   } from './lib/db';
   import { uid } from './lib/uid';
   import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
@@ -69,6 +71,17 @@
 
   let showMatrix = $state(false);
   let matrixFilter: MatrixSelection | null = $state(null);
+
+  let theme: 'dark' | 'light' = $state('dark');
+
+  function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    if (isTauri()) void setPreference('theme', theme);
+  }
+
+  $effect(() => {
+    document.documentElement.dataset.theme = theme;
+  });
 
   // Reader annotations: private layer on top of the document, never exported.
   let annotations: AnnotationMap = $state({});
@@ -247,6 +260,8 @@
         readerState = await loadReaderState();
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
+        const savedTheme = await getPreference('theme');
+        if (savedTheme === 'light' || savedTheme === 'dark') theme = savedTheme;
         // Seed built-in card types once; after that the DB is the source of truth.
         const types = await listCardTypes();
         if (types.length === 0) {
@@ -354,6 +369,9 @@
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
     />
+    <button class="theme-toggle" title="Toggle theme" onclick={toggleTheme}>
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
     {#if $mode === 'study'}
       <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
         Matrix
@@ -595,6 +613,15 @@
   .mode-toggle.study {
     background: var(--accent);
     color: var(--bg);
+  }
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 10px;
   }
   .matrix-toggle {
     padding: 6px 12px;

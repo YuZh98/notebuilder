@@ -108,6 +108,18 @@ export async function loadReaderState(): Promise<ReaderStateMap> {
   return map;
 }
 
+// App preferences: simple key/value (theme, etc.).
+export async function getPreference(key: string): Promise<string | null> {
+  const d = await db();
+  const rows = await d.select<{ value: string }[]>('SELECT value FROM preferences WHERE key = $1', [key]);
+  return rows.length ? rows[0].value : null;
+}
+
+export async function setPreference(key: string, value: string): Promise<void> {
+  const d = await db();
+  await d.execute('INSERT OR REPLACE INTO preferences (key, value) VALUES ($1, $2)', [key, value]);
+}
+
 // Card types: the Factory/gallery layer. Stored app-wide, not per notebook.
 export async function saveCardType(ct: CardType): Promise<void> {
   const d = await db();
