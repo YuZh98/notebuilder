@@ -9,6 +9,8 @@
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
   import NotebookSwitcher from './lib/components/NotebookSwitcher.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
+  import CardNotes from './lib/components/CardNotes.svelte';
+  import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
   import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
   import type { ProgressProps } from './lib/slots/progress';
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
@@ -23,7 +25,11 @@
     saveCardType,
     listCardTypes,
     deleteCardType,
+    saveAnnotation,
+    deleteAnnotation,
+    loadAnnotations,
   } from './lib/db';
+  import { uid } from './lib/uid';
   import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
   import { demoNotebook } from './lib/demo';
   import {
@@ -63,6 +69,21 @@
 
   let showMatrix = $state(false);
   let matrixFilter: MatrixSelection | null = $state(null);
+
+  // Reader annotations: private layer on top of the document, never exported.
+  let annotations: AnnotationMap = $state({});
+  let notesFor: string | null = $state(null);
+
+  function addNote(cardId: string, body: string) {
+    const note = { id: uid('ann'), cardId, kind: 'note' as const, body, createdAt: new Date().toISOString() };
+    annotations = addAnnotation(annotations, note);
+    if (isTauri()) void saveAnnotation(note);
+  }
+
+  function deleteNote(id: string) {
+    annotations = removeAnnotation(annotations, id);
+    if (isTauri()) void deleteAnnotation(id);
+  }
 
   const allCards = $derived(notebook.sections.flatMap((s) => s.cards));
   // null = no filter (show everything)
@@ -224,6 +245,8 @@
           if (nb) notebook = nb;
         }
         readerState = await loadReaderState();
+        const anns = await loadAnnotations();
+        for (const a of anns) annotations = addAnnotation(annotations, a);
         // Seed built-in card types once; after that the DB is the source of truth.
         const types = await listCardTypes();
         if (types.length === 0) {
@@ -491,6 +514,21 @@
                   </div>
                 {/if}
               {/each}
+              {@const noteCount = annotationsFor(annotations, card.id).length}
+              <button
+                class="notes-toggle"
+                class:has-notes={noteCount > 0}
+                onclick={() => (notesFor = notesFor === card.id ? null : card.id)}
+              >
+                ✎ {noteCount > 0 ? `notes (${noteCount})` : 'note'}
+              </button>
+              {#if notesFor === card.id}
+                <CardNotes
+                  notes={annotationsFor(annotations, card.id)}
+                  onadd={(body) => addNote(card.id, body)}
+                  ondelete={deleteNote}
+                />
+              {/if}
             {/if}
           </div>
         {/each}
@@ -731,6 +769,22 @@
     font-size: 12px;
     color: #dc2626;
     margin-bottom: 8px;
+  }
+  .notes-toggle {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.4;
+    padding: 4px 0 0;
+  }
+  .notes-toggle:hover,
+  .notes-toggle.has-notes {
+    opacity: 0.8;
+  }
+  .notes-toggle.has-notes {
+    color: var(--accent, #7c3aed);
   }
   .slot {
     margin-bottom: 8px;
