@@ -273,6 +273,9 @@
     delete document.documentElement.dataset.theme;
     if (isTauri()) {
       void (async () => {
+        const savedTheme = await getPreference('theme');
+        themeId = normalizeThemeId(savedTheme);
+        applyTheme(themeId);
         const rows = await listNotebooks();
         if (rows.length === 0) {
           await saveNotebook($state.snapshot(notebook));
@@ -285,9 +288,6 @@
         readerState = await loadReaderState();
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
-        const savedTheme = await getPreference('theme');
-        themeId = normalizeThemeId(savedTheme);
-        applyTheme(themeId);
         // Seed built-in card types once; after that the DB is the source of truth.
         const types = await listCardTypes();
         if (types.length === 0) {
