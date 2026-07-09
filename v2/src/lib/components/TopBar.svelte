@@ -104,7 +104,7 @@
         </div>
       {/if}
     </span>
-    <button class="btn" disabled title="Factory arrives in a later phase">🏭 Factory</button>
+    <button class="btn staged" disabled title="Factory arrives in a later phase">🏭 Factory</button>
     <span class="nbwrap">
       <button
         class="btn on"
@@ -144,13 +144,13 @@
     >Study</button>
     {#if $mode === 'edit'}
       <button class="btn sm" onclick={onaddsection}>＋ section</button>
-      <button class="btn sm" disabled title="Chapters arrive in a later phase">＋ chapter</button>
+      <button class="btn sm staged" disabled title="Chapters arrive in a later phase">＋ chapter</button>
     {/if}
     <span style="width:10px;display:inline-block"></span>
-    <button class="btn sm" disabled title="Undo">↶</button>
-    <button class="btn sm" disabled title="Redo">↷</button>
+    <button class="btn sm staged" disabled title="Undo">↶</button>
+    <button class="btn sm staged" disabled title="Redo">↷</button>
     <span style="width:8px;display:inline-block"></span>
-    <button class="btn primary share-btn" disabled title="One-file HTML share arrives in a later phase">Share</button>
+    <button class="btn primary share-btn staged" disabled title="One-file HTML share arrives in a later phase">Share</button>
     <span class="util-grp">
       <button class="btn sm ghost" title="Backup as JSON (data only)" onclick={onexport}>⤓</button>
       <button class="btn sm ghost" title="Import a notebook JSON" onclick={onimport}>⤒</button>

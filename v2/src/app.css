@@ -485,6 +485,18 @@ button {
 .btn:hover {
   border-color: var(--accent);
 }
+/* v1 rule (styles.css .btn:disabled) — not part of the ported ranges, added here */
+.btn:disabled,
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+/* staged phase-gated buttons keep hover so their "arrives in …" titles can show */
+.btn.staged:disabled {
+  pointer-events: auto;
+  cursor: not-allowed;
+}
 /* ENABLED = filled accent bg + dark readable text; disabled = outline */
 .btn.on,
 .chip.on {
@@ -514,12 +526,6 @@ button {
   padding: 3px 8px;
   font-size: 12px;
   border-radius: 7px;
-}
-/* ONE disable treatment: real :disabled gets dimmed + blocked (no pointer-events:none — titles must still show) */
-.btn:disabled,
-.chip:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 .chip {
   display: inline-flex;
