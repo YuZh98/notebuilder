@@ -186,8 +186,12 @@
   }
 
   function renameNotebook(name: string) {
-    notebook.name = name;
-    notebookList = notebookList.map((e) => (e.id === notebook.id ? { ...e, name } : e));
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === notebook.name) return;
+    notebook.name = trimmed;
+    notebookList = notebookList.map((e) =>
+      e.id === notebook.id ? { ...e, name: trimmed } : e,
+    );
   }
 
   async function removeNotebook() {

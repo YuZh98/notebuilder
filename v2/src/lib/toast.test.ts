@@ -1,10 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { toast, toastState, dismissToast } from './toast.svelte';
 
 beforeEach(() => {
   vi.useFakeTimers();
   dismissToast();
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe('toast', () => {
   it('shows a message and auto-hides after the default 1700ms', () => {
