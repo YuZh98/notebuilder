@@ -8,6 +8,7 @@
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
   import TopBar from './lib/components/TopBar.svelte';
+  import SideBar from './lib/components/SideBar.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import CardNotes from './lib/components/CardNotes.svelte';
   import Toast from './lib/components/Toast.svelte';
@@ -75,6 +76,9 @@
   let showMatrix = $state(false);
   let matrixFilter: MatrixSelection | null = $state(null);
 
+  let sideW = $state(312);
+  let sideCollapsed = $state(false);
+
   let themeId: ThemeId = $state('');
 
   function setTheme(id: ThemeId) {
@@ -129,6 +133,39 @@
 
   function confirmDialog(msg: string, title: string): Promise<boolean> {
     return isTauri() ? confirm(msg, { title, kind: 'warning' }) : Promise.resolve(window.confirm(msg));
+  }
+
+  // ---- sidebar resize / collapse (v1 gesture: drag resizes, sub-4px click toggles) ----
+
+  function clampSideW(x: number): number {
+    return Math.max(220, Math.min(560, x));
+  }
+
+  function toggleSide() {
+    sideCollapsed = !sideCollapsed;
+    if (isTauri()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
+  }
+
+  function startSideResize(e: PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    let moved = false;
+    function onMove(ev: PointerEvent) {
+      if (Math.abs(ev.clientX - startX) > 4) moved = true;
+      if (moved && !sideCollapsed) sideW = clampSideW(ev.clientX);
+    }
+    function onUp(ev: PointerEvent) {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (moved && !sideCollapsed) {
+        sideW = clampSideW(ev.clientX);
+        if (isTauri()) void setPreference('side_width', String(sideW));
+      } else {
+        toggleSide();
+      }
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
   }
 
   // ---- notebook shell ----
@@ -270,6 +307,13 @@
         const savedTheme = await getPreference('theme');
         themeId = normalizeThemeId(savedTheme);
         applyTheme(themeId);
+        const [savedW, savedCollapsed] = await Promise.all([
+          getPreference('side_width'),
+          getPreference('side_collapsed'),
+        ]);
+        const w = savedW === null ? NaN : parseInt(savedW, 10);
+        if (Number.isFinite(w)) sideW = clampSideW(w);
+        sideCollapsed = savedCollapsed === '1';
         const rows = await listNotebooks();
         if (rows.length === 0) {
           await saveNotebook($state.snapshot(notebook));
@@ -309,6 +353,9 @@
   // Debounced autosave whenever the document or reader state changes.
   $effect(() => persistNotebook($state.snapshot(notebook)));
   $effect(() => persistReaderState($state.snapshot(readerState)));
+  $effect(() => {
+    document.body.classList.toggle('side-collapsed', sideCollapsed);
+  });
 
   function updateSlotProps(cardId: string, slotId: string, newProps: SlotProps) {
     for (const section of notebook.sections) {
@@ -390,8 +437,16 @@
   onimport={() => void handleImport()}
 />
 
-<div class="app">
-  <main>
+<div id="main" style="--sidew:{sideW}px">
+  <SideBar
+    notebookName={notebook.name}
+    canPersist={isTauri()}
+    onrename={renameNotebook}
+    ondelete={() => void removeNotebook()}
+  />
+  <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
+  <div id="stage">
+    <div class="app">
     {#if $mode === 'study'}
       <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
         Matrix
@@ -610,8 +665,16 @@
         onclick={() => addSection(notebook)}
       >+ section</button>
     {/if}
-  </main>
+    </div>
+  </div>
 </div>
+
+<button
+  id="sidebump"
+  style="--sidew:{sideW}px"
+  title={sideCollapsed ? 'show the panel' : 'hide the panel'}
+  onclick={toggleSide}
+>{sideCollapsed ? '›' : '‹'}</button>
 
 <Toast />
 
@@ -619,7 +682,6 @@
   .app {
     max-width: 800px;
     margin: 0 auto;
-    padding: 24px;
   }
   .matrix-toggle {
     padding: 6px 12px;

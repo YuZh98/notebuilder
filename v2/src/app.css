@@ -436,8 +436,9 @@ body[data-theme="sketch"] .ceview {
   box-sizing: border-box;
 }
 
+/* definite height so #main's calc(100% - 57px) resolves and #stage scrolls internally */
 #app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
