@@ -37,12 +37,12 @@
   }
   .table-study th,
   .table-study td {
-    border: 1px solid var(--border, #2a2a4a);
+    border: 1px solid var(--line, #2a2a4a);
     padding: 6px 10px;
     text-align: left;
   }
   .table-study th {
-    background: var(--surface, #16213e);
+    background: var(--panel, #16213e);
     font-weight: 600;
   }
 </style>

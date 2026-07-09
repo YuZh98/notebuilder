@@ -47,7 +47,7 @@ export function plotSVG(fn: string, scope: Scope, x0: number, x1: number): strin
   const ts = 'font:9px ui-monospace,monospace;fill:var(--muted,#888)';
   return (
     `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" style="display:block">` +
-    `<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="none" stroke="var(--border,#444)"/>` +
+    `<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="none" stroke="var(--line,#444)"/>` +
     `<text x="${L}" y="${H - 6}" text-anchor="middle" style="${ts}">${fmtNum(x0)}</text>` +
     `<text x="${L + pw}" y="${H - 6}" text-anchor="middle" style="${ts}">${fmtNum(x1)}</text>` +
     `<text x="${L - 4}" y="${T + ph}" text-anchor="end" style="${ts}">${fmtNum(y0)}</text>` +

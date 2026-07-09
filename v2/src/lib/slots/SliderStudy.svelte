@@ -54,9 +54,9 @@
   }
   .row input {
     width: 6ch;
-    background: var(--surface, #16213e);
-    color: var(--text, #e0e0e0);
-    border: 1px solid var(--border, #2a2a4a);
+    background: var(--panel, #16213e);
+    color: var(--ink, #e0e0e0);
+    border: 1px solid var(--line, #2a2a4a);
     border-radius: 4px;
     padding: 2px 4px;
   }

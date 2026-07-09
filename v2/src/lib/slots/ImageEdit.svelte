@@ -42,10 +42,10 @@
   .image-edit input {
     width: 100%;
     padding: 8px;
-    border: 1px solid var(--border, #2a2a4a);
+    border: 1px solid var(--line, #2a2a4a);
     border-radius: 4px;
-    background: var(--surface, #16213e);
-    color: var(--text, #e0e0e0);
+    background: var(--panel, #16213e);
+    color: var(--ink, #e0e0e0);
     font-family: inherit;
     font-size: 14px;
   }

@@ -1,17 +1,433 @@
+@import url("https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Chakra+Petch:wght@400;600;700&family=Lora:wght@400;600&family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap"); /* theme webfonts; all degrade to system fallbacks offline */
+/* ---------- theme tokens (swapped by theme store) ---------- */
 :root {
-  --bg: #1a1a2e;
-  --surface: #16213e;
-  --text: #e0e0e0;
-  --accent: #4fc3f7;
-  --border: #2a2a4a;
+  --bg: #0b0e16;
+  --panel: #10141f;
+  --panel2: #0c1019;
+  --ink: #e8ecf6;
+  --muted: #8a93ab;
+  --line: #222a3d;
+  --accent: #6ea8fe;
+  --accent2: #b388ff;
+  --good: #54d6a0;
+  --warn: #ff6b81;
+  --radius: 14px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --glow: 0 0 0 1px rgba(110, 168, 254, 0);
+}
+body[data-theme="plain"] {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel2: #f0f2f5;
+  --ink: #15181f;
+  --muted: #646c7a;
+  --line: #dfe3ea;
+  --accent: #1f6feb;
+  --accent2: #6f42c1;
+  --good: #1a7f5a;
+  --warn: #c0392b;
+  --radius: 10px;
+}
+/* CYBERPUNK · ARC-FLASH — gunmetal brushed steel + copper trace + sodium-vapor amber (no neon cyan) */
+body[data-theme="cyber"] {
+  --bg: #0c0d0f;
+  --panel: #16181c;
+  --panel2: #1f2228;
+  --ink: #f2f4f5;
+  --muted: #9aa3ab;
+  --line: #3a3f47;
+  --accent: #ffb000;
+  --accent2: #cfe8ff;
+  --good: #7cffb2;
+  --warn: #ff5b3d;
+  --radius: 0px;
+  --font: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  --glow:
+    0 0 0 1px #2a2e34, 0 2px 0 #050608, 0 6px 18px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background:
+    radial-gradient(120% 80% at 50% -10%, #14161a 0%, var(--bg) 55%) fixed,
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 176, 0, 0.018) 0 1px,
+      transparent 1px 40px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 176, 0, 0.018) 0 1px,
+      transparent 1px 40px
+    ),
+    var(--bg);
+}
+body[data-theme="cyber"] .furn {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(
+        90deg,
+        transparent 0 18px,
+        #b5713a 18px 19px,
+        transparent 19px 38px,
+        #b5713a 38px 39px,
+        transparent 39px
+      )
+      top/100% 6px no-repeat,
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.022) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(180deg, #1c1f24 0%, var(--panel) 38%, #121317 100%);
+}
+body[data-theme="cyber"] .house-title,
+body[data-theme="cyber"] .room-title {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+body[data-theme="cyber"] .room-title::before,
+body[data-theme="cyber"] .house-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: arc-breathe 3.2s ease-in-out infinite;
+  vertical-align: middle;
+}
+body[data-theme="cyber"] .btn {
+  clip-path: polygon(7px 0, 100% 0, 100% 100%, 0 100%, 0 7px);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+body[data-theme="cyber"] .btn.on,
+body[data-theme="cyber"] .btn.primary {
+  background: linear-gradient(180deg, #ffc23a, var(--accent) 60%, #c98700);
+  color: #0c0d0f;
+  border-color: #5a4410;
+}
+body[data-theme="cyber"] input:focus,
+body[data-theme="cyber"] textarea:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+@keyframes arc-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-:root[data-theme='light'] {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --text: #1d1d1f;
-  --accent: #0277bd;
-  --border: #d5d5dc;
+/* GRAPHITE — Apple-concise: machined graphite, one safety-orange scalpel, system font */
+body[data-theme="mono"] {
+  --bg: #0e0e10;
+  --panel: #161618;
+  --panel2: #1f1f22;
+  --ink: #f4f4f2;
+  --muted: #8a8a8f;
+  --line: #2a2a2e;
+  --accent: #ff4d00;
+  --accent2: #c8c8cc;
+  --good: #5bcf8a;
+  --warn: #ff4d00;
+  --radius: 10px;
+  --font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui,
+    sans-serif;
+  --glow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.4);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+body[data-theme="mono"] .furn {
+  position: relative;
+}
+body[data-theme="mono"] .furn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+body[data-theme="mono"] .furn:hover::before {
+  transform: scaleY(1);
+}
+body[data-theme="mono"] .house-title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+body[data-theme="mono"] .chip,
+body[data-theme="mono"] .pchip {
+  border-radius: 6px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.82em;
+}
+body[data-theme="mono"] .btn:active {
+  transform: translateY(1px);
+}
+body[data-theme="mono"] .btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+body[data-theme="mono"] input:focus,
+body[data-theme="mono"] textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 77, 0, 0.18);
+}
+
+/* AURORA — fantasy: animated northern lights behind calm dark cards, shimmer headings, corner twinkle */
+body[data-theme="aurora"] {
+  --bg: #0a0e1f;
+  --panel: #141a33;
+  --panel2: #1e2647;
+  --ink: #eaf2ff;
+  --muted: #9fb0d6;
+  --line: #2c376b;
+  --accent: #39e6c0;
+  --accent2: #ff6bd6;
+  --good: #7df09a;
+  --warn: #ffc14d;
+  --radius: 18px;
+  --font: "Fraunces", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --glow:
+    0 0 0 1px rgba(57, 230, 192, 0.14), 0 8px 28px -10px rgba(10, 14, 31, 0.85),
+    0 0 42px -16px rgba(57, 230, 192, 0.45);
+  background:
+    radial-gradient(
+      60% 50% at 20% 0%,
+      rgba(57, 230, 192, 0.22),
+      transparent 60%
+    ),
+    radial-gradient(
+      55% 45% at 85% 15%,
+      rgba(255, 107, 214, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(
+      70% 60% at 50% 110%,
+      rgba(78, 140, 255, 0.18),
+      transparent 55%
+    ),
+    var(--bg);
+  background-size:
+    200% 200%,
+    200% 200%,
+    200% 200%,
+    auto;
+  animation: aurora-drift 26s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%,
+      0 0;
+  }
+  100% {
+    background-position:
+      30% 20%,
+      70% 10%,
+      40% 80%,
+      0 0;
+  }
+}
+@keyframes ribbon-shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+body[data-theme="aurora"] .room-title,
+body[data-theme="aurora"] .house-title {
+  background: linear-gradient(100deg, #39e6c0, #7d9bff, #ff6bd6, #39e6c0);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ribbon-shimmer 7s linear infinite;
+  font-weight: 700;
+}
+body[data-theme="aurora"] .furn {
+  position: relative;
+  background: linear-gradient(180deg, #161e3c, #141a33);
+}
+body[data-theme="aurora"] .furn::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 2px rgba(57, 230, 192, 0.9);
+  animation: twinkle 4.5s ease-in-out infinite;
+}
+body[data-theme="aurora"] .btn.on,
+body[data-theme="aurora"] .btn.primary {
+  background: linear-gradient(135deg, #39e6c0, #4e8cff);
+  color: #06251f;
+  border: 0;
+}
+body[data-theme="aurora"] input:focus,
+body[data-theme="aurora"] textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(57, 230, 192, 0.25);
+}
+
+/* TOMOÉ — nerdy stationery: warm cream dot-grid, fountain-ink, thin red margin rule */
+body[data-theme="study"] {
+  --bg: #f4f1e8;
+  --panel: #fbfaf4;
+  --panel2: #efebdd;
+  --ink: #2b2d33;
+  --muted: #7c7669;
+  --line: #dad3c0;
+  --accent: #2f4e73;
+  --accent2: #b0413e;
+  --good: #4f6b4a;
+  --warn: #b5792b;
+  --radius: 4px;
+  --font: "Lora", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --glow: 0 1px 2px rgba(43, 45, 51, 0.06), 0 6px 16px rgba(43, 45, 51, 0.05);
+  background-color: var(--bg);
+  background-image: radial-gradient(
+    circle,
+    rgba(43, 45, 51, 0.1) 1px,
+    transparent 1.2px
+  );
+  background-size: 22px 22px;
+  background-position: 12px 12px;
+}
+body[data-theme="study"] .furn {
+  position: relative;
+  padding-left: 26px;
+}
+body[data-theme="study"] .furn::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 16px;
+  width: 1.5px;
+  background: var(--accent2);
+  opacity: 0.5;
+}
+body[data-theme="study"] .room-title,
+body[data-theme="study"] .house-title {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 5px;
+}
+body[data-theme="study"] .chip,
+body[data-theme="study"] .pchip {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  border-radius: 3px;
+}
+body[data-theme="study"] .btn:hover {
+  background: var(--accent);
+  color: var(--panel);
+  border-color: var(--accent);
+}
+body[data-theme="study"] input:focus,
+body[data-theme="study"] textarea:focus {
+  background: var(--panel);
+  border-bottom-color: var(--accent);
+}
+
+/* honor reduced-motion: kill the animated themes' motion */
+@media (prefers-reduced-motion: reduce) {
+  body[data-theme="aurora"],
+  body[data-theme="aurora"] .room-title,
+  body[data-theme="aurora"] .house-title,
+  body[data-theme="aurora"] .furn::after,
+  body[data-theme="cyber"] .room-title::before,
+  body[data-theme="cyber"] .house-title::before {
+    animation: none !important;
+  }
+}
+/* SKETCH — hand-drawn paper sketchnote look (cream grid paper · wobbly borders · marker headings · handwriting font) */
+body[data-theme="sketch"] {
+  --bg: #efe4c9;
+  --panel: #fbf4e2;
+  --panel2: #f1e7cd;
+  --ink: #37322a;
+  --muted: #94886a;
+  --line: #c2b189;
+  --accent: #d2691e;
+  --accent2: #2f6fa6;
+  --good: #4a7d3f;
+  --warn: #b54a2b;
+  --radius: 16px;
+  --glow: none;
+  --font:
+    "Patrick Hand", "Bradley Hand", "Chalkboard SE", "Comic Sans MS",
+    "Hannotate SC", "HanziPen SC", "Xingkai SC", system-ui, cursive;
+  background-image:
+    linear-gradient(rgba(120, 100, 60, 0.11) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 100, 60, 0.11) 1px, transparent 1px);
+  background-size: 23px 23px;
+}
+/* wobbly hand-drawn borders (asymmetric radius); ink-coloured 2px strokes */
+body[data-theme="sketch"] .furn,
+body[data-theme="sketch"] .room.edit,
+body[data-theme="sketch"] .store-lane,
+body[data-theme="sketch"] .benchslot,
+body[data-theme="sketch"] .faccard,
+body[data-theme="sketch"] .card-shell {
+  border: 2px solid var(--ink) !important;
+  border-radius: 255px 14px 225px 15px/15px 225px 15px 255px !important;
+  box-shadow: 2px 3px 0 rgba(55, 50, 42, 0.12);
+}
+body[data-theme="sketch"] .btn,
+body[data-theme="sketch"] .chip,
+body[data-theme="sketch"] input,
+body[data-theme="sketch"] textarea,
+body[data-theme="sketch"] .pchip {
+  border: 2px solid var(--ink) !important;
+  border-radius: 18px 220px 16px 200px/200px 16px 220px 18px !important;
+}
+/* marker-underline headings */
+body[data-theme="sketch"] .room-title h1,
+body[data-theme="sketch"] .room-title h2,
+body[data-theme="sketch"] .room-title h3,
+body[data-theme="sketch"] .house-title {
+  display: inline-block;
+  border-bottom: 4px solid var(--accent);
+  padding-bottom: 1px;
+}
+body[data-theme="sketch"] .ceview {
+  border-radius: 8px;
 }
 
 * {
@@ -20,10 +436,27 @@
   box-sizing: border-box;
 }
 
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: var(--accent);
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font);
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   min-height: 100vh;
 }
 

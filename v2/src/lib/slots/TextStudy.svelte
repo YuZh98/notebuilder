@@ -17,7 +17,7 @@
     font-size: 14px;
   }
   .text-study :global(code) {
-    background: var(--border, #2a2a4a);
+    background: var(--line, #2a2a4a);
     padding: 2px 4px;
     border-radius: 3px;
     font-size: 13px;

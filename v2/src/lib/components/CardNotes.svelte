@@ -45,7 +45,7 @@
   .notes {
     margin-top: 10px;
     padding-top: 8px;
-    border-top: 1px dashed var(--border);
+    border-top: 1px dashed var(--line);
     font-size: 13px;
   }
   .note {
@@ -83,7 +83,7 @@
     flex: 1;
     background: var(--bg);
     color: inherit;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     font: inherit;
     font-size: 12px;
@@ -92,7 +92,7 @@
   }
   .composer button {
     background: none;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     color: inherit;
     cursor: pointer;
