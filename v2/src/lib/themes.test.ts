@@ -21,6 +21,7 @@ describe('normalizeThemeId', () => {
   it('falls back to default on unknown or null', () => {
     expect(normalizeThemeId('neon')).toBe('');
     expect(normalizeThemeId(null)).toBe('');
+    expect(normalizeThemeId('toString')).toBe('');
   });
 });
 

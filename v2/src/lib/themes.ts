@@ -14,7 +14,7 @@ const LEGACY: Record<string, ThemeId> = { dark: '', light: 'plain' };
 
 export function normalizeThemeId(raw: string | null): ThemeId {
   if (raw === null) return '';
-  if (raw in LEGACY) return LEGACY[raw];
+  if (Object.hasOwn(LEGACY, raw)) return LEGACY[raw];
   return THEMES.some((t) => t.id === raw) ? (raw as ThemeId) : '';
 }
 
