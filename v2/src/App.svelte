@@ -7,9 +7,12 @@
   import { shouldShow, isLocked } from './lib/verbs';
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
-  import NotebookSwitcher from './lib/components/NotebookSwitcher.svelte';
+  import TopBar from './lib/components/TopBar.svelte';
+  import SideBar from './lib/components/SideBar.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import CardNotes from './lib/components/CardNotes.svelte';
+  import Toast from './lib/components/Toast.svelte';
+  import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
   import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
   import type { ProgressProps } from './lib/slots/progress';
@@ -50,7 +53,7 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
-  import { THEMES, applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
+  import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
@@ -63,8 +66,6 @@
     { id: 'nb_demo', name: 'My First Notebook' },
   ]);
 
-  let shareError = $state('');
-  let shareNotice = $state('');
   let newSlotType = $state('text');
 
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
@@ -75,12 +76,13 @@
   let showMatrix = $state(false);
   let matrixFilter: MatrixSelection | null = $state(null);
 
+  let sideW = $state(312);
+  let sideCollapsed = $state(false);
+
   let themeId: ThemeId = $state('');
-  let themeMenuOpen = $state(false);
 
   function setTheme(id: ThemeId) {
     themeId = id;
-    themeMenuOpen = false;
     applyTheme(id);
     if (isTauri()) void setPreference('theme', id);
   }
@@ -133,6 +135,39 @@
     return isTauri() ? confirm(msg, { title, kind: 'warning' }) : Promise.resolve(window.confirm(msg));
   }
 
+  // ---- sidebar resize / collapse (v1 gesture: drag resizes, sub-4px click toggles) ----
+
+  function clampSideW(x: number): number {
+    return Math.max(220, Math.min(560, x));
+  }
+
+  function toggleSide() {
+    sideCollapsed = !sideCollapsed;
+    if (isTauri()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
+  }
+
+  function startSideResize(e: PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    let moved = false;
+    function onMove(ev: PointerEvent) {
+      if (Math.abs(ev.clientX - startX) > 4) moved = true;
+      if (moved && !sideCollapsed) sideW = clampSideW(ev.clientX);
+    }
+    function onUp(ev: PointerEvent) {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (moved && !sideCollapsed) {
+        sideW = clampSideW(ev.clientX);
+        if (isTauri()) void setPreference('side_width', String(sideW));
+      } else {
+        toggleSide();
+      }
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
   // ---- notebook shell ----
 
   async function switchNotebook(id: string) {
@@ -151,8 +186,12 @@
   }
 
   function renameNotebook(name: string) {
-    notebook.name = name;
-    notebookList = notebookList.map((e) => (e.id === notebook.id ? { ...e, name } : e));
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === notebook.name) return;
+    notebook.name = trimmed;
+    notebookList = notebookList.map((e) =>
+      e.id === notebook.id ? { ...e, name: trimmed } : e,
+    );
   }
 
   async function removeNotebook() {
@@ -173,26 +212,22 @@
   // ---- import / export ----
 
   async function handleImport() {
-    shareError = '';
-    shareNotice = '';
     const result = await importNotebookFromFile();
     if ('error' in result) {
-      shareError = result.error;
+      toast(result.error, 4000);
     } else if ('notebook' in result) {
       notebook = result.notebook;
       notebookList = [{ id: notebook.id, name: notebook.name }, ...notebookList];
-      shareNotice = `Imported "${notebook.name}"`;
+      toast(`Imported "${notebook.name}"`);
     }
   }
 
   async function handleExport() {
-    shareError = '';
-    shareNotice = '';
     const result = await exportNotebookToFile($state.snapshot(notebook));
     if ('error' in result) {
-      shareError = result.error;
+      toast(result.error, 4000);
     } else if ('path' in result) {
-      shareNotice = `Exported to ${result.path}`;
+      toast(`Exported to ${result.path}`);
     }
   }
 
@@ -257,7 +292,7 @@
     const ct = cardToType($state.snapshot(card) as Card, name);
     cardTypes = [...cardTypes, ct];
     if (isTauri()) void saveCardType(ct);
-    shareNotice = `Saved card type "${name}"`;
+    toast(`Saved card type "${name}"`);
   }
 
   async function removeCardType(ct: CardType) {
@@ -276,6 +311,13 @@
         const savedTheme = await getPreference('theme');
         themeId = normalizeThemeId(savedTheme);
         applyTheme(themeId);
+        const [savedW, savedCollapsed] = await Promise.all([
+          getPreference('side_width'),
+          getPreference('side_collapsed'),
+        ]);
+        const w = savedW === null ? NaN : parseInt(savedW, 10);
+        if (Number.isFinite(w)) sideW = clampSideW(w);
+        sideCollapsed = savedCollapsed === '1';
         const rows = await listNotebooks();
         if (rows.length === 0) {
           await saveNotebook($state.snapshot(notebook));
@@ -315,6 +357,9 @@
   // Debounced autosave whenever the document or reader state changes.
   $effect(() => persistNotebook($state.snapshot(notebook)));
   $effect(() => persistReaderState($state.snapshot(readerState)));
+  $effect(() => {
+    document.body.classList.toggle('side-collapsed', sideCollapsed);
+  });
 
   function updateSlotProps(cardId: string, slotId: string, newProps: SlotProps) {
     for (const section of notebook.sections) {
@@ -383,70 +428,42 @@
   }
 </script>
 
-<svelte:window
-  onclick={(e) => {
-    if (themeMenuOpen && !(e.target as Element).closest('.theme-wrap')) themeMenuOpen = false;
-  }}
+<TopBar
+  notebooks={notebookList}
+  currentId={notebook.id}
+  {themeId}
+  canSwitch={isTauri()}
+  onswitch={(id) => void switchNotebook(id)}
+  oncreate={newNotebook}
+  onsettheme={setTheme}
+  onaddsection={() => addSection(notebook)}
+  onexport={() => void handleExport()}
+  onimport={() => void handleImport()}
 />
 
-<div class="app">
-  <header>
-    <NotebookSwitcher
-      list={notebookList}
-      currentId={notebook.id}
-      currentName={notebook.name}
-      canSwitch={isTauri()}
-      onswitch={(id) => void switchNotebook(id)}
-      oncreate={newNotebook}
-      onrename={renameNotebook}
-      ondelete={() => void removeNotebook()}
-    />
+<div id="main" style="--sidew:{sideW}px">
+  <SideBar
+    notebookName={notebook.name}
+    canPersist={isTauri()}
+    onrename={renameNotebook}
+    ondelete={() => void removeNotebook()}
+  />
+  <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
+  <div id="stage">
+    <div class="app">
     {#if $mode === 'study'}
       <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
         Matrix
       </button>
-    {/if}
-    <button class="mode-toggle" class:study={$mode === 'study'} onclick={toggleMode}>
-      {$mode === 'edit' ? 'Edit' : 'Study'}
-    </button>
-    <span class="hint">⌘+Enter to toggle</span>
-    <div class="theme-wrap">
-      <button class="btn" title="Theme" onclick={() => (themeMenuOpen = !themeMenuOpen)}>
-        🎨 {THEMES.find((t) => t.id === themeId)?.chip} ▾
-      </button>
-      {#if themeMenuOpen}
-        <div class="thememenu">
-          {#each THEMES as t (t.id)}
-            <button class="btn {t.id === themeId ? 'on' : ''}" onclick={() => setTheme(t.id)}>{t.name}</button>
-          {/each}
-        </div>
+      {#if showMatrix}
+        <CoverageMatrix
+          cards={allCards}
+          states={readerState}
+          selection={matrixFilter}
+          onselect={(sel) => (matrixFilter = sel)}
+        />
       {/if}
-    </div>
-  </header>
-
-  {#if shareError}
-    <div class="banner error" role="alert">
-      <pre>{shareError}</pre>
-      <button class="banner-close" onclick={() => (shareError = '')}>×</button>
-    </div>
-  {/if}
-  {#if shareNotice}
-    <div class="banner notice" role="status">
-      <span>{shareNotice}</span>
-      <button class="banner-close" onclick={() => (shareNotice = '')}>×</button>
-    </div>
-  {/if}
-
-  {#if $mode === 'study' && showMatrix}
-    <CoverageMatrix
-      cards={allCards}
-      states={readerState}
-      selection={matrixFilter}
-      onselect={(sel) => (matrixFilter = sel)}
-    />
-  {/if}
-
-  <main>
+    {/if}
     {#each notebook.sections as section (section.id)}
       <section class="section">
         {#if $mode === 'edit'}
@@ -652,65 +669,23 @@
         onclick={() => addSection(notebook)}
       >+ section</button>
     {/if}
-  </main>
+    </div>
+  </div>
 </div>
+
+<button
+  id="sidebump"
+  style="--sidew:{sideW}px"
+  title={sideCollapsed ? 'show the panel' : 'hide the panel'}
+  onclick={toggleSide}
+>{sideCollapsed ? '›' : '‹'}</button>
+
+<Toast />
 
 <style>
   .app {
     max-width: 800px;
     margin: 0 auto;
-    padding: 24px;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .hint {
-    font-size: 12px;
-    opacity: 0.5;
-  }
-  .theme-wrap {
-    position: relative;
-  }
-  .thememenu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    z-index: 50;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  }
-  .thememenu .btn {
-    justify-content: flex-start;
-    text-align: left;
-  }
-  .thememenu .btn.on {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .mode-toggle {
-    padding: 6px 16px;
-    border: 1px solid var(--accent);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--accent);
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .mode-toggle.study {
-    background: var(--accent);
-    color: var(--bg);
   }
   .matrix-toggle {
     padding: 6px 12px;
@@ -733,41 +708,6 @@
     font-size: 11px;
     padding: 2px 6px;
     width: 150px;
-  }
-  .banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    font-size: 13px;
-  }
-  .banner pre {
-    flex: 1;
-    white-space: pre-wrap;
-    font: inherit;
-    margin: 0;
-  }
-  .banner span {
-    flex: 1;
-  }
-  .banner.error {
-    background: color-mix(in srgb, #dc2626 15%, var(--panel));
-    border: 1px solid #dc2626;
-  }
-  .banner.notice {
-    background: color-mix(in srgb, var(--accent, #7c3aed) 15%, var(--panel));
-    border: 1px solid var(--accent, #7c3aed);
-  }
-  .banner-close {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 15px;
-    line-height: 1;
-    padding: 0;
   }
   .section h2 {
     font-size: 16px;

@@ -51,14 +51,14 @@
     border-collapse: collapse;
   }
   .table-edit td {
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     padding: 0;
   }
   .table-edit input {
     border: none;
     padding: 6px 8px;
-    background: var(--panel, #16213e);
-    color: var(--ink, #e0e0e0);
+    background: var(--panel);
+    color: var(--ink);
     font-family: inherit;
     font-size: 14px;
   }
@@ -69,10 +69,10 @@
   }
   .table-edit-actions button {
     padding: 4px 10px;
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    background: var(--panel, #16213e);
-    color: var(--ink, #e0e0e0);
+    background: var(--panel);
+    color: var(--ink);
     cursor: pointer;
     font-size: 13px;
   }

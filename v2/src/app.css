@@ -436,32 +436,435 @@ body[data-theme="sketch"] .ceview {
   box-sizing: border-box;
 }
 
-.btn {
-  display: inline-flex;
+/* definite height so #main's calc(100% - 57px) resolves and #stage scrolls internally */
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14.5px/1.5 var(--font);
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+.row {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  gap: 8px;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.spacer {
+  flex: 1;
+}
+.muted {
+  color: var(--muted);
+}
+.sm {
+  font-size: 12px;
+}
+.btn {
   background: var(--panel2);
   color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 11px;
 }
 .btn:hover {
   border-color: var(--accent);
 }
-
-body {
-  font-family: var(--font);
-  background: var(--bg);
+/* v1 rule (styles.css .btn:disabled) — not part of the ported ranges, added here */
+.btn:disabled,
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+/* staged phase-gated buttons keep hover so their "arrives in …" titles can show */
+.btn.staged:disabled {
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+/* ENABLED = filled accent bg + dark readable text; disabled = outline */
+.btn.on,
+.chip.on {
+  background: var(--accent);
+  color: #06101f;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn.on:hover,
+.chip.on:hover {
+  border-color: var(--accent);
+}
+.btn.primary {
+  background: var(--accent);
+  color: #06101f;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn.ghost {
+  background: transparent;
+}
+.btn.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.btn.sm {
+  padding: 3px 8px;
+  font-size: 12px;
+  border-radius: 7px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel2);
   color: var(--ink);
-  min-height: 100vh;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+.tag {
+  font-size: 11px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--muted);
+}
+input,
+textarea,
+select {
+  background: var(--panel2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px;
+  font: inherit;
+  width: 100%;
+}
+input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+}
+/* the live value box hugs its value (width set in ch); hide native spinners so they never eat the width and clip the digits */
+input[data-act="slide"][type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  padding: 5px 6px;
+}
+input[data-act="slide"][type="number"]::-webkit-outer-spin-button,
+input[data-act="slide"][type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+textarea {
+  resize: vertical;
+}
+hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 12px 0;
+}
+/* ---------- shell ---------- */
+#top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.brand b {
+  color: var(--accent);
+}
+.places .btn {
+  border-radius: 999px;
+}
+.prodchip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.chipx {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px;
+  opacity: 0.5;
+}
+.chipx:hover {
+  color: var(--warn);
+  opacity: 1;
+}
+.places [data-act="nbmenu"] {
+  max-width: 240px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nbwrap,
+.themewrap {
+  position: relative;
+  display: inline-block;
+}
+.brand-nb {
+  padding: 6px 10px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.share-btn {
+  font-weight: 650;
+}
+.util-grp {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+  opacity: 0.75;
+}
+.nbmenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.nbitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nbitem:hover {
+  background: var(--panel2);
+}
+.nbitem.on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+body.top-hidden #top {
+  display: none;
+}
+#topbump {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 65;
+  width: 56px;
+  height: 14px;
+  line-height: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.65;
+}
+#topbump:hover {
+  opacity: 1;
+  color: var(--accent);
 }
 
-#app {
-  min-height: 100vh;
+#sidebump {
+  position: fixed;
+  left: var(--sidew, 312px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 65;
+  width: 14px;
+  height: 56px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.65;
+}
+#sidebump:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+body.side-collapsed #sidebump {
+  left: 0;
+}
+body.top-hidden #main {
+  height: 100%;
+}
+#main {
+  display: grid;
+  grid-template-columns: var(--sidew, 312px) 5px 1fr;
+  height: calc(100% - 57px);
+}
+#resizer {
+  background: var(--line);
+  cursor: col-resize;
+  position: relative;
+}
+#resizer:hover {
+  background: var(--accent);
+}
+#resizer::after {
+  content: "⋮";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+#resizer:hover::after {
+  color: #fff;
+}
+.bm-group {
+  margin: 8px 0;
+}
+.bm-lbl {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.btn.md {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.btn.lg {
+  padding: 11px 18px;
+  font-size: 16px;
+}
+#side {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+  padding: 14px;
+}
+body.side-collapsed #side {
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
+body.side-collapsed #main {
+  grid-template-columns: 0 5px 1fr;
+}
+#stage {
+  overflow: auto;
+  padding: 22px 26px;
+}
+.sect {
+  margin-bottom: 16px;
+}
+.sect h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+.palette {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.card-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.card-shell.hw-narrow {
+  max-width: 680px;
+}
+.card-shell.hw-medium {
+  max-width: 980px;
+}
+.card-shell.hw-wide {
+  max-width: 1280px;
+}
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  color: var(--ink);
+  padding: 9px 15px;
+  border-radius: 10px;
+  z-index: 90;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+#modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 80;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-box {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  max-width: 460px;
+  width: 100%;
+  max-height: 88vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
