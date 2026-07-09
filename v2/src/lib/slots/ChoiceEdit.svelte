@@ -112,10 +112,10 @@
   .option-text {
     flex: 1;
     padding: 6px 8px;
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    background: var(--panel, #16213e);
-    color: var(--ink, #e0e0e0);
+    background: var(--panel);
+    color: var(--ink);
     font-size: 13px;
     font-family: inherit;
   }
@@ -123,9 +123,9 @@
   .remove {
     padding: 2px 8px;
     background: transparent;
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    color: var(--ink, #e0e0e0);
+    color: var(--ink);
     font-size: 16px;
     cursor: pointer;
     line-height: 1;
@@ -147,9 +147,9 @@
     align-self: flex-start;
     padding: 5px 12px;
     background: transparent;
-    border: 1px dashed var(--line, #2a2a4a);
+    border: 1px dashed var(--line);
     border-radius: 4px;
-    color: var(--ink, #e0e0e0);
+    color: var(--ink);
     font-size: 13px;
     font-family: inherit;
     cursor: pointer;

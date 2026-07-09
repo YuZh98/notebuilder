@@ -11,10 +11,10 @@
   .code-study {
     margin: 0;
     padding: 12px;
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    background: var(--panel, #16213e);
-    color: var(--ink, #e0e0e0);
+    background: var(--panel);
+    color: var(--ink);
     overflow-x: auto;
     white-space: pre;
   }

@@ -74,10 +74,10 @@
   }
   .style-row select {
     padding: 4px 6px;
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    background: var(--panel, #16213e);
-    color: var(--ink, #e0e0e0);
+    background: var(--panel);
+    color: var(--ink);
     font-size: 13px;
   }
   .items {
@@ -96,17 +96,17 @@
   .items input {
     flex: 1;
     padding: 5px 8px;
-    border: 1px solid var(--line, #2a2a4a);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    background: var(--panel, #16213e);
-    color: var(--ink, #e0e0e0);
+    background: var(--panel);
+    color: var(--ink);
     font-size: 13px;
     font-family: inherit;
   }
   .items button {
     background: none;
     border: none;
-    color: var(--ink, #e0e0e0);
+    color: var(--ink);
     opacity: 0.5;
     cursor: pointer;
     font-size: 16px;
@@ -119,9 +119,9 @@
   .add-btn {
     align-self: flex-start;
     background: none;
-    border: 1px dashed var(--line, #2a2a4a);
+    border: 1px dashed var(--line);
     border-radius: 4px;
-    color: var(--ink, #e0e0e0);
+    color: var(--ink);
     cursor: pointer;
     font-size: 12px;
     padding: 4px 10px;
