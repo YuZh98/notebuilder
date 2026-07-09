@@ -10,6 +10,8 @@
   import NotebookSwitcher from './lib/components/NotebookSwitcher.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import CardNotes from './lib/components/CardNotes.svelte';
+  import Toast from './lib/components/Toast.svelte';
+  import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
   import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
   import type { ProgressProps } from './lib/slots/progress';
@@ -63,8 +65,6 @@
     { id: 'nb_demo', name: 'My First Notebook' },
   ]);
 
-  let shareError = $state('');
-  let shareNotice = $state('');
   let newSlotType = $state('text');
 
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
@@ -173,26 +173,22 @@
   // ---- import / export ----
 
   async function handleImport() {
-    shareError = '';
-    shareNotice = '';
     const result = await importNotebookFromFile();
     if ('error' in result) {
-      shareError = result.error;
+      toast(result.error, 4000);
     } else if ('notebook' in result) {
       notebook = result.notebook;
       notebookList = [{ id: notebook.id, name: notebook.name }, ...notebookList];
-      shareNotice = `Imported "${notebook.name}"`;
+      toast(`Imported "${notebook.name}"`);
     }
   }
 
   async function handleExport() {
-    shareError = '';
-    shareNotice = '';
     const result = await exportNotebookToFile($state.snapshot(notebook));
     if ('error' in result) {
-      shareError = result.error;
+      toast(result.error, 4000);
     } else if ('path' in result) {
-      shareNotice = `Exported to ${result.path}`;
+      toast(`Exported to ${result.path}`);
     }
   }
 
@@ -257,7 +253,7 @@
     const ct = cardToType($state.snapshot(card) as Card, name);
     cardTypes = [...cardTypes, ct];
     if (isTauri()) void saveCardType(ct);
-    shareNotice = `Saved card type "${name}"`;
+    toast(`Saved card type "${name}"`);
   }
 
   async function removeCardType(ct: CardType) {
@@ -423,19 +419,6 @@
       {/if}
     </div>
   </header>
-
-  {#if shareError}
-    <div class="banner error" role="alert">
-      <pre>{shareError}</pre>
-      <button class="banner-close" onclick={() => (shareError = '')}>×</button>
-    </div>
-  {/if}
-  {#if shareNotice}
-    <div class="banner notice" role="status">
-      <span>{shareNotice}</span>
-      <button class="banner-close" onclick={() => (shareNotice = '')}>×</button>
-    </div>
-  {/if}
 
   {#if $mode === 'study' && showMatrix}
     <CoverageMatrix
@@ -655,6 +638,8 @@
   </main>
 </div>
 
+<Toast />
+
 <style>
   .app {
     max-width: 800px;
@@ -733,41 +718,6 @@
     font-size: 11px;
     padding: 2px 6px;
     width: 150px;
-  }
-  .banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    font-size: 13px;
-  }
-  .banner pre {
-    flex: 1;
-    white-space: pre-wrap;
-    font: inherit;
-    margin: 0;
-  }
-  .banner span {
-    flex: 1;
-  }
-  .banner.error {
-    background: color-mix(in srgb, #dc2626 15%, var(--panel));
-    border: 1px solid #dc2626;
-  }
-  .banner.notice {
-    background: color-mix(in srgb, var(--accent, #7c3aed) 15%, var(--panel));
-    border: 1px solid var(--accent, #7c3aed);
-  }
-  .banner-close {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 15px;
-    line-height: 1;
-    padding: 0;
   }
   .section h2 {
     font-size: 16px;
