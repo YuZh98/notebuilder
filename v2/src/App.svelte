@@ -7,7 +7,7 @@
   import { shouldShow, isLocked } from './lib/verbs';
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
-  import NotebookSwitcher from './lib/components/NotebookSwitcher.svelte';
+  import TopBar from './lib/components/TopBar.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import CardNotes from './lib/components/CardNotes.svelte';
   import Toast from './lib/components/Toast.svelte';
@@ -52,7 +52,7 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
-  import { THEMES, applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
+  import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
@@ -76,11 +76,9 @@
   let matrixFilter: MatrixSelection | null = $state(null);
 
   let themeId: ThemeId = $state('');
-  let themeMenuOpen = $state(false);
 
   function setTheme(id: ThemeId) {
     themeId = id;
-    themeMenuOpen = false;
     applyTheme(id);
     if (isTauri()) void setPreference('theme', id);
   }
@@ -379,57 +377,34 @@
   }
 </script>
 
-<svelte:window
-  onclick={(e) => {
-    if (themeMenuOpen && !(e.target as Element).closest('.theme-wrap')) themeMenuOpen = false;
-  }}
+<TopBar
+  notebooks={notebookList}
+  currentId={notebook.id}
+  {themeId}
+  canSwitch={isTauri()}
+  onswitch={(id) => void switchNotebook(id)}
+  oncreate={newNotebook}
+  onsettheme={setTheme}
+  onaddsection={() => addSection(notebook)}
+  onexport={() => void handleExport()}
+  onimport={() => void handleImport()}
 />
 
 <div class="app">
-  <header>
-    <NotebookSwitcher
-      list={notebookList}
-      currentId={notebook.id}
-      currentName={notebook.name}
-      canSwitch={isTauri()}
-      onswitch={(id) => void switchNotebook(id)}
-      oncreate={newNotebook}
-      onrename={renameNotebook}
-      ondelete={() => void removeNotebook()}
-    />
+  <main>
     {#if $mode === 'study'}
       <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
         Matrix
       </button>
-    {/if}
-    <button class="mode-toggle" class:study={$mode === 'study'} onclick={toggleMode}>
-      {$mode === 'edit' ? 'Edit' : 'Study'}
-    </button>
-    <span class="hint">⌘+Enter to toggle</span>
-    <div class="theme-wrap">
-      <button class="btn" title="Theme" onclick={() => (themeMenuOpen = !themeMenuOpen)}>
-        🎨 {THEMES.find((t) => t.id === themeId)?.chip} ▾
-      </button>
-      {#if themeMenuOpen}
-        <div class="thememenu">
-          {#each THEMES as t (t.id)}
-            <button class="btn {t.id === themeId ? 'on' : ''}" onclick={() => setTheme(t.id)}>{t.name}</button>
-          {/each}
-        </div>
+      {#if showMatrix}
+        <CoverageMatrix
+          cards={allCards}
+          states={readerState}
+          selection={matrixFilter}
+          onselect={(sel) => (matrixFilter = sel)}
+        />
       {/if}
-    </div>
-  </header>
-
-  {#if $mode === 'study' && showMatrix}
-    <CoverageMatrix
-      cards={allCards}
-      states={readerState}
-      selection={matrixFilter}
-      onselect={(sel) => (matrixFilter = sel)}
-    />
-  {/if}
-
-  <main>
+    {/if}
     {#each notebook.sections as section (section.id)}
       <section class="section">
         {#if $mode === 'edit'}
@@ -645,57 +620,6 @@
     max-width: 800px;
     margin: 0 auto;
     padding: 24px;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .hint {
-    font-size: 12px;
-    opacity: 0.5;
-  }
-  .theme-wrap {
-    position: relative;
-  }
-  .thememenu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    z-index: 50;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  }
-  .thememenu .btn {
-    justify-content: flex-start;
-    text-align: left;
-  }
-  .thememenu .btn.on {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .mode-toggle {
-    padding: 6px 16px;
-    border: 1px solid var(--accent);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--accent);
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .mode-toggle.study {
-    background: var(--accent);
-    color: var(--bg);
   }
   .matrix-toggle {
     padding: 6px 12px;

@@ -515,6 +515,12 @@ button {
   font-size: 12px;
   border-radius: 7px;
 }
+/* ONE disable treatment: real :disabled gets dimmed + blocked (no pointer-events:none — titles must still show) */
+.btn:disabled,
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .chip {
   display: inline-flex;
   align-items: center;
