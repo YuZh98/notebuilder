@@ -383,6 +383,12 @@
   }
 </script>
 
+<svelte:window
+  onclick={(e) => {
+    if (themeMenuOpen && !(e.target as Element).closest('.theme-wrap')) themeMenuOpen = false;
+  }}
+/>
+
 <div class="app">
   <header>
     <NotebookSwitcher
@@ -404,6 +410,18 @@
       {$mode === 'edit' ? 'Edit' : 'Study'}
     </button>
     <span class="hint">⌘+Enter to toggle</span>
+    <div class="theme-wrap">
+      <button class="btn" title="Theme" onclick={() => (themeMenuOpen = !themeMenuOpen)}>
+        🎨 {THEMES.find((t) => t.id === themeId)?.chip} ▾
+      </button>
+      {#if themeMenuOpen}
+        <div class="thememenu">
+          {#each THEMES as t (t.id)}
+            <button class="btn {t.id === themeId ? 'on' : ''}" onclick={() => setTheme(t.id)}>{t.name}</button>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </header>
 
   {#if shareError}
@@ -654,6 +672,31 @@
   .hint {
     font-size: 12px;
     opacity: 0.5;
+  }
+  .theme-wrap {
+    position: relative;
+  }
+  .thememenu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  .thememenu .btn {
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .thememenu .btn.on {
+    border-color: var(--accent);
+    color: var(--accent);
   }
   .mode-toggle {
     padding: 6px 16px;
