@@ -50,6 +50,7 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
+  import { THEMES, applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
@@ -74,16 +75,15 @@
   let showMatrix = $state(false);
   let matrixFilter: MatrixSelection | null = $state(null);
 
-  let theme: 'dark' | 'light' = $state('dark');
+  let themeId: ThemeId = $state('');
+  let themeMenuOpen = $state(false);
 
-  function toggleTheme() {
-    theme = theme === 'dark' ? 'light' : 'dark';
-    if (isTauri()) void setPreference('theme', theme);
+  function setTheme(id: ThemeId) {
+    themeId = id;
+    themeMenuOpen = false;
+    applyTheme(id);
+    if (isTauri()) void setPreference('theme', id);
   }
-
-  $effect(() => {
-    document.documentElement.dataset.theme = theme;
-  });
 
   // Reader annotations: private layer on top of the document, never exported.
   let annotations: AnnotationMap = $state({});
@@ -270,6 +270,7 @@
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
   onMount(() => {
     const unlisteners: Array<() => void> = [];
+    delete document.documentElement.dataset.theme;
     if (isTauri()) {
       void (async () => {
         const rows = await listNotebooks();
@@ -285,7 +286,8 @@
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
         const savedTheme = await getPreference('theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') theme = savedTheme;
+        themeId = normalizeThemeId(savedTheme);
+        applyTheme(themeId);
         // Seed built-in card types once; after that the DB is the source of truth.
         const types = await listCardTypes();
         if (types.length === 0) {
@@ -393,9 +395,6 @@
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
     />
-    <button class="theme-toggle" title="Toggle theme" onclick={toggleTheme}>
-      {theme === 'dark' ? '☀' : '☾'}
-    </button>
     {#if $mode === 'study'}
       <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
         Matrix
@@ -650,7 +649,7 @@
     gap: 16px;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--line);
   }
   .hint {
     font-size: 12px;
@@ -670,18 +669,9 @@
     background: var(--accent);
     color: var(--bg);
   }
-  .theme-toggle {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: inherit;
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 10px;
-  }
   .matrix-toggle {
     padding: 6px 12px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     background: transparent;
     color: inherit;
@@ -695,7 +685,7 @@
   .tags-input {
     background: transparent;
     color: inherit;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     font-size: 11px;
     padding: 2px 6px;
@@ -720,11 +710,11 @@
     flex: 1;
   }
   .banner.error {
-    background: color-mix(in srgb, #dc2626 15%, var(--surface));
+    background: color-mix(in srgb, #dc2626 15%, var(--panel));
     border: 1px solid #dc2626;
   }
   .banner.notice {
-    background: color-mix(in srgb, var(--accent, #7c3aed) 15%, var(--surface));
+    background: color-mix(in srgb, var(--accent, #7c3aed) 15%, var(--panel));
     border: 1px solid var(--accent, #7c3aed);
   }
   .banner-close {
@@ -758,8 +748,8 @@
   }
   .section-name:hover,
   .section-name:focus {
-    border-color: var(--border);
-    background: var(--surface);
+    border-color: var(--line);
+    background: var(--panel);
   }
   .drag-handle {
     cursor: grab;
@@ -787,8 +777,8 @@
     opacity: 1;
   }
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--panel);
+    border: 1px solid var(--line);
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 12px;
@@ -810,7 +800,7 @@
     opacity: 0.85;
     margin-bottom: 8px;
     padding-bottom: 6px;
-    border-bottom: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--line);
   }
   .card-toolbar label {
     display: flex;
@@ -837,7 +827,7 @@
     top: 8px;
     right: 12px;
     background: none;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     color: inherit;
     cursor: pointer;
@@ -854,7 +844,7 @@
     text-transform: uppercase;
     opacity: 0.5;
     margin: 12px 0 8px;
-    border-top: 1px dashed var(--border);
+    border-top: 1px dashed var(--line);
     padding-top: 8px;
   }
   .scope-error {
@@ -899,9 +889,9 @@
     margin-top: 8px;
   }
   .slot-adder select {
-    background: var(--surface);
+    background: var(--panel);
     color: inherit;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     font-size: 12px;
     padding: 2px 6px;
@@ -910,7 +900,7 @@
   .add-card,
   .add-section {
     background: none;
-    border: 1px dashed var(--border);
+    border: 1px dashed var(--line);
     border-radius: 4px;
     color: inherit;
     cursor: pointer;
@@ -933,9 +923,9 @@
     flex: 1;
   }
   .type-name-input {
-    background: var(--surface);
+    background: var(--panel);
     color: inherit;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     font-size: 12px;
     padding: 2px 6px;
@@ -957,8 +947,8 @@
     gap: 4px;
     align-items: flex-start;
     text-align: left;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--panel);
+    border: 1px solid var(--line);
     border-radius: 6px;
     color: inherit;
     cursor: pointer;

@@ -21,7 +21,7 @@
   }
   .image-study .placeholder {
     padding: 16px;
-    border: 1px dashed var(--border, #2a2a4a);
+    border: 1px dashed var(--line, #2a2a4a);
     border-radius: 4px;
     color: var(--muted, #888);
     font-size: 13px;

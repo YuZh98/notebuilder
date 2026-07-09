@@ -59,7 +59,7 @@
   .bar-track {
     flex: 1;
     height: 8px;
-    background: var(--border, #2a2a4a);
+    background: var(--line, #2a2a4a);
     border-radius: 4px;
     overflow: hidden;
   }

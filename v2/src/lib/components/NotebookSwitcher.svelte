@@ -80,9 +80,9 @@
   .rename-input {
     font-size: 16px;
     font-weight: 600;
-    background: var(--surface);
+    background: var(--panel);
     color: inherit;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     padding: 4px 8px;
     max-width: 320px;

@@ -62,7 +62,7 @@
     padding-left: 1.5em;
     font-size: 14px;
     line-height: 1.8;
-    color: var(--text, #e0e0e0);
+    color: var(--ink, #e0e0e0);
   }
   .checklist {
     list-style: none;
@@ -77,7 +77,7 @@
     gap: 8px;
     cursor: pointer;
     font-size: 14px;
-    color: var(--text, #e0e0e0);
+    color: var(--ink, #e0e0e0);
   }
   .checklist input[type='checkbox'] {
     width: 16px;

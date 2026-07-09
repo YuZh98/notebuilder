@@ -439,7 +439,7 @@ body[data-theme="sketch"] .ceview {
 body {
   font-family: var(--font);
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   min-height: 100vh;
 }
 

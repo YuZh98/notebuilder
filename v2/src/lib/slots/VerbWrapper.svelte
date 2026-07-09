@@ -67,9 +67,9 @@
     font-size: 11px;
     padding: 1px 6px;
     border-radius: 3px;
-    border: 1px solid var(--border, #2a2a4a);
-    background: var(--surface, #16213e);
-    color: var(--text, #e0e0e0);
+    border: 1px solid var(--line, #2a2a4a);
+    background: var(--panel, #16213e);
+    color: var(--ink, #e0e0e0);
     cursor: pointer;
     opacity: 0.7;
   }

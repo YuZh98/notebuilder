@@ -89,8 +89,8 @@
 
 <style>
   .matrix {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--panel);
+    border: 1px solid var(--line);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
@@ -111,7 +111,7 @@
   select {
     background: var(--bg);
     color: inherit;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     padding: 2px 6px;
   }
@@ -141,7 +141,7 @@
   }
   td button {
     background: var(--bg);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 4px;
     color: inherit;
     cursor: pointer;
