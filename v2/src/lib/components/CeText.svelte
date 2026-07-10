@@ -39,11 +39,13 @@
     }
     if (draft !== value) onchange(draft);
     suppressBlur = true;
+    textarea?.blur();
     editing = false;
   }
 
   function cancel() {
     suppressBlur = true;
+    textarea?.blur();
     editing = false;
   }
 

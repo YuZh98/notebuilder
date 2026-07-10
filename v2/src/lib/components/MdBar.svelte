@@ -39,22 +39,12 @@
     }, 150);
   }
 
-  // Removing a focused textarea (CeText Escape) fires no focusout; recheck after Escape.
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !target) return;
-    setTimeout(() => {
-      if (target && !target.isConnected) target = null;
-    }, 0);
-  }
-
   $effect(() => {
     window.addEventListener('focusin', onFocusIn);
     window.addEventListener('blur', onBlur, true);
-    window.addEventListener('keydown', onKeydown);
     return () => {
       window.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('blur', onBlur, true);
-      window.removeEventListener('keydown', onKeydown);
       clearTimeout(hideTimer);
     };
   });
