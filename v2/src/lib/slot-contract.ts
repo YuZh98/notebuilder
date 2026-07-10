@@ -10,8 +10,12 @@ export type StudyComponent<P extends SlotProps> = Component<{
   onState?: (next: Record<string, unknown>) => void;
 }>;
 
-/** Edit-mode component contract: receives props and an update callback */
-export type EditComponent<P extends SlotProps> = Component<{ props: P; onUpdate: (props: P) => void }>;
+/** Edit-mode component contract: receives props, an update callback, and the card scope */
+export type EditComponent<P extends SlotProps> = Component<{
+  props: P;
+  onUpdate: (props: P) => void;
+  scope?: Scope;
+}>;
 
 /** The contract every slot type must implement */
 export interface SlotType<P extends SlotProps = SlotProps> {

@@ -494,7 +494,7 @@
           <h2>{section.name}</h2>
         {/if}
         {#each section.cards.filter(cardVisible) as card (card.id)}
-          {@const resolved = $mode === 'study' ? cardScope(card) : { scope: {}, error: '' }}
+          {@const resolved = cardScope(card)}
           {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
           {@const face = $mode === 'study' ? faceSlots(card) : card.slots}
@@ -563,7 +563,7 @@
                 {@const slotType = getSlot(slot.type)}
                 {#if slotType}
                   <div class="slot editing">
-                    <slotType.renderEdit props={slot.props} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
+                    <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
                     <button class="slot-del" title="Remove slot" onclick={() => deleteSlot(notebook, card.id, slot.id)}>✕</button>
                   </div>
                 {/if}
@@ -585,7 +585,7 @@
                   {@const slotType = getSlot(slot.type)}
                   {#if slotType}
                     <div class="slot editing">
-                      <slotType.renderEdit props={slot.props} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
+                      <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
                       <button class="slot-del" title="Remove slot" onclick={() => deleteSlot(notebook, card.id, slot.id)}>✕</button>
                     </div>
                   {/if}

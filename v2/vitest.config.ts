@@ -7,8 +7,12 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
     globals: true,
+    setupFiles: ['./src/vitest.setup.ts'],
   },
   resolve: {
+    // Client builds of svelte/@testing-library — without this, vitest picks SSR exports
+    // and component render() fails with lifecycle_function_unavailable.
+    conditions: ['browser'],
     alias: {
       $lib: '/src/lib',
     },

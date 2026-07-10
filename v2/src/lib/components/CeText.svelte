@@ -8,12 +8,14 @@
     multiline = true,
     placeholder = '',
     scope = {},
+    viewClass = '',
   }: {
     value: string;
     onchange: (v: string) => void;
     multiline?: boolean;
     placeholder?: string;
     scope?: Scope;
+    viewClass?: string;
   } = $props();
 
   let editing = $state(false);
@@ -97,7 +99,7 @@
   ></textarea>
 {:else if value}
   <div
-    class="ceview"
+    class={['ceview', viewClass]}
     role="button"
     tabindex="0"
     onclick={startEdit}
@@ -107,7 +109,7 @@
   </div>
 {:else}
   <div
-    class="ceview ce-placeholder"
+    class={['ceview', 'ce-placeholder', viewClass]}
     role="button"
     tabindex="0"
     onclick={startEdit}

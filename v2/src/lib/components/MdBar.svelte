@@ -16,10 +16,10 @@
   function onFocusIn(e: FocusEvent) {
     const t = e.target;
     if (!(t instanceof Element)) return;
-    if (bar && bar.contains(t)) {
-      clearTimeout(hideTimer);
-      return;
-    }
+    // Focus hopping into the bar must NOT clear the grace timer: at focusin time the
+    // blurred textarea may still be connected (CeText unmounts it on the next flush),
+    // so only the grace re-check below can detect a stranded target reliably.
+    if (bar && bar.contains(t)) return;
     if (t instanceof HTMLTextAreaElement && t.classList.contains('ce')) {
       clearTimeout(hideTimer);
       target = t;
@@ -35,7 +35,7 @@
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       const a = document.activeElement;
-      if (!a || (!a.closest('.ce') && !(bar && bar.contains(a)))) target = null;
+      if (!target?.isConnected || !a || (!a.closest('.ce') && !(bar && bar.contains(a)))) target = null;
     }, 150);
   }
 
