@@ -34,8 +34,12 @@
     if (!target) return;
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
+      // Only activeElement decides visibility: CeText unmounts its textarea on
+      // every blur, so a disconnected target is normal here and must not hide
+      // the bar while focus sits inside it. Button handlers guard the stale
+      // reference via withTarget instead.
       const a = document.activeElement;
-      if (!target?.isConnected || !a || (!a.closest('.ce') && !(bar && bar.contains(a)))) target = null;
+      if (!a || (!a.closest('.ce') && !(bar && bar.contains(a)))) target = null;
     }, 150);
   }
 
@@ -53,10 +57,13 @@
   function onBarPointerDown(e: PointerEvent) {
     if (e.target instanceof Element && e.target.closest('button,summary')) e.preventDefault();
   }
+
+  function withTarget(fn: (ta: HTMLTextAreaElement) => void) {
+    if (target?.isConnected) fn(target);
+  }
 </script>
 
 {#if target}
-  {@const ta = target}
   <div
     id="mdbar"
     class="show"
@@ -68,13 +75,13 @@
     onpointerdown={onBarPointerDown}
   >
     {#each MD_BUTTONS as [key, label] (key)}
-      <button class="mdbtn" title={key} onclick={() => doMd(ta, key)}>{label}</button>
+      <button class="mdbtn" title={key} onclick={() => withTarget((ta) => doMd(ta, key))}>{label}</button>
     {/each}
     <details class="mdpad">
       <summary title="symbols/emoji">Ω</summary>
       <div class="padgrid">
         {#each SYMBOLS as sym (sym)}
-          <button class="symbtn" onclick={() => taIns(ta, sym)}>{sym}</button>
+          <button class="symbtn" onclick={() => withTarget((ta) => taIns(ta, sym))}>{sym}</button>
         {/each}
       </div>
     </details>
@@ -82,8 +89,10 @@
       <summary title="color">🎨</summary>
       <div class="padgrid">
         {#each COLOR_KEYS as col (col)}
-          <button class="colbtn" style="color:var(--{col})" onclick={() => taWrap(ta, `{c:${col}}`, '{/c}', 'text')}
-            >A</button
+          <button
+            class="colbtn"
+            style="color:var(--{col})"
+            onclick={() => withTarget((ta) => taWrap(ta, `{c:${col}}`, '{/c}', 'text'))}>A</button
           >
         {/each}
       </div>

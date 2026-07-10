@@ -58,13 +58,33 @@ describe('MdBar', () => {
 
   it('stays visible when focus hops between .ce textareas', async () => {
     render(MdBar);
-    const a = addCeTextarea();
-    const b = addCeTextarea();
+    const a = render(CeText, { props: { value: 'a', onchange: vi.fn() } });
+    const b = render(CeText, { props: { value: 'b', onchange: vi.fn() } });
 
-    await act(() => a.focus());
-    await act(() => b.focus());
+    await openCeTextEditor(a.container);
+    const tb = await openCeTextEditor(b.container);
+    // Focusing b's textarea blur-commits a's CeText, unmounting its textarea.
+    expect(a.container.querySelector('textarea.ce')).toBeNull();
+    expect(document.activeElement).toBe(tb);
+
     await act(() => vi.advanceTimersByTime(300));
+    expect(bar()).toBeInTheDocument();
+  });
 
+  it('stays visible when focus moves from the textarea into a bar button', async () => {
+    render(MdBar);
+    const { container } = render(CeText, {
+      props: { value: 'v', onchange: vi.fn() },
+    });
+
+    await openCeTextEditor(container);
+    const btn = bar()?.querySelector<HTMLButtonElement>('button.mdbtn');
+    expect(btn).not.toBeNull();
+
+    await act(() => btn?.focus());
+    expect(container.querySelector('textarea.ce')).toBeNull();
+
+    await act(() => vi.advanceTimersByTime(300));
     expect(bar()).toBeInTheDocument();
   });
 
@@ -84,13 +104,13 @@ describe('MdBar', () => {
     expect(bar()).toBeNull();
   });
 
-  it('hides when a bar padding click strands it on an unmounted textarea', async () => {
+  it('keeps the bar when a padding click strands focus on it, and buttons no-op safely', async () => {
     render(MdBar);
     const { container } = render(CeText, {
       props: { value: 'v', onchange: vi.fn() },
     });
 
-    await openCeTextEditor(container);
+    const ta = await openCeTextEditor(container);
     const barEl = bar();
     expect(barEl).toBeInTheDocument();
 
@@ -99,7 +119,15 @@ describe('MdBar', () => {
     await act(() => barEl?.focus());
     expect(container.querySelector('textarea.ce')).toBeNull();
 
+    // Focus is inside the bar, so it must stay visible past the grace period.
     await act(() => vi.advanceTimersByTime(300));
-    expect(bar()).toBeNull();
+    expect(bar()).toBeInTheDocument();
+
+    // The stale target is detached: button clicks must not mutate it.
+    const before = ta.value;
+    const btn = bar()?.querySelector<HTMLButtonElement>('button.mdbtn');
+    expect(btn).not.toBeNull();
+    if (btn) await fireEvent.click(btn);
+    expect(ta.value).toBe(before);
   });
 });
