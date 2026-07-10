@@ -868,3 +868,55 @@ body.side-collapsed #main {
   overflow: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
+/* ---------- ported: v1 text-slot typography & math (styles.css "slot rendering") ---------- */
+.slot.text h2,
+.slot.text h3,
+.slot.text h4 {
+  font-size: 18px;
+  font-weight: 680;
+  margin: 4px 0 6px;
+  color: var(--cardc);
+}
+.md-table {
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 0.95em;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid var(--line);
+  padding: 4px 9px;
+  text-align: left;
+}
+.md-table th {
+  background: color-mix(in srgb, var(--line) 30%, transparent);
+  font-weight: 650;
+}
+.slot blockquote {
+  border-left: 3px solid var(--accent2);
+  margin: 6px 0;
+  padding: 2px 10px;
+  color: var(--muted);
+}
+.slot h2,
+.slot h3,
+.slot h4 {
+  margin: 8px 0 4px;
+  line-height: 1.25;
+}
+.slot ul,
+.slot ol {
+  margin: 4px 0;
+  padding-left: 22px;
+}
+.math-raw {
+  font-family: var(--mono);
+  color: var(--accent2);
+}
+.math-err {
+  color: var(--warn);
+  font-family: var(--mono);
+}
+.katex-display {
+  margin: 8px 0;
+}

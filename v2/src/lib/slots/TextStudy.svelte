@@ -8,7 +8,7 @@
   }>();
 </script>
 
-<div class="text-study">
+<div class="slot text text-study">
   {@html renderMarkdown(props.text, scope)}
 </div>
 
