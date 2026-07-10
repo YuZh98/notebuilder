@@ -11,6 +11,7 @@
   import SideBar from './lib/components/SideBar.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import CardNotes from './lib/components/CardNotes.svelte';
+  import MdBar from './lib/components/MdBar.svelte';
   import Toast from './lib/components/Toast.svelte';
   import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
@@ -680,6 +681,7 @@
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
 
+<MdBar />
 <Toast />
 
 <style>

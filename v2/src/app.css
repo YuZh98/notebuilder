@@ -868,3 +868,183 @@ body.side-collapsed #main {
   overflow: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
+/* ---------- ported: v1 text-slot typography & math (styles.css "slot rendering") ---------- */
+.slot.text h2,
+.slot.text h3,
+.slot.text h4 {
+  font-size: 18px;
+  font-weight: 680;
+  margin: 4px 0 6px;
+  color: var(--cardc);
+}
+.md-table {
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 0.95em;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid var(--line);
+  padding: 4px 9px;
+  text-align: left;
+}
+.md-table th {
+  background: color-mix(in srgb, var(--line) 30%, transparent);
+  font-weight: 650;
+}
+.slot blockquote {
+  border-left: 3px solid var(--accent2);
+  margin: 6px 0;
+  padding: 2px 10px;
+  color: var(--muted);
+}
+.slot h2,
+.slot h3,
+.slot h4 {
+  margin: 8px 0 4px;
+  line-height: 1.25;
+}
+.slot ul,
+.slot ol {
+  margin: 4px 0;
+  padding-left: 22px;
+}
+.math-raw {
+  font-family: var(--mono);
+  color: var(--accent2);
+}
+.math-err {
+  color: var(--warn);
+  font-family: var(--mono);
+}
+.katex-display {
+  margin: 8px 0;
+}
+.slot code,
+.prod code {
+  font-family: var(--mono);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0 4px;
+  font-size: 0.9em;
+}
+.slot mark {
+  background: color-mix(in srgb, var(--accent2) 28%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.slot a {
+  color: var(--accent);
+}
+/* ---------- ported: v1 in-place editors (styles.css .ce / .ceview) ---------- */
+/* in-place editors auto-grow in height as you type (field-sizing + a JS fallback) */
+.ce {
+  width: 100%;
+  background: var(--panel2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 8px;
+  font: inherit;
+  resize: none;
+  margin: 3px 0;
+  field-sizing: content;
+  min-height: 2.1em;
+  overflow: hidden;
+}
+/* titles/subtitles auto-FIT their text width (don't span the whole row) */
+.ce.ce-title,
+.ce.ce-sub,
+.ce.ce-htitle,
+.ce.ce-hsub {
+  width: auto;
+  max-width: 100%;
+  min-width: 8em;
+}
+/* WYSIWYG: in Edit a text/heading/list slot shows its FORMATTED result; click to edit it raw */
+.ceview {
+  cursor: text;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  min-height: 1.2em;
+}
+.ceview:hover {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  outline: 1px dashed var(--line);
+}
+.ce-title {
+  font-size: 16px;
+  font-weight: 650;
+}
+.ce-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+/* house title/subtitle (Edit) — double-class beats .ce{font:inherit} which would otherwise reset font-size to equal. House is top-level so it's larger than a room's. */
+.ce.ce-htitle {
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.ce.ce-hsub {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+/* ---------- ported: v1 floating markdown toolbar (styles.css #mdbar) ---------- */
+#mdbar {
+  display: none;
+  position: fixed;
+  z-index: 88;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 3px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+#mdbar.show {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.mdbtn,
+.symbtn,
+.colbtn {
+  background: var(--panel2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.mdpad {
+  position: relative;
+}
+.mdpad > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel2);
+}
+.mdpad[open] > .padgrid {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px;
+  width: 248px;
+  max-height: 170px;
+  overflow: auto;
+  z-index: 89;
+}
