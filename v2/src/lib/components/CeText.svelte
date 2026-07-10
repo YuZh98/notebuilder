@@ -28,6 +28,7 @@
 
   function startEdit() {
     draft = value;
+    suppressBlur = false;
     editing = true;
   }
 
@@ -37,6 +38,7 @@
       return;
     }
     if (draft !== value) onchange(draft);
+    suppressBlur = true;
     editing = false;
   }
 
