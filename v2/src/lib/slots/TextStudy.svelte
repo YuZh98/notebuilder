@@ -17,10 +17,4 @@
     line-height: 1.6;
     font-size: 14px;
   }
-  .text-study :global(code) {
-    background: var(--line);
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 13px;
-  }
 </style>

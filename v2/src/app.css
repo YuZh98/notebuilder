@@ -920,3 +920,21 @@ body.side-collapsed #main {
 .katex-display {
   margin: 8px 0;
 }
+.slot code,
+.prod code {
+  font-family: var(--mono);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0 4px;
+  font-size: 0.9em;
+}
+.slot mark {
+  background: color-mix(in srgb, var(--accent2) 28%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.slot a {
+  color: var(--accent);
+}
