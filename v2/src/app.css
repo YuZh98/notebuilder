@@ -994,3 +994,57 @@ body.side-collapsed #main {
   font-weight: 400;
   color: var(--muted);
 }
+/* ---------- ported: v1 floating markdown toolbar (styles.css #mdbar) ---------- */
+#mdbar {
+  display: none;
+  position: fixed;
+  z-index: 88;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 3px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+#mdbar.show {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.mdbtn,
+.symbtn,
+.colbtn {
+  background: var(--panel2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.mdpad {
+  position: relative;
+}
+.mdpad > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel2);
+}
+.mdpad[open] > .padgrid {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px;
+  width: 248px;
+  max-height: 170px;
+  overflow: auto;
+  z-index: 89;
+}
