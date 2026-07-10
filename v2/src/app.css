@@ -1048,3 +1048,157 @@ body.side-collapsed #main {
   overflow: auto;
   z-index: 89;
 }
+/* ---------- ported: v1 stage — house header, rooms, chapters (styles.css) ---------- */
+.house-head {
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+} /* a long title may claim the full width; the mode buttons wrap below */
+.house-head.sel {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+.room.edit {
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  position: relative;
+}
+.room-lock {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.4;
+  padding: 2px;
+  z-index: 2;
+}
+.room-lock:hover,
+.room-lock.on {
+  opacity: 1;
+}
+.room.edit.sel {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.rgwrap {
+  display: flex;
+  align-items: flex-start;
+}
+.room {
+  position: relative;
+}
+.room {
+  margin-bottom: 26px;
+}
+.room-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: flex-start;
+}
+.grid .empty {
+  flex: 1 0 100%;
+}
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 26px;
+  text-align: center;
+  color: var(--muted);
+}
+.rgrip {
+  display: inline-block;
+  cursor: grab;
+  color: var(--muted);
+  font-size: 13px;
+  user-select: none;
+  padding: 1px 5px;
+  border-radius: 5px;
+  line-height: 1;
+}
+.room.edit:hover .rgrip {
+  color: var(--accent);
+}
+.rcollapse {
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted);
+  font-size: 14px;
+  margin-right: 5px;
+}
+.room.study:hover .rcollapse {
+  color: var(--accent);
+}
+.room.study .room-title {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.room-title h2,
+.room-title h3,
+.room-title h4 {
+  margin: 2px 0;
+}
+.room-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.room-meta {
+  margin-top: 3px;
+}
+.hh-titles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
+} /* content-based basis: a long title claims the row and the buttons wrap below */
+.house-title {
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.house-sub {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.room.divider {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 14px 0;
+}
+.room.divider.study {
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding: 8px 0 0;
+  margin: 22px 0 8px;
+}
+.room-title,
+.room-sub,
+.house-title,
+.house-sub {
+  width: fit-content;
+  max-width: 100%;
+}

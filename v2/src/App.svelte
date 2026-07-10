@@ -9,6 +9,7 @@
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import SideBar from './lib/components/SideBar.svelte';
+  import Stage from './lib/components/Stage.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import CardNotes from './lib/components/CardNotes.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -41,6 +42,7 @@
   import {
     createNotebook,
     addSection,
+    addChapter,
     renameSection,
     deleteSection,
     moveSection,
@@ -111,9 +113,8 @@
     return new Set(filterCards(allCards, f.rowAxis, f.rowVal, f.colAxis, f.colVal, readerState).map((c) => c.id));
   });
 
-  function cardVisible(card: Card): boolean {
-    return $mode === 'edit' || visibleCardIds === null || visibleCardIds.has(card.id);
-  }
+  // Edit-mode section selection (v1 selroom); Escape clears it.
+  let selSection: string | null = $state(null);
 
   function setCardTags(card: Card, raw: string) {
     const tags = raw
@@ -234,6 +235,20 @@
 
   // ---- section / card / slot CRUD ----
 
+  function setNotebookSubtitle(v: string) {
+    if (v.trim()) notebook.subtitle = v;
+    else delete notebook.subtitle;
+  }
+
+  // Section chrome updates arrive as patches; an undefined value deletes the key.
+  function patchSection(section: Section, patch: Partial<Section>) {
+    const target = section as Record<string, unknown>;
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete target[key];
+      else target[key] = value;
+    }
+  }
+
   async function removeSection(section: Section) {
     if (section.cards.length > 0) {
       const ok = await confirmDialog(
@@ -242,6 +257,7 @@
       );
       if (!ok) return;
     }
+    if (selSection === section.id) selSection = null;
     deleteSection(notebook, section.id);
   }
 
@@ -347,6 +363,7 @@
         e.preventDefault();
         toggleMode();
       }
+      if (e.key === 'Escape') selSection = null;
     }
     window.addEventListener('keydown', handleKey);
     return () => {
@@ -438,63 +455,54 @@
   oncreate={newNotebook}
   onsettheme={setTheme}
   onaddsection={() => addSection(notebook)}
+  onaddchapter={() => addChapter(notebook)}
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
 />
 
-<div id="main" style="--sidew:{sideW}px">
-  <SideBar
-    notebookName={notebook.name}
-    canPersist={isTauri()}
-    onrename={renameNotebook}
-    ondelete={() => void removeNotebook()}
-  />
-  <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
-  <div id="stage">
-    <div class="app">
-    {#if $mode === 'study'}
-      <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
-        Matrix
-      </button>
-      {#if showMatrix}
-        <CoverageMatrix
-          cards={allCards}
-          states={readerState}
-          selection={matrixFilter}
-          onselect={(sel) => (matrixFilter = sel)}
-        />
-      {/if}
+{#snippet matrix()}
+  {#if $mode === 'study'}
+    <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
+      Matrix
+    </button>
+    {#if showMatrix}
+      <CoverageMatrix
+        cards={allCards}
+        states={readerState}
+        selection={matrixFilter}
+        onselect={(sel) => (matrixFilter = sel)}
+      />
     {/if}
-    {#each notebook.sections as section (section.id)}
-      <section class="section">
-        {#if $mode === 'edit'}
-          <div
-            class="section-head"
-            role="presentation"
-            ondragover={allowDrop}
-            ondrop={(e) => dropSection(section.id, e)}
-          >
-            <span
-              class="drag-handle"
-              role="presentation"
-              draggable="true"
-              ondragstart={() => (dragSectionId = section.id)}
-              ondragend={() => (dragSectionId = null)}
-            >⠿</span>
-            <input
-              class="section-name"
-              value={section.name}
-              onchange={(e) => renameSection(notebook, section.id, e.currentTarget.value)}
-            />
-            <button title="Move section up" onclick={() => moveSection(notebook, section.id, -1)}>↑</button>
-            <button title="Move section down" onclick={() => moveSection(notebook, section.id, 1)}>↓</button>
-            <button title="Delete section" onclick={() => void removeSection(section)}>✕</button>
-          </div>
-        {:else}
-          <h2>{section.name}</h2>
-        {/if}
-        {#each section.cards.filter(cardVisible) as card (card.id)}
-          {@const resolved = cardScope(card)}
+  {/if}
+{/snippet}
+
+{#snippet sectionTools(section: Section)}
+  <div
+    class="section-head"
+    role="presentation"
+    ondragover={allowDrop}
+    ondrop={(e) => dropSection(section.id, e)}
+  >
+    <span
+      class="drag-handle"
+      role="presentation"
+      draggable="true"
+      ondragstart={() => (dragSectionId = section.id)}
+      ondragend={() => (dragSectionId = null)}
+    >⠿</span>
+    <input
+      class="section-name"
+      value={section.name}
+      onchange={(e) => renameSection(notebook, section.id, e.currentTarget.value)}
+    />
+    <button title="Move section up" onclick={() => moveSection(notebook, section.id, -1)}>↑</button>
+    <button title="Move section down" onclick={() => moveSection(notebook, section.id, 1)}>↓</button>
+    <button title="Delete section" onclick={() => void removeSection(section)}>✕</button>
+  </div>
+{/snippet}
+
+{#snippet cardView(section: Section, card: Card, editable: boolean)}
+  {@const resolved = cardScope(card)}
           {@const scope = resolved.scope}
           {@const done = $mode === 'study' ? cardDone(card) : false}
           {@const face = $mode === 'study' ? faceSlots(card) : card.slots}
@@ -518,7 +526,7 @@
             {#if $mode === 'study' && resolved.error}
               <div class="scope-error">Variables unavailable: {resolved.error}</div>
             {/if}
-            {#if $mode === 'edit'}
+            {#if editable}
               <div class="card-toolbar">
                 <span
                   class="drag-handle"
@@ -618,59 +626,86 @@
                   </div>
                 {/if}
               {/each}
-              {@const noteCount = annotationsFor(annotations, card.id).length}
-              <button
-                class="notes-toggle"
-                class:has-notes={noteCount > 0}
-                onclick={() => (notesFor = notesFor === card.id ? null : card.id)}
-              >
-                ✎ {noteCount > 0 ? `notes (${noteCount})` : 'note'}
-              </button>
-              {#if notesFor === card.id}
-                <CardNotes
-                  notes={annotationsFor(annotations, card.id)}
-                  onadd={(body) => addNote(card.id, body)}
-                  ondelete={deleteNote}
-                />
+              {#if $mode === 'study'}
+                {@const noteCount = annotationsFor(annotations, card.id).length}
+                <button
+                  class="notes-toggle"
+                  class:has-notes={noteCount > 0}
+                  onclick={() => (notesFor = notesFor === card.id ? null : card.id)}
+                >
+                  ✎ {noteCount > 0 ? `notes (${noteCount})` : 'note'}
+                </button>
+                {#if notesFor === card.id}
+                  <CardNotes
+                    notes={annotationsFor(annotations, card.id)}
+                    onadd={(body) => addNote(card.id, body)}
+                    ondelete={deleteNote}
+                  />
+                {/if}
               {/if}
             {/if}
           </div>
-        {/each}
-        {#if $mode === 'edit' && section.kind !== 'divider'}
-          <div class="add-row" role="presentation" ondragover={allowDrop} ondrop={(e) => dropCard(section.id, null, e)}>
-            <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
-            <button
-              class="add-card"
-              onclick={() => (galleryFor = galleryFor === section.id ? null : section.id)}
-            >+ from gallery</button>
-          </div>
-          {#if galleryFor === section.id}
-            <div class="gallery">
-              {#each cardTypes as ct (ct.id)}
-                <div class="gallery-item">
-                  <button class="gallery-stamp" onclick={() => stampFromGallery(section.id, ct)}>
-                    <strong>{ct.name}</strong>
-                    {#if ct.description}<span>{ct.description}</span>{/if}
-                  </button>
-                  {#if !isBuiltinType(ct.id)}
-                    <button class="gallery-del" title="Delete card type" onclick={() => void removeCardType(ct)}>✕</button>
-                  {/if}
-                </div>
-              {/each}
-            </div>
+{/snippet}
+
+{#snippet sectionFooter(section: Section)}
+  <div class="add-row" role="presentation" ondragover={allowDrop} ondrop={(e) => dropCard(section.id, null, e)}>
+    <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
+    <button
+      class="add-card"
+      onclick={() => (galleryFor = galleryFor === section.id ? null : section.id)}
+    >+ from gallery</button>
+  </div>
+  {#if galleryFor === section.id}
+    <div class="gallery">
+      {#each cardTypes as ct (ct.id)}
+        <div class="gallery-item">
+          <button class="gallery-stamp" onclick={() => stampFromGallery(section.id, ct)}>
+            <strong>{ct.name}</strong>
+            {#if ct.description}<span>{ct.description}</span>{/if}
+          </button>
+          {#if !isBuiltinType(ct.id)}
+            <button class="gallery-del" title="Delete card type" onclick={() => void removeCardType(ct)}>✕</button>
           {/if}
-        {/if}
-      </section>
-    {/each}
-    {#if $mode === 'edit'}
-      <button
-        class="add-section"
-        ondragover={allowDrop}
-        ondrop={(e) => dropSection(null, e)}
-        onclick={() => addSection(notebook)}
-      >+ section</button>
-    {/if}
+        </div>
+      {/each}
     </div>
+  {/if}
+{/snippet}
+
+{#snippet stageFooter()}
+  {#if $mode === 'edit'}
+    <button
+      class="add-section"
+      ondragover={allowDrop}
+      ondrop={(e) => dropSection(null, e)}
+      onclick={() => addSection(notebook)}
+    >+ section</button>
+  {/if}
+{/snippet}
+
+<div id="main" style="--sidew:{sideW}px">
+  <SideBar
+    notebookName={notebook.name}
+    canPersist={isTauri()}
+    onrename={renameNotebook}
+    ondelete={() => void removeNotebook()}
+  />
+  <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
+  <div id="stage">
+    <Stage
+      {notebook}
+      {visibleCardIds}
+      {selSection}
+      onselect={(id) => (selSection = id)}
+      onrename={renameNotebook}
+      onsubtitle={setNotebookSubtitle}
+      onpatchsection={patchSection}
+      {cardView}
+      {matrix}
+      {sectionTools}
+      {sectionFooter}
+      {stageFooter}
+    />
   </div>
 </div>
 
@@ -685,10 +720,6 @@
 <Toast />
 
 <style>
-  .app {
-    max-width: 800px;
-    margin: 0 auto;
-  }
   .matrix-toggle {
     padding: 6px 12px;
     border: 1px solid var(--line);
@@ -711,16 +742,13 @@
     padding: 2px 6px;
     width: 150px;
   }
-  .section h2 {
-    font-size: 16px;
-    margin-bottom: 12px;
-    opacity: 0.7;
-  }
   .section-head {
     display: flex;
     align-items: center;
     gap: 6px;
     margin-bottom: 12px;
+    /* keep the delete button clear of the absolute .room-lock in the corner */
+    padding-right: 26px;
   }
   .section-name {
     flex: 1;
@@ -768,6 +796,8 @@
     padding: 16px;
     margin-bottom: 12px;
     position: relative;
+    /* full-width row inside the flex .room-grid; per-card --w widths arrive with CardView */
+    flex: 1 0 100%;
   }
   .card.bare {
     background: transparent;

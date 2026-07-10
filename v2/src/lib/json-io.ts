@@ -187,6 +187,9 @@ export function validateNotebookJSON(json: unknown): string[] {
     if (sec.kind !== undefined && sec.kind !== 'divider') {
       errors.push(`sections[${si}].kind must be 'divider' if present`);
     }
+    if (sec.locked !== undefined && typeof sec.locked !== 'boolean') {
+      errors.push(`sections[${si}].locked must be a boolean`);
+    }
     if (sec.width !== undefined && (typeof sec.width !== 'number' || !Number.isFinite(sec.width) || sec.width <= 0)) {
       errors.push(`sections[${si}].width must be a positive finite number`);
     }

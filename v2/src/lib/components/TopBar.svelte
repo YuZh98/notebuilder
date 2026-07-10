@@ -13,6 +13,7 @@
     oncreate,
     onsettheme,
     onaddsection,
+    onaddchapter,
     onexport,
     onimport,
   }: {
@@ -24,6 +25,7 @@
     oncreate: () => void;
     onsettheme: (id: ThemeId) => void;
     onaddsection: () => void;
+    onaddchapter: () => void;
     onexport: () => void;
     onimport: () => void;
   } = $props();
@@ -144,7 +146,7 @@
     >Study</button>
     {#if $mode === 'edit'}
       <button class="btn sm" onclick={onaddsection}>＋ section</button>
-      <button class="btn sm staged" disabled title="Chapters arrive in a later phase">＋ chapter</button>
+      <button class="btn sm" title="Add a chapter divider" onclick={onaddchapter}>＋ chapter</button>
     {/if}
     <span style="width:10px;display:inline-block"></span>
     <button class="btn sm staged" disabled title="Undo">↶</button>

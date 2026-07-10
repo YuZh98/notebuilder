@@ -216,6 +216,15 @@ describe('chapter and chrome fields', () => {
     expect(errors.some((e) => /kind/.test(e))).toBe(true);
   });
 
+  it('validate rejects a non-boolean section locked flag', () => {
+    const json = exportNotebook(chromeNotebook()) as unknown as {
+      notebook: { sections: { locked?: unknown }[] };
+    };
+    json.notebook.sections[0].locked = 'yes';
+    const errors = validateNotebookJSON(json);
+    expect(errors.some((e) => /locked must be a boolean/.test(e))).toBe(true);
+  });
+
   it('validate rejects non-positive or non-numeric section width', () => {
     const base = exportNotebook(chromeNotebook());
     for (const bad of [0, -1, Infinity, NaN, 'wide']) {

@@ -9,6 +9,8 @@
     placeholder = '',
     scope = {},
     viewClass = '',
+    preview = '',
+    editClass = '',
   }: {
     value: string;
     onchange: (v: string) => void;
@@ -16,6 +18,9 @@
     placeholder?: string;
     scope?: Scope;
     viewClass?: string;
+    /** Pre-rendered view HTML — overrides the default renderMarkdown(value) (v1 previewHTML). */
+    preview?: string;
+    editClass?: string;
   } = $props();
 
   let editing = $state(false);
@@ -90,7 +95,7 @@
 {#if editing}
   <textarea
     bind:this={textarea}
-    class="ce"
+    class={['ce', editClass]}
     bind:value={draft}
     {placeholder}
     onblur={commit}
@@ -105,7 +110,7 @@
     onclick={startEdit}
     onkeydown={onViewKeydown}
   >
-    {@html renderMarkdown(value, scope)}
+    {@html preview || renderMarkdown(value, scope)}
   </div>
 {:else}
   <div
