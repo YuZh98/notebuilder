@@ -1,9 +1,10 @@
 <script lang="ts">
   import { renderMarkdown } from '../markdown';
+  import type { Scope } from '../variable-graph';
 
   let { props, scope = {} } = $props<{
     props: { text: string };
-    scope?: Record<string, unknown>;
+    scope?: Scope;
   }>();
 </script>
 
