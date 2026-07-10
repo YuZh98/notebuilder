@@ -3,7 +3,7 @@
   import { getSlot, allSlots } from './lib/slots/registry';
   import { buildCardScope } from './lib/card-scope';
   import { isCardDone, CARD_STATE_KEY } from './lib/card-done';
-  import { computeProgress } from './lib/progress';
+  import { computeProgress, progressScopeCards, type ProgressScope } from './lib/progress';
   import { shouldShow, isLocked } from './lib/verbs';
   import VerbWrapper from './lib/slots/VerbWrapper.svelte';
   import ProgressStudy from './lib/slots/ProgressStudy.svelte';
@@ -281,7 +281,7 @@
 
   function stampFromGallery(sectionId: string, ct: CardType) {
     const section = notebook.sections.find((s) => s.id === sectionId);
-    if (!section) return;
+    if (!section || section.kind === 'divider') return;
     section.cards.push(stampCard($state.snapshot(ct) as CardType, sectionId, section.cards.length));
     galleryFor = null;
   }
@@ -425,7 +425,7 @@
 
   // progress is cross-card: gather the cards in its declared scope.
   function progressCards(section: Section, props: SlotProps): Card[] {
-    return props.scope === 'notebook' ? notebook.sections.flatMap((s) => s.cards) : section.cards;
+    return progressScopeCards(notebook, section, (props.scope as ProgressScope) ?? 'section');
   }
 </script>
 
@@ -636,7 +636,7 @@
             {/if}
           </div>
         {/each}
-        {#if $mode === 'edit'}
+        {#if $mode === 'edit' && section.kind !== 'divider'}
           <div class="add-row" role="presentation" ondragover={allowDrop} ondrop={(e) => dropCard(section.id, null, e)}>
             <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
             <button

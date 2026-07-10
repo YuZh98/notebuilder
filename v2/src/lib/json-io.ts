@@ -9,13 +9,21 @@ export type NotebookJSON = {
   version: number;
   notebook: {
     name: string;
+    subtitle?: string;
+    width?: 'narrow' | 'medium' | 'wide';
     sections: SectionJSON[];
   };
 };
 
+// `folded` is deliberately absent: fold state is local-only and never exported.
 type SectionJSON = {
   name: string;
   cards: CardJSON[];
+  kind?: 'divider';
+  locked?: boolean;
+  width?: number;
+  title?: string;
+  subtitle?: string;
 };
 
 type CardJSON = {
@@ -23,6 +31,7 @@ type CardJSON = {
   verbs?: { flip?: boolean; bare?: boolean };
   back?: SlotJSON[];
   tags?: string[];
+  accent?: string;
 };
 
 type SlotJSON = {
@@ -40,13 +49,21 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
     version: SCHEMA_VERSION,
     notebook: {
       name: notebook.name,
+      ...(notebook.subtitle !== undefined && { subtitle: notebook.subtitle }),
+      ...(notebook.width !== undefined && { width: notebook.width }),
       sections: notebook.sections.map((s) => ({
         name: s.name,
+        ...(s.kind !== undefined && { kind: s.kind }),
+        ...(s.locked !== undefined && { locked: s.locked }),
+        ...(s.width !== undefined && { width: s.width }),
+        ...(s.title !== undefined && { title: s.title }),
+        ...(s.subtitle !== undefined && { subtitle: s.subtitle }),
         cards: s.cards.map((c) => ({
           slots: c.slots.map(exportSlot),
           ...(c.verbs && { verbs: c.verbs }),
           ...(c.back && { back: c.back.map(exportSlot) }),
           ...(c.tags && c.tags.length > 0 && { tags: c.tags }),
+          ...(c.accent !== undefined && { accent: c.accent }),
         })),
       })),
     },
@@ -82,6 +99,7 @@ export function importNotebook(json: NotebookJSON): Notebook {
       ...(c.verbs && { verbs: c.verbs }),
       ...(c.back && { back: c.back.map(importSlot) }),
       ...(c.tags && { tags: c.tags }),
+      ...(c.accent !== undefined && { accent: c.accent }),
     }));
     return {
       id: sectionId,
@@ -89,6 +107,11 @@ export function importNotebook(json: NotebookJSON): Notebook {
       name: s.name,
       position: si,
       cards,
+      ...(s.kind !== undefined && { kind: s.kind }),
+      ...(s.locked !== undefined && { locked: s.locked }),
+      ...(s.width !== undefined && { width: s.width }),
+      ...(s.title !== undefined && { title: s.title }),
+      ...(s.subtitle !== undefined && { subtitle: s.subtitle }),
     };
   });
 
@@ -98,6 +121,8 @@ export function importNotebook(json: NotebookJSON): Notebook {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     sections,
+    ...(json.notebook.subtitle !== undefined && { subtitle: json.notebook.subtitle }),
+    ...(json.notebook.width !== undefined && { width: json.notebook.width }),
   };
 }
 
@@ -143,6 +168,12 @@ export function validateNotebookJSON(json: unknown): string[] {
   }
   const nb = obj.notebook as Record<string, unknown>;
   if (typeof nb.name !== 'string') errors.push('notebook.name must be a string');
+  if (nb.subtitle !== undefined && typeof nb.subtitle !== 'string') {
+    errors.push('notebook.subtitle must be a string');
+  }
+  if (nb.width !== undefined && !['narrow', 'medium', 'wide'].includes(nb.width as string)) {
+    errors.push("notebook.width must be 'narrow', 'medium', or 'wide'");
+  }
   if (!Array.isArray(nb.sections)) {
     errors.push('notebook.sections must be an array');
     return errors;
@@ -152,7 +183,20 @@ export function validateNotebookJSON(json: unknown): string[] {
       errors.push(`sections[${si}] must be an object`);
       return;
     }
-    const cards = (s as Record<string, unknown>).cards;
+    const sec = s as Record<string, unknown>;
+    if (sec.kind !== undefined && sec.kind !== 'divider') {
+      errors.push(`sections[${si}].kind must be 'divider' if present`);
+    }
+    if (sec.width !== undefined && (typeof sec.width !== 'number' || !Number.isFinite(sec.width) || sec.width <= 0)) {
+      errors.push(`sections[${si}].width must be a positive finite number`);
+    }
+    if (sec.title !== undefined && typeof sec.title !== 'string') {
+      errors.push(`sections[${si}].title must be a string`);
+    }
+    if (sec.subtitle !== undefined && typeof sec.subtitle !== 'string') {
+      errors.push(`sections[${si}].subtitle must be a string`);
+    }
+    const cards = sec.cards;
     if (!Array.isArray(cards)) {
       errors.push(`sections[${si}].cards must be an array`);
       return;
@@ -162,6 +206,10 @@ export function validateNotebookJSON(json: unknown): string[] {
       if (!c || typeof c !== 'object') {
         errors.push(`${where} must be an object`);
         return;
+      }
+      const accent = (c as Record<string, unknown>).accent;
+      if (accent !== undefined && typeof accent !== 'string') {
+        errors.push(`${where}.accent must be a string`);
       }
       const slots = (c as Record<string, unknown>).slots;
       validateSlotsField(errors, slots, `${where}.slots`);

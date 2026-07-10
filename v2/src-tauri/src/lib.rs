@@ -75,6 +75,15 @@ pub fn run() {
             ",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "extensible data blobs on notebooks and sections",
+            sql: "
+                ALTER TABLE notebooks ADD COLUMN data TEXT NOT NULL DEFAULT '{}';
+                ALTER TABLE sections ADD COLUMN data TEXT NOT NULL DEFAULT '{}';
+            ",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -65,6 +65,41 @@ export function demoNotebook(): Notebook {
           },
         ],
       },
+      {
+        id: 'sec_div',
+        notebookId: 'nb_demo',
+        name: 'Part II',
+        position: 1,
+        cards: [],
+        kind: 'divider',
+      },
+      {
+        id: 'sec_2',
+        notebookId: 'nb_demo',
+        name: 'Going Deeper',
+        position: 2,
+        title: 'Going Deeper',
+        subtitle: 'Section chrome: a title, a subtitle, and an accented card.',
+        cards: [
+          {
+            id: 'card_6',
+            sectionId: 'sec_2',
+            position: 0,
+            accent: '#e4572e',
+            slots: [
+              { id: 'slot_ac', type: 'text', props: { text: 'This card carries an **accent color**, and the section above is a chapter *divider*.' } },
+            ],
+          },
+          {
+            id: 'card_7',
+            sectionId: 'sec_2',
+            position: 1,
+            slots: [
+              { id: 'slot_pr2', type: 'progress', props: { scope: 'chapter', label: 'Chapter progress', show: { mn: true, pct: true, bar: true } } },
+            ],
+          },
+        ],
+      },
     ],
   };
 }

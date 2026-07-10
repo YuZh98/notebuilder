@@ -29,6 +29,7 @@
     <span>Scope</span>
     <select value={props.scope} onchange={handleScope}>
       <option value="section">Section</option>
+      <option value="chapter">Chapter</option>
       <option value="notebook">Notebook</option>
     </select>
   </label>

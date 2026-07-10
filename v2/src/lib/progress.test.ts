@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { computeProgress } from './progress';
-import type { Card } from './types';
+import { computeProgress, progressScopeCards } from './progress';
+import { createNotebook, addSection, addCard, addChapter } from './notebook-ops';
+import type { Card, Notebook } from './types';
 
 // Ensure slots are registered (isCardDone delegates to registry)
 import './slots/registry';
@@ -62,5 +63,57 @@ describe('computeProgress', () => {
   it('missing card state defaults to {} (not done for completable)', () => {
     const cards = [makeCard('c1')];
     expect(computeProgress(cards, {})).toEqual({ done: 0, total: 1, pct: 0 });
+  });
+});
+
+describe('progressScopeCards', () => {
+  /** Layout: S0(c0) | div1 | S1(c1) S2(c2) | div2 | S3(c3) */
+  function chapteredNotebook(): Notebook {
+    const nb = createNotebook('N');
+    nb.sections[0].name = 'S0';
+    addCard(nb, nb.sections[0].id);
+    addChapter(nb, 'Part I');
+    const s1 = addSection(nb, 'S1');
+    addCard(nb, s1.id);
+    const s2 = addSection(nb, 'S2');
+    addCard(nb, s2.id);
+    addChapter(nb, 'Part II');
+    const s3 = addSection(nb, 'S3');
+    addCard(nb, s3.id);
+    return nb;
+  }
+
+  it('section scope resolves to the card\'s own section', () => {
+    const nb = chapteredNotebook();
+    const s1 = nb.sections[2];
+    expect(progressScopeCards(nb, s1, 'section')).toEqual(s1.cards);
+  });
+
+  it('chapter scope counts across the divider-bounded run', () => {
+    const nb = chapteredNotebook();
+    const s1 = nb.sections[2];
+    const s2 = nb.sections[3];
+    const ids = progressScopeCards(nb, s1, 'chapter').map((c) => c.id);
+    expect(ids).toEqual([...s1.cards, ...s2.cards].map((c) => c.id));
+    expect(progressScopeCards(nb, s2, 'chapter').map((c) => c.id)).toEqual(ids);
+  });
+
+  it('chapter scope before any divider covers only the leading run', () => {
+    const nb = chapteredNotebook();
+    const s0 = nb.sections[0];
+    expect(progressScopeCards(nb, s0, 'chapter')).toEqual(s0.cards);
+  });
+
+  it('notebook scope gathers all cards', () => {
+    const nb = chapteredNotebook();
+    expect(progressScopeCards(nb, nb.sections[0], 'notebook')).toHaveLength(4);
+  });
+
+  it('chapter scope equals notebook run when there are no dividers', () => {
+    const nb = createNotebook('N');
+    addCard(nb, nb.sections[0].id);
+    const s2 = addSection(nb, 'B');
+    addCard(nb, s2.id);
+    expect(progressScopeCards(nb, nb.sections[0], 'chapter')).toHaveLength(2);
   });
 });

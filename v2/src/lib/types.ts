@@ -39,15 +39,23 @@ export type Card = {
   verbs?: { flip?: boolean; bare?: boolean };
   back?: Slot[];
   tags?: string[];
+  accent?: string;
 };
 
-/** A section within a notebook */
+/** A section within a notebook. `kind: 'divider'` marks a chapter break — dividers hold no cards. */
 export type Section = {
   id: string;
   notebookId: string;
   name: string;
   position: number;
   cards: Card[];
+  kind?: 'divider';
+  locked?: boolean;
+  width?: number;
+  title?: string;
+  subtitle?: string;
+  /** Local-only fold state — persisted in the DB, never exported to interchange JSON. */
+  folded?: boolean;
 };
 
 /** A notebook — the top-level container */
@@ -57,6 +65,8 @@ export type Notebook = {
   createdAt: string;
   updatedAt: string;
   sections: Section[];
+  subtitle?: string;
+  width?: 'narrow' | 'medium' | 'wide';
 };
 
 /** Reader state for a card (local, never exported) */

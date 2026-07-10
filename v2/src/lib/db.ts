@@ -22,17 +22,18 @@ export async function saveNotebook(nb: Notebook): Promise<void> {
   const { notebook, sections, cards } = notebookToRows(nb);
   const d = await db();
   await d.execute(
-    'INSERT OR REPLACE INTO notebooks (id, name, created_at, updated_at) VALUES ($1, $2, $3, $4)',
-    [notebook.id, notebook.name, notebook.created_at, notebook.updated_at],
+    'INSERT OR REPLACE INTO notebooks (id, name, created_at, updated_at, data) VALUES ($1, $2, $3, $4, $5)',
+    [notebook.id, notebook.name, notebook.created_at, notebook.updated_at, notebook.data],
   );
   // Sections cascade-delete their cards; we rewrite the whole tree for this notebook.
   await d.execute('DELETE FROM sections WHERE notebook_id = $1', [notebook.id]);
   for (const s of sections) {
-    await d.execute('INSERT INTO sections (id, notebook_id, name, position) VALUES ($1, $2, $3, $4)', [
+    await d.execute('INSERT INTO sections (id, notebook_id, name, position, data) VALUES ($1, $2, $3, $4, $5)', [
       s.id,
       s.notebook_id,
       s.name,
       s.position,
+      s.data,
     ]);
   }
   for (const c of cards) {

@@ -34,3 +34,9 @@ describe('progressSlot', () => {
     expect(errors.length).toBeGreaterThan(0);
   });
 });
+
+describe('progress slot chapter scope', () => {
+  it('validate() accepts chapter scope', () => {
+    expect(progressSlot.validate!({ scope: 'chapter', label: 'x', show: {} })).toEqual([]);
+  });
+});

@@ -62,14 +62,15 @@ describe('notebookToRows', () => {
       name: 'My Notebook',
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
+      data: '{}',
     });
   });
 
   it('produces correct SectionRows in order', () => {
     const { sections } = notebookToRows(FULL_NB);
     expect(sections).toHaveLength(2);
-    expect(sections[0]).toEqual({ id: 's1', notebook_id: 'nb1', name: 'Section One', position: 0 });
-    expect(sections[1]).toEqual({ id: 's2', notebook_id: 'nb1', name: 'Section Two', position: 1 });
+    expect(sections[0]).toEqual({ id: 's1', notebook_id: 'nb1', name: 'Section One', position: 0, data: '{}' });
+    expect(sections[1]).toEqual({ id: 's2', notebook_id: 'nb1', name: 'Section Two', position: 1, data: '{}' });
   });
 
   it('produces correct CardRows with JSON data', () => {
@@ -169,6 +170,85 @@ describe('rowsToNotebook', () => {
         expect(card.sectionId).toBe(section.id);
       }
     }
+  });
+});
+
+describe('chrome fields (sections.data / notebooks.data / cards.data accent)', () => {
+  const CHROME_NB: Notebook = {
+    id: 'nb5',
+    name: 'Chrome',
+    subtitle: 'A subtitled notebook',
+    width: 'wide',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+    sections: [
+      {
+        id: 'd1',
+        notebookId: 'nb5',
+        name: 'Part I',
+        position: 0,
+        cards: [],
+        kind: 'divider',
+      },
+      {
+        id: 's5',
+        notebookId: 'nb5',
+        name: 'Fancy Section',
+        position: 1,
+        cards: [
+          {
+            id: 'c6',
+            sectionId: 's5',
+            position: 0,
+            slots: [{ id: 'sl8', type: 'text', props: { text: 'hi' } }],
+            accent: '#ff6600',
+          },
+        ],
+        locked: true,
+        width: 2,
+        title: 'Big Title',
+        subtitle: 'Small subtitle',
+        folded: true,
+      },
+    ],
+  };
+
+  it('serializes section chrome into sections.data JSON', () => {
+    const { sections } = notebookToRows(CHROME_NB);
+    expect(JSON.parse(sections[0].data)).toEqual({ kind: 'divider' });
+    expect(JSON.parse(sections[1].data)).toEqual({
+      locked: true,
+      width: 2,
+      title: 'Big Title',
+      subtitle: 'Small subtitle',
+      folded: true,
+    });
+  });
+
+  it('serializes notebook subtitle/width into notebooks.data JSON', () => {
+    const { notebook } = notebookToRows(CHROME_NB);
+    expect(JSON.parse(notebook.data)).toEqual({ subtitle: 'A subtitled notebook', width: 'wide' });
+  });
+
+  it('serializes card accent into cards.data JSON', () => {
+    const { cards } = notebookToRows(CHROME_NB);
+    expect(JSON.parse(cards[0].data).accent).toBe('#ff6600');
+  });
+
+  it('round-trips chrome fields', () => {
+    const { notebook, sections, cards } = notebookToRows(CHROME_NB);
+    expect(rowsToNotebook(notebook, sections, cards)).toEqual(CHROME_NB);
+  });
+
+  it('omits absent chrome keys after round-trip', () => {
+    const { notebook, sections, cards } = notebookToRows(FULL_NB);
+    const result = rowsToNotebook(notebook, sections, cards);
+    expect(result).not.toHaveProperty('subtitle');
+    expect(result).not.toHaveProperty('width');
+    for (const key of ['kind', 'locked', 'width', 'title', 'subtitle', 'folded']) {
+      expect(result.sections[0]).not.toHaveProperty(key);
+    }
+    expect(result.sections[0].cards[0]).not.toHaveProperty('accent');
   });
 });
 

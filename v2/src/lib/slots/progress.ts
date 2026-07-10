@@ -4,7 +4,7 @@ import ProgressEdit from './ProgressEdit.svelte';
 import ProgressStudy from './ProgressStudy.svelte';
 
 export type ProgressProps = {
-  scope: 'section' | 'notebook';
+  scope: 'section' | 'chapter' | 'notebook';
   label?: string;
   show?: {
     mn?: boolean;
@@ -31,8 +31,8 @@ export const progressSlot: SlotType<ProgressProps> = {
   },
 
   validate(props: ProgressProps): string[] {
-    if (props.scope !== 'section' && props.scope !== 'notebook') {
-      return [`scope must be 'section' or 'notebook', got '${props.scope}'`];
+    if (props.scope !== 'section' && props.scope !== 'chapter' && props.scope !== 'notebook') {
+      return [`scope must be 'section', 'chapter', or 'notebook', got '${props.scope}'`];
     }
     return [];
   },

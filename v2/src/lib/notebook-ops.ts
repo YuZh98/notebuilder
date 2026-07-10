@@ -26,6 +26,43 @@ export function addSection(nb: Notebook, name?: string): Section {
   return section;
 }
 
+/** Append a chapter divider — a card-less section that splits the notebook into chapters. */
+export function addChapter(nb: Notebook, name?: string): Section {
+  const section: Section = {
+    id: uid('sec'),
+    notebookId: nb.id,
+    name: name ?? 'Chapter',
+    position: nb.sections.length,
+    cards: [],
+    kind: 'divider',
+  };
+  nb.sections.push(section);
+  return section;
+}
+
+/** Sections following the divider, up to (not including) the next divider. */
+export function sectionsOfChapter(nb: Notebook, dividerId: string): Section[] {
+  const i = nb.sections.findIndex((s) => s.id === dividerId);
+  if (i === -1) return [];
+  const out: Section[] = [];
+  for (let j = i + 1; j < nb.sections.length && nb.sections[j].kind !== 'divider'; j++) {
+    out.push(nb.sections[j]);
+  }
+  return out;
+}
+
+/** The contiguous run of non-divider sections around sectionId, bounded by dividers. */
+export function chapterOf(nb: Notebook, sectionId: string): Section[] {
+  const ss = nb.sections;
+  const i = ss.findIndex((s) => s.id === sectionId);
+  if (i === -1) return [];
+  let lo = i;
+  let hi = i;
+  while (lo > 0 && ss[lo - 1].kind !== 'divider') lo--;
+  while (hi < ss.length - 1 && ss[hi + 1].kind !== 'divider') hi++;
+  return ss.slice(lo, hi + 1).filter((s) => s.kind !== 'divider');
+}
+
 export function renameSection(nb: Notebook, sectionId: string, name: string): void {
   const section = nb.sections.find((s) => s.id === sectionId);
   if (section) section.name = name;
@@ -43,6 +80,7 @@ export function moveSection(nb: Notebook, sectionId: string, dir: -1 | 1): void 
 export function addCard(nb: Notebook, sectionId: string): Card {
   const section = nb.sections.find((s) => s.id === sectionId);
   if (!section) throw new Error(`No such section: ${sectionId}`);
+  if (section.kind === 'divider') throw new Error('Divider sections cannot hold cards');
   const card: Card = {
     id: uid('card'),
     sectionId,
@@ -81,7 +119,7 @@ export function moveCardBefore(
   beforeCardId: string | null,
 ): void {
   const target = nb.sections.find((s) => s.id === targetSectionId);
-  if (!target || cardId === beforeCardId) return;
+  if (!target || target.kind === 'divider' || cardId === beforeCardId) return;
 
   let card: Card | undefined;
   for (const section of nb.sections) {

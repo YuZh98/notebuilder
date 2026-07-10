@@ -12,7 +12,23 @@ import {
   deleteSlot,
   moveCardBefore,
   moveSectionBefore,
+  addChapter,
+  sectionsOfChapter,
+  chapterOf,
 } from './notebook-ops';
+import type { Notebook } from './types';
+
+/** Layout: S0 | div1 | S1 S2 | div2 | S3 */
+function chapteredNotebook(): Notebook {
+  const nb = createNotebook('Chapters');
+  nb.sections[0].name = 'S0';
+  addChapter(nb, 'Part I');
+  addSection(nb, 'S1');
+  addSection(nb, 'S2');
+  addChapter(nb, 'Part II');
+  addSection(nb, 'S3');
+  return nb;
+}
 
 describe('createNotebook', () => {
   it('creates a named notebook with one empty section', () => {
@@ -177,5 +193,92 @@ describe('moveSectionBefore', () => {
     expect(nb.sections.map((s) => s.position)).toEqual([0, 1, 2]);
     moveSectionBefore(nb, b.id, null);
     expect(nb.sections[2].id).toBe(b.id);
+  });
+});
+
+describe('chapters', () => {
+  it('addChapter appends a divider section with no cards', () => {
+    const nb = createNotebook('N');
+    const div = addChapter(nb, 'Part I');
+    expect(div.kind).toBe('divider');
+    expect(div.name).toBe('Part I');
+    expect(div.position).toBe(1);
+    expect(div.cards).toEqual([]);
+    expect(nb.sections[1]).toBe(div);
+  });
+
+  it('addChapter defaults the name', () => {
+    const nb = createNotebook('N');
+    const div = addChapter(nb);
+    expect(div.name).toBeTruthy();
+  });
+
+  it('sectionsOfChapter returns the run after the divider until the next divider', () => {
+    const nb = chapteredNotebook();
+    const [, div1, s1, s2, div2, s3] = nb.sections;
+    expect(sectionsOfChapter(nb, div1.id).map((s) => s.name)).toEqual(['S1', 'S2']);
+    expect(sectionsOfChapter(nb, div2.id).map((s) => s.name)).toEqual(['S3']);
+    expect(s1.kind).toBeUndefined();
+    expect(s2.kind).toBeUndefined();
+    expect(s3.kind).toBeUndefined();
+  });
+
+  it('sectionsOfChapter of a trailing divider is empty', () => {
+    const nb = createNotebook('N');
+    const div = addChapter(nb);
+    expect(sectionsOfChapter(nb, div.id)).toEqual([]);
+  });
+
+  it('sectionsOfChapter of an unknown id is empty', () => {
+    const nb = chapteredNotebook();
+    expect(sectionsOfChapter(nb, 'nope')).toEqual([]);
+  });
+
+  it('chapterOf returns the contiguous non-divider run around a section', () => {
+    const nb = chapteredNotebook();
+    const [s0, , s1, s2, , s3] = nb.sections;
+    expect(chapterOf(nb, s0.id).map((s) => s.name)).toEqual(['S0']);
+    expect(chapterOf(nb, s1.id).map((s) => s.name)).toEqual(['S1', 'S2']);
+    expect(chapterOf(nb, s2.id).map((s) => s.name)).toEqual(['S1', 'S2']);
+    expect(chapterOf(nb, s3.id).map((s) => s.name)).toEqual(['S3']);
+  });
+
+  it('chapterOf of an unknown id is empty', () => {
+    const nb = chapteredNotebook();
+    expect(chapterOf(nb, 'nope')).toEqual([]);
+  });
+
+  it('chapterOf spans the whole notebook when there are no dividers', () => {
+    const nb = createNotebook('N');
+    addSection(nb, 'B');
+    expect(chapterOf(nb, nb.sections[0].id)).toHaveLength(2);
+  });
+
+  it('deleteSection removes a divider like any section', () => {
+    const nb = chapteredNotebook();
+    const div1 = nb.sections[1];
+    deleteSection(nb, div1.id);
+    expect(nb.sections.some((s) => s.id === div1.id)).toBe(false);
+    expect(nb.sections.map((s) => s.position)).toEqual([0, 1, 2, 3, 4]);
+  });
+});
+
+describe('divider card guards', () => {
+  it('addCard throws for a divider section', () => {
+    const nb = createNotebook('N');
+    const div = addChapter(nb);
+    expect(() => addCard(nb, div.id)).toThrow(/divider/i);
+    expect(div.cards).toEqual([]);
+  });
+
+  it('moveCardBefore into a divider is a no-op', () => {
+    const nb = chapteredNotebook();
+    const s0 = nb.sections[0];
+    const div1 = nb.sections[1];
+    const card = addCard(nb, s0.id);
+    moveCardBefore(nb, card.id, div1.id, null);
+    expect(div1.cards).toEqual([]);
+    expect(s0.cards.map((c) => c.id)).toEqual([card.id]);
+    expect(card.sectionId).toBe(s0.id);
   });
 });

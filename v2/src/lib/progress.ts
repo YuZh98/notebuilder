@@ -1,5 +1,15 @@
 import { isCardDone } from './card-done';
-import type { Card } from './types';
+import { chapterOf } from './notebook-ops';
+import type { Card, Notebook, Section } from './types';
+
+export type ProgressScope = 'section' | 'chapter' | 'notebook';
+
+/** Resolve which cards a progress slot in `section` counts, per its declared scope. */
+export function progressScopeCards(nb: Notebook, section: Section, scope: ProgressScope): Card[] {
+  if (scope === 'notebook') return nb.sections.flatMap((s) => s.cards);
+  if (scope === 'chapter') return chapterOf(nb, section.id).flatMap((s) => s.cards);
+  return section.cards;
+}
 
 export function computeProgress(
   cards: Card[],

@@ -141,6 +141,124 @@ describe('validateNotebookJSON', () => {
   });
 });
 
+describe('chapter and chrome fields', () => {
+  function chromeNotebook(): Notebook {
+    const nb: Notebook = structuredClone(sampleNotebook);
+    nb.subtitle = 'A course';
+    nb.width = 'narrow';
+    nb.sections[0].locked = true;
+    nb.sections[0].width = 2;
+    nb.sections[0].title = 'Chapter Title';
+    nb.sections[0].subtitle = 'Chapter subtitle';
+    nb.sections[0].folded = true;
+    nb.sections[0].cards[0].accent = '#00cc88';
+    nb.sections.push({
+      id: 'sec_div',
+      notebookId: 'nb_1',
+      name: 'Part II',
+      position: 1,
+      cards: [],
+      kind: 'divider',
+    });
+    return nb;
+  }
+
+  it('exports section chrome, divider kind, card accent, notebook subtitle/width', () => {
+    const json = exportNotebook(chromeNotebook());
+    expect(json.notebook.subtitle).toBe('A course');
+    expect(json.notebook.width).toBe('narrow');
+    const s = json.notebook.sections[0];
+    expect(s.locked).toBe(true);
+    expect(s.width).toBe(2);
+    expect(s.title).toBe('Chapter Title');
+    expect(s.subtitle).toBe('Chapter subtitle');
+    expect(s.cards[0].accent).toBe('#00cc88');
+    expect(json.notebook.sections[1].kind).toBe('divider');
+  });
+
+  it('never exports folded (local-only)', () => {
+    const json = exportNotebook(chromeNotebook());
+    expect(json.notebook.sections[0]).not.toHaveProperty('folded');
+    expect(JSON.stringify(json)).not.toContain('folded');
+  });
+
+  it('round-trips chrome fields except folded', () => {
+    const imported = importNotebook(exportNotebook(chromeNotebook()));
+    expect(imported.subtitle).toBe('A course');
+    expect(imported.width).toBe('narrow');
+    const s = imported.sections[0];
+    expect(s.locked).toBe(true);
+    expect(s.width).toBe(2);
+    expect(s.title).toBe('Chapter Title');
+    expect(s.subtitle).toBe('Chapter subtitle');
+    expect(s.folded).toBeUndefined();
+    expect(s.cards[0].accent).toBe('#00cc88');
+    expect(imported.sections[1].kind).toBe('divider');
+  });
+
+  it('omits chrome keys entirely when absent', () => {
+    const json = exportNotebook(sampleNotebook);
+    expect(json.notebook).not.toHaveProperty('subtitle');
+    expect(json.notebook).not.toHaveProperty('width');
+    const s = json.notebook.sections[0];
+    for (const key of ['kind', 'locked', 'width', 'title', 'subtitle']) {
+      expect(s).not.toHaveProperty(key);
+    }
+    expect(s.cards[0]).not.toHaveProperty('accent');
+  });
+
+  it('validate rejects a section kind other than divider', () => {
+    const json = exportNotebook(chromeNotebook()) as unknown as {
+      notebook: { sections: { kind?: string }[] };
+    };
+    json.notebook.sections[1].kind = 'banner';
+    const errors = validateNotebookJSON(json);
+    expect(errors.some((e) => /kind/.test(e))).toBe(true);
+  });
+
+  it('validate rejects non-positive or non-numeric section width', () => {
+    const base = exportNotebook(chromeNotebook());
+    for (const bad of [0, -1, Infinity, NaN, 'wide']) {
+      const json = structuredClone(base) as unknown as {
+        notebook: { sections: { width?: unknown }[] };
+      };
+      json.notebook.sections[0].width = bad;
+      const errors = validateNotebookJSON(json);
+      expect(errors.some((e) => /width/.test(e)), `width=${String(bad)}`).toBe(true);
+    }
+  });
+
+  it('validate rejects non-string title/subtitle/accent', () => {
+    const json = exportNotebook(chromeNotebook()) as unknown as {
+      notebook: {
+        subtitle?: unknown;
+        sections: { title?: unknown; subtitle?: unknown; cards: { accent?: unknown }[] }[];
+      };
+    };
+    json.notebook.sections[0].title = 5;
+    json.notebook.sections[0].subtitle = false;
+    json.notebook.sections[0].cards[0].accent = 7;
+    json.notebook.subtitle = 9;
+    const errors = validateNotebookJSON(json);
+    expect(errors.some((e) => /title/.test(e))).toBe(true);
+    expect(errors.some((e) => /subtitle/.test(e))).toBe(true);
+    expect(errors.some((e) => /accent/.test(e))).toBe(true);
+  });
+
+  it('validate rejects an invalid notebook width', () => {
+    const json = exportNotebook(chromeNotebook()) as unknown as { notebook: { width?: unknown } };
+    json.notebook.width = 'gigantic';
+    const errors = validateNotebookJSON(json);
+    expect(errors.some((e) => /width/.test(e))).toBe(true);
+  });
+
+  it('validate still passes valid chrome fields (schema version stays 1)', () => {
+    const json = exportNotebook(chromeNotebook());
+    expect(json.version).toBe(1);
+    expect(validateNotebookJSON(json)).toEqual([]);
+  });
+});
+
 describe('adoptNotebookIdentity', () => {
   it('rebinds notebook id and section notebookId', () => {
     const imported = importNotebook(exportNotebook(sampleNotebook));
