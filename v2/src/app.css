@@ -938,3 +938,59 @@ body.side-collapsed #main {
 .slot a {
   color: var(--accent);
 }
+/* ---------- ported: v1 in-place editors (styles.css .ce / .ceview) ---------- */
+/* in-place editors auto-grow in height as you type (field-sizing + a JS fallback) */
+.ce {
+  width: 100%;
+  background: var(--panel2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 8px;
+  font: inherit;
+  resize: none;
+  margin: 3px 0;
+  field-sizing: content;
+  min-height: 2.1em;
+  overflow: hidden;
+}
+/* titles/subtitles auto-FIT their text width (don't span the whole row) */
+.ce.ce-title,
+.ce.ce-sub,
+.ce.ce-htitle,
+.ce.ce-hsub {
+  width: auto;
+  max-width: 100%;
+  min-width: 8em;
+}
+/* WYSIWYG: in Edit a text/heading/list slot shows its FORMATTED result; click to edit it raw */
+.ceview {
+  cursor: text;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  min-height: 1.2em;
+}
+.ceview:hover {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  outline: 1px dashed var(--line);
+}
+.ce-title {
+  font-size: 16px;
+  font-weight: 650;
+}
+.ce-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+/* house title/subtitle (Edit) — double-class beats .ce{font:inherit} which would otherwise reset font-size to equal. House is top-level so it's larger than a room's. */
+.ce.ce-htitle {
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.ce.ce-hsub {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
