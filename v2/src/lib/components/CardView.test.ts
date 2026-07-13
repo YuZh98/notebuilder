@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import CardView from './CardView.svelte';
 import { mode } from '../stores/mode';
+import { CARD_STATE_KEY } from '../card-done';
 import type { Card, Slot } from '../types';
 
 function slot(id: string, over: Partial<Slot> = {}): Slot {
@@ -204,5 +205,201 @@ describe('CardView card controls', () => {
     await fireEvent.change(tagsInput, { target: { value: 'a, b, c' } });
     expect(props.ontags).toHaveBeenCalledWith('a, b, c');
     expect(card).toEqual(snapshot);
+  });
+});
+
+// reveal key that never exists in scope -> the slot is hidden in Study
+const hidden = { reveal: { key: 'nope', op: '==' as const, val: 1 } };
+
+describe('CardView fuse chains', () => {
+  it('groups consecutive fused slots into one .cardslot > .fusewrap with seams between cells', () => {
+    const card = cardOf({
+      slots: [
+        slot('a', { fuse: true, w: 4 }),
+        slot('b', { fuse: true, w: 4 }),
+        slot('c', { w: 4 }),
+        slot('d', { w: 6 }),
+      ],
+    });
+    const { container } = render(CardView, { props: baseProps(card) });
+
+    const wraps = container.querySelectorAll('.fusewrap');
+    expect(wraps).toHaveLength(1);
+    const cells = wraps[0].querySelectorAll('.fusecell');
+    expect([...cells].map((c) => c.getAttribute('data-sid'))).toEqual(['a', 'b', 'c']);
+    const guts = wraps[0].querySelectorAll('.fusegut');
+    expect([...guts].map((g) => g.getAttribute('data-fusegut'))).toEqual(['a', 'b']);
+
+    const chainSlot = wraps[0].closest('.cardslot');
+    expect(chainSlot?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:12');
+    expect(chainSlot?.hasAttribute('data-sid')).toBe(false);
+
+    const d = container.querySelector('.cardslot[data-sid="d"]');
+    expect(d?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:6');
+    expect(d?.querySelector('.fusewrap')).toBeNull();
+  });
+
+  it('clamps the chain width at 12 and sizes cells by fuseW (default 1)', () => {
+    const card = cardOf({
+      slots: [slot('a', { fuse: true, w: 8, fuseW: 2 }), slot('b', { w: 8 })],
+    });
+    const { container } = render(CardView, { props: baseProps(card) });
+
+    const chainSlot = container.querySelector('.fusewrap')?.closest('.cardslot');
+    expect(chainSlot?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:12');
+    const a = container.querySelector('.fusecell[data-sid="a"]');
+    const b = container.querySelector('.fusecell[data-sid="b"]');
+    expect(a?.getAttribute('style')?.replace(/\s/g, '')).toContain('flex:2');
+    expect(b?.getAttribute('style')?.replace(/\s/g, '')).toContain('flex:1');
+  });
+
+  it('a trailing fuse flag with no successor renders a plain slot', () => {
+    const card = cardOf({ slots: [slot('a'), slot('b', { fuse: true })] });
+    const { container } = render(CardView, { props: baseProps(card) });
+    expect(container.querySelector('.fusewrap')).toBeNull();
+    expect(container.querySelector('.cardslot[data-sid="b"]')).toBeInTheDocument();
+  });
+
+  it('drops a reveal-hidden cell from the chain without an orphan seam (Study)', () => {
+    mode.set('study');
+    const card = cardOf({
+      slots: [
+        slot('a', { fuse: true, w: 4 }),
+        slot('b', { fuse: true, w: 4, verbs: hidden }),
+        slot('c', { w: 4 }),
+      ],
+    });
+    const { container } = render(CardView, {
+      props: { ...baseProps(card), editable: false },
+    });
+
+    const cells = container.querySelectorAll('.fusecell');
+    expect([...cells].map((c) => c.getAttribute('data-sid'))).toEqual(['a', 'c']);
+    const guts = container.querySelectorAll('.fusegut');
+    expect(guts).toHaveLength(1);
+    // the seam belongs to the previous VISIBLE cell, not the hidden one
+    expect(guts[0].getAttribute('data-fusegut')).toBe('a');
+    // the chain keeps its full authored width even while a cell is hidden
+    const chainSlot = container.querySelector('.fusewrap')?.closest('.cardslot');
+    expect(chainSlot?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:12');
+  });
+
+  it('drops the whole chain when every cell is hidden (Study), keeps it in Edit', () => {
+    const slots = [
+      slot('a', { fuse: true, verbs: hidden }),
+      slot('b', { verbs: hidden }),
+    ];
+    mode.set('study');
+    const study = render(CardView, {
+      props: { ...baseProps(cardOf({ slots })), editable: false },
+    });
+    expect(study.container.querySelector('.cardslot')).toBeNull();
+    expect(study.container.querySelector('.fusegut')).toBeNull();
+    study.unmount();
+
+    mode.set('edit');
+    const edit = render(CardView, { props: baseProps(cardOf({ slots })) });
+    expect(edit.container.querySelectorAll('.fusecell')).toHaveLength(2);
+  });
+});
+
+describe('CardView flip faces', () => {
+  const flipCard = (over: Partial<Card> = {}) =>
+    cardOf({ verbs: { flip: true }, back: [slot('bk1')], ...over });
+
+  it('Edit: renders .fc-edit with FRONT/BACK faceflags and both faces side by side', () => {
+    const { container } = render(CardView, { props: baseProps(flipCard()) });
+    const fcEdit = container.querySelector('.fc-edit');
+    expect(fcEdit).toBeInTheDocument();
+    const sides = fcEdit?.querySelectorAll('.fc-side') ?? [];
+    expect(sides).toHaveLength(2);
+    expect(sides[1].classList.contains('back')).toBe(true);
+    expect(sides[0].querySelector('.faceflag')?.textContent).toBe('FRONT');
+    expect(sides[1].querySelector('.faceflag')?.textContent).toBe('BACK');
+    expect(sides[0].querySelector('.cardslot[data-sid="sl1"]')).toBeInTheDocument();
+    expect(sides[1].querySelector('.cardslot[data-sid="bk1"]')).toBeInTheDocument();
+    expect(container.querySelector('.fc')).toBeNull();
+  });
+
+  it('Study: renders the 3D stack with hint; clicking flips and records seenBack', async () => {
+    mode.set('study');
+    const props = { ...baseProps(flipCard()), editable: false };
+    const { container, rerender } = render(CardView, { props });
+
+    const fc = container.querySelector('.fc');
+    expect(fc).toBeInTheDocument();
+    expect(fc?.classList.contains('flipped')).toBe(false);
+    const faces = container.querySelectorAll('.fc-stack .fc-face');
+    expect(faces).toHaveLength(2);
+    expect(faces[1].classList.contains('back')).toBe(true);
+    expect(faces[0].querySelector('.cardslot[data-sid="sl1"]')).toBeInTheDocument();
+    expect(faces[1].querySelector('.cardslot[data-sid="bk1"]')).toBeInTheDocument();
+    expect(fc?.textContent).toContain('↻ click to flip');
+    expect(container.querySelector('.fc-edit')).toBeNull();
+
+    if (!fc) throw new Error('fc not found');
+    await fireEvent.click(fc);
+    expect(props.onstate).toHaveBeenCalledWith(CARD_STATE_KEY, {
+      flipped: true,
+      seenBack: true,
+    });
+
+    await rerender({ state: { [CARD_STATE_KEY]: { flipped: true, seenBack: true } } });
+    expect(container.querySelector('.fc.flipped')).toBeInTheDocument();
+  });
+
+  it('Study: flipping back keeps seenBack true', async () => {
+    mode.set('study');
+    const props = {
+      ...baseProps(flipCard()),
+      editable: false,
+      state: { [CARD_STATE_KEY]: { flipped: true, seenBack: true } },
+    };
+    const { container } = render(CardView, { props });
+    const fc = container.querySelector('.fc');
+    if (!fc) throw new Error('fc not found');
+    await fireEvent.click(fc);
+    expect(props.onstate).toHaveBeenCalledWith(CARD_STATE_KEY, {
+      flipped: false,
+      seenBack: true,
+    });
+  });
+
+  it('Study: clicking interactive slot content does not flip', async () => {
+    mode.set('study');
+    const card = flipCard({ slots: [slot('ti', { type: 'text-input', props: {} })] });
+    const props = { ...baseProps(card), editable: false };
+    const { container } = render(CardView, { props });
+    const input = container.querySelector('.fc input');
+    if (!input) throw new Error('input not found');
+    await fireEvent.click(input);
+    expect(props.onstate).not.toHaveBeenCalled();
+  });
+
+  it('Study: the card is done only after the back was seen', async () => {
+    mode.set('study');
+    const props = { ...baseProps(flipCard()), editable: false };
+    const { container, rerender } = render(CardView, { props });
+    expect(container.querySelector('.done-badge')).toBeNull();
+
+    await rerender({ state: { [CARD_STATE_KEY]: { flipped: true, seenBack: true } } });
+    expect(container.querySelector('.done-badge')).toBeInTheDocument();
+
+    // session flip state back to front — still done: both faces were seen
+    await rerender({ state: { [CARD_STATE_KEY]: { flipped: false, seenBack: true } } });
+    expect(container.querySelector('.done-badge')).toBeInTheDocument();
+  });
+
+  it('fused slots render inside a flip face (Study)', () => {
+    mode.set('study');
+    const card = flipCard({
+      slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })],
+    });
+    const { container } = render(CardView, {
+      props: { ...baseProps(card), editable: false },
+    });
+    const front = container.querySelector('.fc-face:not(.back)');
+    expect(front?.querySelector('.fusewrap')).toBeInTheDocument();
+    expect(front?.querySelectorAll('.fusecell')).toHaveLength(2);
   });
 });

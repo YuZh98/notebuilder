@@ -71,7 +71,6 @@
   const studying = $derived($mode === 'study');
   const flipped = $derived(cardState[CARD_STATE_KEY]?.flipped === true);
   const done = $derived(studying && isCardDone(card, cardState));
-  const face = $derived(studying && card.verbs?.flip && flipped ? (card.back ?? []) : card.slots);
 
   // Scope failures (e.g. a cycle authored in Edit mode) must be visible, not silently empty.
   // Variables are card-scoped: both faces of a flip card share one scope.
@@ -93,6 +92,52 @@
     const prev = cardState[CARD_STATE_KEY] ?? {};
     const next = prev.flipped !== true;
     onstate(CARD_STATE_KEY, { ...prev, flipped: next, seenBack: prev.seenBack === true || next });
+  }
+
+  // The whole face is the flip target (v1 data-act="flip"), except interactive slot content.
+  function flipClick(e: MouseEvent) {
+    if (
+      e.target instanceof Element &&
+      e.target.closest('button, input, textarea, select, label, a, .ceview, .ce')
+    ) {
+      return;
+    }
+    flip();
+  }
+
+  type FuseCell = { slot: Slot; index: number };
+  type SlotGroup = { cells: FuseCell[]; sumw: number; fused: boolean };
+
+  // `fuse` chains a slot to its successor: a chain is a maximal run of fuse-flagged
+  // slots plus the slot after the last flag (v1 renderSlots, 60-stage.js).
+  function groupSlots(slots: Slot[]): SlotGroup[] {
+    const groups: SlotGroup[] = [];
+    for (let i = 0; i < slots.length; i++) {
+      const s = slots[i];
+      if (s.fuse && slots[i + 1]) {
+        let j = i;
+        while (slots[j]?.fuse && slots[j + 1]) j++;
+        const cells = slots.slice(i, j + 1).map((slot, k) => ({ slot, index: i + k }));
+        const sumw = Math.min(
+          12,
+          cells.reduce((a, c) => a + (c.slot.w ?? 12), 0),
+        );
+        groups.push({ cells, sumw, fused: true });
+        i = j;
+      } else {
+        groups.push({ cells: [{ slot: s, index: i }], sumw: s.w ?? 12, fused: false });
+      }
+    }
+    return groups;
+  }
+
+  // A hidden cell leaves the fused row entirely — no orphan seams.
+  function chainCells(cells: FuseCell[], face: Slot[], edit: boolean): FuseCell[] {
+    return cells.filter(
+      (c) =>
+        getSlot(c.slot.type) &&
+        (edit || shouldShow(c.slot.verbs, scope, priorComplete(face, c.index))),
+    );
   }
 
   function slotState(slotId: string): Record<string, unknown> {
@@ -129,46 +174,76 @@
   }
 </script>
 
-<!-- One .cardslot per slot; Task 5 groups fuse chains here — for now every slot is a plain cell. -->
-{#snippet editCell(slot: Slot)}
+{#snippet editBody(slot: Slot)}
   {@const slotType = getSlot(slot.type)}
   {#if slotType}
-    <div class="cardslot" data-sid={slot.id} style="--sw:{slot.w ?? 12}">
-      <div class="slot editing">
-        <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => onupdateslot(slot.id, p)} />
-        <button class="slot-del" title="Remove slot" onclick={() => ondeleteslot(slot.id)}>✕</button>
-      </div>
+    <div class="slot editing">
+      <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => onupdateslot(slot.id, p)} />
+      <button class="slot-del" title="Remove slot" onclick={() => ondeleteslot(slot.id)}>✕</button>
     </div>
   {/if}
 {/snippet}
 
-{#snippet studyCell(slot: Slot, i: number)}
+{#snippet studyBody(slot: Slot, i: number, face: Slot[])}
   {@const slotType = getSlot(slot.type)}
   {#if slotType}
-    <div class="cardslot" data-sid={slot.id} style="--sw:{slot.w ?? 12}">
-      <div class="slot">
-        <VerbWrapper
-          verbs={slot.verbs}
-          visible={shouldShow(slot.verbs, scope, priorComplete(face, i))}
-          locked={isLocked(slot.verbs?.locked, priorComplete(face, i))}
-        >
-          {#if slot.type === 'progress'}
-            <ProgressStudy
-              props={slot.props as ProgressProps}
-              completion={progresscompletion(slot.props)}
-            />
-          {:else}
-            <slotType.renderStudy
-              props={slot.props}
-              {scope}
-              state={slotState(slot.id)}
-              onState={(next) => onstate(slot.id, next)}
-            />
-          {/if}
-        </VerbWrapper>
-      </div>
+    <div class="slot">
+      <VerbWrapper
+        verbs={slot.verbs}
+        visible={shouldShow(slot.verbs, scope, priorComplete(face, i))}
+        locked={isLocked(slot.verbs?.locked, priorComplete(face, i))}
+      >
+        {#if slot.type === 'progress'}
+          <ProgressStudy
+            props={slot.props as ProgressProps}
+            completion={progresscompletion(slot.props)}
+          />
+        {:else}
+          <slotType.renderStudy
+            props={slot.props}
+            {scope}
+            state={slotState(slot.id)}
+            onState={(next) => onstate(slot.id, next)}
+          />
+        {/if}
+      </VerbWrapper>
     </div>
   {/if}
+{/snippet}
+
+<!-- One .cardslot per slot; consecutive fused slots share a .cardslot (v1 renderSlots). -->
+{#snippet faceRows(face: Slot[], edit: boolean)}
+  <div class="cardrow">
+    {#each groupSlots(face) as group (group.cells[0].slot.id)}
+      {#if group.fused}
+        {@const vis = chainCells(group.cells, face, edit)}
+        {#if vis.length}
+          <div class="cardslot" style="--sw:{group.sumw}">
+            <div class="fusewrap">
+              {#each vis as cell, k (cell.slot.id)}
+                {#if k}<div class="fusegut" data-fusegut={vis[k - 1].slot.id}></div>{/if}
+                <div class="fusecell" data-sid={cell.slot.id} style="flex:{cell.slot.fuseW ?? 1}">
+                  {#if edit}
+                    {@render editBody(cell.slot)}
+                  {:else}
+                    {@render studyBody(cell.slot, cell.index, face)}
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {:else}
+        <div class="cardslot" data-sid={group.cells[0].slot.id} style="--sw:{group.sumw}">
+          {#if edit}
+            {@render editBody(group.cells[0].slot)}
+          {:else}
+            {@render studyBody(group.cells[0].slot, group.cells[0].index, face)}
+          {/if}
+        </div>
+      {/if}
+    {/each}
+  </div>
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -177,7 +252,6 @@
   class:sel={selected && !studying}
   class:bare={card.verbs?.bare}
   class:done
-  class:flipped={studying && flipped}
   style={styleVars}
   data-card={card.id}
   role="presentation"
@@ -197,9 +271,6 @@
   {/if}
   {#if studying && done}
     <div class="done-badge">Done</div>
-  {/if}
-  {#if studying && card.verbs?.flip}
-    <button class="flip-toggle" onclick={flip}>{flipped ? '↩ Front' : 'Flip ↪'}</button>
   {/if}
   <div class="body">
     {#if studying && resolved.error}
@@ -249,11 +320,20 @@
         {/if}
         <button title="Delete card" onclick={ondelete}>✕</button>
       </div>
-      <div class="cardrow">
-        {#each card.slots as slot (slot.id)}
-          {@render editCell(slot)}
-        {/each}
-      </div>
+      {#if card.verbs?.flip}
+        <div class="fc-edit">
+          <div class="fc-side">
+            <div class="faceflag">FRONT</div>
+            {@render faceRows(card.slots, true)}
+          </div>
+          <div class="fc-side back">
+            <div class="faceflag">BACK</div>
+            {@render faceRows(card.back ?? [], true)}
+          </div>
+        </div>
+      {:else}
+        {@render faceRows(card.slots, true)}
+      {/if}
       <div class="slot-adder">
         <select bind:value={newSlotType}>
           {#each allSlots() as t (t.type)}
@@ -265,20 +345,35 @@
           <button onclick={() => onaddslot(newSlotType, 'back')}>+ slot (back)</button>
         {/if}
       </div>
-      {#if card.verbs?.flip}
-        <div class="back-divider">Back</div>
-        <div class="cardrow">
-          {#each card.back ?? [] as slot (slot.id)}
-            {@render editCell(slot)}
-          {/each}
-        </div>
-      {/if}
     {:else}
-      <div class="cardrow">
-        {#each face as slot, i (slot.id)}
-          {@render studyCell(slot, i)}
-        {/each}
-      </div>
+      {#if card.verbs?.flip && studying}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <div class="fc" class:flipped onclick={flipClick} role="presentation">
+          <div class="fc-stack">
+            <div class="fc-face">
+              {@render faceRows(card.slots, false)}
+            </div>
+            <div class="fc-face back">
+              {@render faceRows(card.back ?? [], false)}
+            </div>
+          </div>
+          <div class="sm muted" style="margin-top:6px">↻ click to flip</div>
+        </div>
+      {:else if card.verbs?.flip}
+        <!-- locked section in Edit mode: v1 renders both faces read-only (fc-edit, live slots) -->
+        <div class="fc-edit">
+          <div class="fc-side">
+            <div class="faceflag">FRONT</div>
+            {@render faceRows(card.slots, false)}
+          </div>
+          <div class="fc-side back">
+            <div class="faceflag">BACK</div>
+            {@render faceRows(card.back ?? [], false)}
+          </div>
+        </div>
+      {:else}
+        {@render faceRows(card.slots, false)}
+      {/if}
       {#if studying}
         <button class="notes-toggle" class:has-notes={notes.length > 0} onclick={ontogglenotes}>
           ✎ {notes.length > 0 ? `notes (${notes.length})` : 'note'}
@@ -334,32 +429,6 @@
     font-weight: 600;
     color: var(--accent, #7c3aed);
     opacity: 0.8;
-  }
-  .flip-toggle {
-    position: absolute;
-    z-index: 1;
-    top: 8px;
-    right: 12px;
-    background: none;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    color: inherit;
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 8px;
-  }
-  .furn.done .flip-toggle {
-    right: 60px;
-  }
-  .back-divider {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    opacity: 0.5;
-    margin: 12px 0 8px;
-    border-top: 1px dashed var(--line);
-    padding-top: 8px;
   }
   .scope-error {
     font-size: 12px;

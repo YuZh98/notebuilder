@@ -1302,6 +1302,83 @@ body[data-theme] .room.edit .furn.bare {
   min-width: 0;
 }
 
+/* ---------- ported: v1 fuse rows & flip faces (styles.css .fusewrap / .fc) ---------- */
+.fusewrap {
+  display: flex;
+  align-items: stretch;
+  margin: 9px 0;
+  width: 100%;
+}
+.fusecell {
+  min-width: 0;
+}
+.fusegut {
+  flex: 0 0 2px;
+  background: var(--line);
+  margin: 0 7px;
+}
+.room.edit .fusegut,
+.faccard .fusegut {
+  cursor: ew-resize;
+}
+.room.edit .fusegut:hover {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.cardrow > .cardslot:only-child > .fusewrap {
+  margin: 0;
+}
+.cardrow > .cardslot:only-child > .fusewrap > .fusegut {
+  margin-top: -9px;
+  margin-bottom: -9px;
+} /* a lone fused row: the seam bleeds through the body padding to touch the card edges */
+.furn.bare .fusegut {
+  background: transparent;
+}
+.room.edit .furn.bare .fusegut:hover {
+  background: var(--accent);
+} /* frameless: the seam renders as nothing (drag affordance only on Edit hover) */
+.fc {
+  cursor: pointer;
+  perspective: 1000px;
+}
+.fc .face {
+  min-height: 30px;
+}
+.fc-stack {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+.fc.flipped .fc-stack {
+  transform: rotateY(180deg);
+}
+.fc-face {
+  grid-area: 1/1;
+  min-height: 24px;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.fc-face.back {
+  transform: rotateY(180deg);
+}
+.fc-edit .fc-side.back {
+  border-top: 1px dashed var(--line);
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.fc-edit .faceflag {
+  display: inline-block;
+  margin-bottom: 4px;
+}
+.faceflag {
+  font-size: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 5px;
+  color: var(--muted);
+}
+
 /* ---------- v2 additions (not v1): card tools — compact hover-revealed controls row ---------- */
 .cardtools {
   display: flex;
