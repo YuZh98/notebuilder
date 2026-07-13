@@ -94,11 +94,13 @@
     onstate(CARD_STATE_KEY, { ...prev, flipped: next, seenBack: prev.seenBack === true || next });
   }
 
-  // The whole face is the flip target (v1 data-act="flip"), except interactive slot content.
+  // The whole face is the flip target (v1 data-act="flip"), except interactive slot content
+  // and fuse seams — v1 excludes `.fusegut` from its flip guard (70-events.js) since P4 turns
+  // the seam into a drag handle.
   function flipClick(e: MouseEvent) {
     if (
       e.target instanceof Element &&
-      e.target.closest('button, input, textarea, select, label, a, .ceview, .ce')
+      e.target.closest('button, input, textarea, select, label, a, .ceview, .ce, .fusegut')
     ) {
       return;
     }

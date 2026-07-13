@@ -402,4 +402,18 @@ describe('CardView flip faces', () => {
     expect(front?.querySelector('.fusewrap')).toBeInTheDocument();
     expect(front?.querySelectorAll('.fusecell')).toHaveLength(2);
   });
+
+  it('Study: clicking a fuse seam does not flip', async () => {
+    mode.set('study');
+    const card = flipCard({
+      slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })],
+    });
+    const props = { ...baseProps(card), editable: false };
+    const { container } = render(CardView, { props });
+    const gut = container.querySelector('.fc .fusegut');
+    if (!gut) throw new Error('fuse seam not found');
+    await fireEvent.click(gut);
+    expect(props.onstate).not.toHaveBeenCalled();
+    expect(container.querySelector('.fc.flipped')).toBeNull();
+  });
 });
