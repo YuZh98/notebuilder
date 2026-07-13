@@ -166,3 +166,43 @@ describe('CardView selection', () => {
     expect(props.onselect).not.toHaveBeenCalled();
   });
 });
+
+describe('CardView card controls', () => {
+  it('checking the flip checkbox fires onverb without mutating card', async () => {
+    const card = cardOf();
+    const snapshot = JSON.parse(JSON.stringify(card));
+    const props = baseProps(card);
+    const { container } = render(CardView, { props });
+    const boxes = container.querySelectorAll('.cardtools input[type="checkbox"]');
+    const flipBox = boxes[0];
+    if (!flipBox) throw new Error('flip checkbox not found');
+    await fireEvent.click(flipBox);
+    expect(props.onverb).toHaveBeenCalledWith('flip', true);
+    expect(card).toEqual(snapshot);
+  });
+
+  it('checking the bare checkbox fires onverb without mutating card', async () => {
+    const card = cardOf();
+    const snapshot = JSON.parse(JSON.stringify(card));
+    const props = baseProps(card);
+    const { container } = render(CardView, { props });
+    const boxes = container.querySelectorAll('.cardtools input[type="checkbox"]');
+    const bareBox = boxes[1];
+    if (!bareBox) throw new Error('bare checkbox not found');
+    await fireEvent.click(bareBox);
+    expect(props.onverb).toHaveBeenCalledWith('bare', true);
+    expect(card).toEqual(snapshot);
+  });
+
+  it('changing the tags input fires ontags with the raw value, without mutating card', async () => {
+    const card = cardOf({ tags: ['old'] });
+    const snapshot = JSON.parse(JSON.stringify(card));
+    const props = baseProps(card);
+    const { container } = render(CardView, { props });
+    const tagsInput = container.querySelector('.tags-input');
+    if (!tagsInput) throw new Error('tags input not found');
+    await fireEvent.change(tagsInput, { target: { value: 'a, b, c' } });
+    expect(props.ontags).toHaveBeenCalledWith('a, b, c');
+    expect(card).toEqual(snapshot);
+  });
+});
