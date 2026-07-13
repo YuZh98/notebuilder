@@ -1202,3 +1202,145 @@ body.side-collapsed #main {
   width: fit-content;
   max-width: 100%;
 }
+
+/* ---------- ported: v1 card chrome — .furn, grip/rz, bare, sel, cardrow/cardslot (styles.css) ---------- */
+.furn {
+  --cardc: var(--accent);
+  flex: 0 0 calc((var(--w, 6) / 12) * 100% - 9px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  position: relative;
+  min-height: 0;
+  box-shadow:
+    inset 3px 0 0 var(--cardc),
+    var(--glow);
+  transition: flex-basis 0.12s ease;
+}
+.furn.bare {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+} /* Frameless = fully fused into the notebook, even under decorated themes */
+.furn.bare > .body {
+  padding: 2px 1px;
+}
+.furn.bare::before,
+.furn.bare::after {
+  display: none !important;
+} /* drop theme decorations (margin line / twinkle / dot) so it truly fuses */
+.room.edit .furn.bare {
+  border: 1px dashed var(--line);
+}
+body[data-theme] .furn.bare,
+.room.study .furn.bare {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+} /* bare beats every theme frame */
+body[data-theme] .room.edit .furn.bare {
+  border: 1px dashed var(--line) !important;
+} /* keep the Edit ghost so the card stays findable */
+.furn .body {
+  padding: 9px 11px;
+}
+.furn.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.3);
+}
+.furn .grip {
+  position: absolute;
+  top: 6px;
+  left: 7px;
+  color: var(--muted);
+  cursor: grab;
+  font-size: 13px;
+  user-select: none;
+  opacity: 0;
+  transition: 0.15s;
+}
+.furn:hover .grip {
+  opacity: 0.8;
+}
+.furn .rz {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+  opacity: 0;
+}
+.furn:hover .rz {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.25));
+}
+.edit .furn {
+  cursor: default;
+}
+.study .furn .grip,
+.study .furn .rz {
+  display: none;
+}
+/* the rendered card lays slots out by width — pure structure, NO box of its own (the card frame is the only frame) */
+.cardrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.cardslot {
+  flex: 0 0 calc((var(--sw, 12) / 12) * 100% - 6px);
+  min-width: 0;
+}
+
+/* ---------- v2 additions (not v1): card tools — compact hover-revealed controls row ---------- */
+.cardtools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 8px;
+  /* left padding clears the absolutely-positioned v1 .grip; while hidden the row still
+     hit-tests (opacity 0 forms a stacking context above the grip), so they must not overlap */
+  padding-left: 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--line);
+  opacity: 0;
+  transition: 0.15s;
+}
+.furn:hover .cardtools,
+.cardtools:focus-within {
+  opacity: 1;
+}
+.cardtools label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.cardtools .spacer {
+  flex: 1;
+}
+.cardtools button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.5;
+  padding: 2px 4px;
+}
+.cardtools button:hover {
+  opacity: 1;
+}

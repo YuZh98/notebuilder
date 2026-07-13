@@ -1,23 +1,16 @@
 <script lang="ts">
   import { mode, toggleMode } from './lib/stores/mode';
-  import { getSlot, allSlots } from './lib/slots/registry';
-  import { buildCardScope } from './lib/card-scope';
-  import { isCardDone, CARD_STATE_KEY } from './lib/card-done';
   import { computeProgress, progressScopeCards, type ProgressScope } from './lib/progress';
-  import { shouldShow, isLocked } from './lib/verbs';
-  import VerbWrapper from './lib/slots/VerbWrapper.svelte';
-  import ProgressStudy from './lib/slots/ProgressStudy.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import SideBar from './lib/components/SideBar.svelte';
   import Stage from './lib/components/Stage.svelte';
+  import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
-  import CardNotes from './lib/components/CardNotes.svelte';
   import MdBar from './lib/components/MdBar.svelte';
   import Toast from './lib/components/Toast.svelte';
   import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
   import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
-  import type { ProgressProps } from './lib/slots/progress';
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
   import {
     isTauri,
@@ -69,12 +62,8 @@
     { id: 'nb_demo', name: 'My First Notebook' },
   ]);
 
-  let newSlotType = $state('text');
-
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
   let galleryFor: string | null = $state(null);
-  let typeNameFor: string | null = $state(null);
-  let typeNameDraft = $state('');
 
   let showMatrix = $state(false);
   let matrixFilter: MatrixSelection | null = $state(null);
@@ -113,16 +102,18 @@
     return new Set(filterCards(allCards, f.rowAxis, f.rowVal, f.colAxis, f.colVal, readerState).map((c) => c.id));
   });
 
-  // Edit-mode section selection (v1 selroom); Escape clears it.
+  // Edit-mode selection (v1 sel/selKind): a section OR a card, never both; Escape clears.
   let selSection: string | null = $state(null);
+  let selCard: string | null = $state(null);
 
-  function setCardTags(card: Card, raw: string) {
-    const tags = raw
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
-    if (tags.length > 0) card.tags = tags;
-    else delete card.tags;
+  function selectSection(id: string | null) {
+    selSection = id;
+    selCard = null;
+  }
+
+  function selectCard(id: string) {
+    selCard = id;
+    selSection = null;
   }
 
   // Persistence is active only inside the Tauri app; in a plain browser/tests it no-ops so the demo still runs.
@@ -258,13 +249,28 @@
       if (!ok) return;
     }
     if (selSection === section.id) selSection = null;
+    if (section.cards.some((c) => c.id === selCard)) selCard = null;
     deleteSection(notebook, section.id);
+  }
+
+  function removeCard(cardId: string) {
+    if (selCard === cardId) selCard = null;
+    deleteCard(notebook, cardId);
   }
 
   function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
     const verbs = { ...card.verbs, [key]: on || undefined };
     card.verbs = verbs.flip || verbs.bare ? verbs : undefined;
     if (key === 'flip' && on && !card.back) card.back = [];
+  }
+
+  function setCardTags(card: Card, raw: string) {
+    const tags = raw
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (tags.length > 0) card.tags = tags;
+    else delete card.tags;
   }
 
   // ---- drag reorder (Edit mode) ----
@@ -302,10 +308,7 @@
     galleryFor = null;
   }
 
-  function saveCardAsType(card: Card) {
-    const name = typeNameDraft.trim();
-    typeNameFor = null;
-    if (!name) return;
+  function saveCardAsType(card: Card, name: string) {
     const ct = cardToType($state.snapshot(card) as Card, name);
     cardTypes = [...cardTypes, ct];
     if (isTauri()) void saveCardType(ct);
@@ -363,7 +366,10 @@
         e.preventDefault();
         toggleMode();
       }
-      if (e.key === 'Escape') selSection = null;
+      if (e.key === 'Escape') {
+        selSection = null;
+        selCard = null;
+      }
     }
     window.addEventListener('keydown', handleKey);
     return () => {
@@ -390,54 +396,8 @@
     }
   }
 
-  function isFlipped(card: Card): boolean {
-    return readerState[card.id]?.[CARD_STATE_KEY]?.flipped === true;
-  }
-
-  // Flipping records seenBack so flip cards can count as done once both sides were viewed.
-  function flipCard(card: Card) {
-    const prev = readerState[card.id]?.[CARD_STATE_KEY] ?? {};
-    const flipped = prev.flipped !== true;
-    readerState[card.id] = {
-      ...readerState[card.id],
-      [CARD_STATE_KEY]: { ...prev, flipped, seenBack: prev.seenBack === true || flipped },
-    };
-  }
-
-  function faceSlots(card: Card): typeof card.slots {
-    return card.verbs?.flip && isFlipped(card) ? (card.back ?? []) : card.slots;
-  }
-
-  // Scope failures (e.g. a cycle authored in Edit mode) must be visible, not silently empty.
-  // Variables are card-scoped: both faces of a flip card share one scope.
-  function cardScope(card: Card): { scope: Record<string, number | boolean>; error: string } {
-    try {
-      return { scope: buildCardScope([...card.slots, ...(card.back ?? [])], {}), error: '' };
-    } catch (e) {
-      return { scope: {}, error: e instanceof Error ? e.message : String(e) };
-    }
-  }
-
-  function slotState(cardId: string, slotId: string): Record<string, unknown> {
-    return readerState[cardId]?.[slotId] ?? {};
-  }
-
   function onSlotState(cardId: string, slotId: string, next: Record<string, unknown>) {
     readerState[cardId] = { ...readerState[cardId], [slotId]: next };
-  }
-
-  function cardDone(card: Card): boolean {
-    return isCardDone(card, readerState[card.id] ?? {});
-  }
-
-  // A slot's prior completable siblings must all be done for a `sequential` slot to appear.
-  function priorComplete(cardId: string, slots: Card['slots'], i: number): boolean {
-    for (let j = 0; j < i; j++) {
-      const s = slots[j];
-      const t = getSlot(s.type);
-      if (t?.completable && t.isDone && !t.isDone(s.props, slotState(cardId, s.id))) return false;
-    }
-    return true;
   }
 
   // progress is cross-card: gather the cards in its declared scope.
@@ -502,149 +462,32 @@
 {/snippet}
 
 {#snippet cardView(section: Section, card: Card, editable: boolean)}
-  {@const resolved = cardScope(card)}
-          {@const scope = resolved.scope}
-          {@const done = $mode === 'study' ? cardDone(card) : false}
-          {@const face = $mode === 'study' ? faceSlots(card) : card.slots}
-          <div
-            class="card"
-            class:done
-            class:bare={card.verbs?.bare}
-            class:flipped={$mode === 'study' && isFlipped(card)}
-            role="presentation"
-            ondragover={allowDrop}
-            ondrop={(e) => dropCard(section.id, card.id, e)}
-          >
-            {#if $mode === 'study' && done}
-              <div class="done-badge">Done</div>
-            {/if}
-            {#if $mode === 'study' && card.verbs?.flip}
-              <button class="flip-toggle" onclick={() => flipCard(card)}>
-                {isFlipped(card) ? '↩ Front' : 'Flip ↪'}
-              </button>
-            {/if}
-            {#if $mode === 'study' && resolved.error}
-              <div class="scope-error">Variables unavailable: {resolved.error}</div>
-            {/if}
-            {#if editable}
-              <div class="card-toolbar">
-                <span
-                  class="drag-handle"
-                  role="presentation"
-                  draggable="true"
-                  ondragstart={() => (dragCardId = card.id)}
-                  ondragend={() => (dragCardId = null)}
-                >⠿</span>
-                <button title="Move card up" onclick={() => moveCard(notebook, card.id, -1)}>↑</button>
-                <button title="Move card down" onclick={() => moveCard(notebook, card.id, 1)}>↓</button>
-                <label><input type="checkbox" checked={card.verbs?.flip === true} onchange={(e) => setCardVerb(card, 'flip', e.currentTarget.checked)} /> flip</label>
-                <label><input type="checkbox" checked={card.verbs?.bare === true} onchange={(e) => setCardVerb(card, 'bare', e.currentTarget.checked)} /> bare</label>
-                <input
-                  class="tags-input"
-                  placeholder="tags, comma-separated"
-                  value={card.tags?.join(', ') ?? ''}
-                  onchange={(e) => setCardTags(card, e.currentTarget.value)}
-                />
-                <span class="spacer"></span>
-                {#if typeNameFor === card.id}
-                  <input
-                    class="type-name-input"
-                    placeholder="Card type name"
-                    bind:value={typeNameDraft}
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') saveCardAsType(card);
-                      if (e.key === 'Escape') typeNameFor = null;
-                    }}
-                  />
-                  <button onclick={() => saveCardAsType(card)}>save</button>
-                {:else}
-                  <button
-                    title="Save this card as a reusable card type"
-                    onclick={() => {
-                      typeNameFor = card.id;
-                      typeNameDraft = '';
-                    }}>→ type</button>
-                {/if}
-                <button title="Delete card" onclick={() => deleteCard(notebook, card.id)}>✕</button>
-              </div>
-              {#each card.slots as slot (slot.id)}
-                {@const slotType = getSlot(slot.type)}
-                {#if slotType}
-                  <div class="slot editing">
-                    <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
-                    <button class="slot-del" title="Remove slot" onclick={() => deleteSlot(notebook, card.id, slot.id)}>✕</button>
-                  </div>
-                {/if}
-              {/each}
-              <div class="slot-adder">
-                <select bind:value={newSlotType}>
-                  {#each allSlots() as t (t.type)}
-                    <option value={t.type}>{t.type}</option>
-                  {/each}
-                </select>
-                <button onclick={() => addSlot(notebook, card.id, newSlotType)}>+ slot</button>
-                {#if card.verbs?.flip}
-                  <button onclick={() => addSlot(notebook, card.id, newSlotType, 'back')}>+ slot (back)</button>
-                {/if}
-              </div>
-              {#if card.verbs?.flip}
-                <div class="back-divider">Back</div>
-                {#each card.back ?? [] as slot (slot.id)}
-                  {@const slotType = getSlot(slot.type)}
-                  {#if slotType}
-                    <div class="slot editing">
-                      <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => updateSlotProps(card.id, slot.id, p)} />
-                      <button class="slot-del" title="Remove slot" onclick={() => deleteSlot(notebook, card.id, slot.id)}>✕</button>
-                    </div>
-                  {/if}
-                {/each}
-              {/if}
-            {:else}
-              {#each face as slot, i (slot.id)}
-                {@const slotType = getSlot(slot.type)}
-                {#if slotType}
-                  <div class="slot">
-                    <VerbWrapper
-                      verbs={slot.verbs}
-                      visible={shouldShow(slot.verbs, scope, priorComplete(card.id, face, i))}
-                      locked={isLocked(slot.verbs?.locked, priorComplete(card.id, face, i))}
-                    >
-                      {#if slot.type === 'progress'}
-                        <ProgressStudy
-                          props={slot.props as ProgressProps}
-                          completion={computeProgress(progressCards(section, slot.props), readerState)}
-                        />
-                      {:else}
-                        <slotType.renderStudy
-                          props={slot.props}
-                          {scope}
-                          state={slotState(card.id, slot.id)}
-                          onState={(next) => onSlotState(card.id, slot.id, next)}
-                        />
-                      {/if}
-                    </VerbWrapper>
-                  </div>
-                {/if}
-              {/each}
-              {#if $mode === 'study'}
-                {@const noteCount = annotationsFor(annotations, card.id).length}
-                <button
-                  class="notes-toggle"
-                  class:has-notes={noteCount > 0}
-                  onclick={() => (notesFor = notesFor === card.id ? null : card.id)}
-                >
-                  ✎ {noteCount > 0 ? `notes (${noteCount})` : 'note'}
-                </button>
-                {#if notesFor === card.id}
-                  <CardNotes
-                    notes={annotationsFor(annotations, card.id)}
-                    onadd={(body) => addNote(card.id, body)}
-                    ondelete={deleteNote}
-                  />
-                {/if}
-              {/if}
-            {/if}
-          </div>
+  <CardView
+    {card}
+    {editable}
+    selected={selCard === card.id}
+    state={readerState[card.id] ?? {}}
+    notes={annotationsFor(annotations, card.id)}
+    notesOpen={notesFor === card.id}
+    onselect={() => selectCard(card.id)}
+    onstate={(slotId, next) => onSlotState(card.id, slotId, next)}
+    onmove={(dir) => moveCard(notebook, card.id, dir)}
+    ondelete={() => removeCard(card.id)}
+    onverb={(key, on) => setCardVerb(card, key, on)}
+    ontags={(raw) => setCardTags(card, raw)}
+    onsavetype={(name) => saveCardAsType(card, name)}
+    onupdateslot={(slotId, props) => updateSlotProps(card.id, slotId, props)}
+    ondeleteslot={(slotId) => deleteSlot(notebook, card.id, slotId)}
+    onaddslot={(type, face) => addSlot(notebook, card.id, type, face)}
+    progresscompletion={(props) => computeProgress(progressCards(section, props), readerState)}
+    ontogglenotes={() => (notesFor = notesFor === card.id ? null : card.id)}
+    onaddnote={(body) => addNote(card.id, body)}
+    ondeletenote={deleteNote}
+    ondragstart={() => (dragCardId = card.id)}
+    ondragend={() => (dragCardId = null)}
+    ondragover={allowDrop}
+    ondrop={(e) => dropCard(section.id, card.id, e)}
+  />
 {/snippet}
 
 {#snippet sectionFooter(section: Section)}
@@ -696,7 +539,7 @@
       {notebook}
       {visibleCardIds}
       {selSection}
-      onselect={(id) => (selSection = id)}
+      onselect={selectSection}
       onrename={renameNotebook}
       onsubtitle={setNotebookSubtitle}
       onpatchsection={patchSection}
@@ -733,15 +576,6 @@
     border-color: var(--accent, #7c3aed);
     color: var(--accent, #7c3aed);
   }
-  .tags-input {
-    background: transparent;
-    color: inherit;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    font-size: 11px;
-    padding: 2px 6px;
-    width: 150px;
-  }
   .section-head {
     display: flex;
     align-items: center;
@@ -773,9 +607,7 @@
   .drag-handle:hover {
     opacity: 0.8;
   }
-  .section-head button,
-  .card-toolbar button,
-  .slot-del {
+  .section-head button {
     background: none;
     border: none;
     color: inherit;
@@ -784,134 +616,9 @@
     opacity: 0.5;
     padding: 2px 4px;
   }
-  .section-head button:hover,
-  .card-toolbar button:hover,
-  .slot-del:hover {
+  .section-head button:hover {
     opacity: 1;
   }
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 12px;
-    position: relative;
-    /* full-width row inside the flex .room-grid; per-card --w widths arrive with CardView */
-    flex: 1 0 100%;
-  }
-  .card.bare {
-    background: transparent;
-    border: none;
-    padding: 0;
-  }
-  .card.done {
-    border-color: var(--accent, #7c3aed);
-  }
-  .card-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 12px;
-    opacity: 0.85;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px dashed var(--line);
-  }
-  .card-toolbar label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    opacity: 0.7;
-  }
-  .card-toolbar .spacer {
-    flex: 1;
-  }
-  .done-badge {
-    position: absolute;
-    top: 8px;
-    right: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--accent, #7c3aed);
-    opacity: 0.8;
-  }
-  .flip-toggle {
-    position: absolute;
-    z-index: 1;
-    top: 8px;
-    right: 12px;
-    background: none;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    color: inherit;
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 8px;
-  }
-  .card.done .flip-toggle {
-    right: 60px;
-  }
-  .back-divider {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    opacity: 0.5;
-    margin: 12px 0 8px;
-    border-top: 1px dashed var(--line);
-    padding-top: 8px;
-  }
-  .scope-error {
-    font-size: 12px;
-    color: #dc2626;
-    margin-bottom: 8px;
-  }
-  .notes-toggle {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 11px;
-    opacity: 0.4;
-    padding: 4px 0 0;
-  }
-  .notes-toggle:hover,
-  .notes-toggle.has-notes {
-    opacity: 0.8;
-  }
-  .notes-toggle.has-notes {
-    color: var(--accent, #7c3aed);
-  }
-  .slot {
-    margin-bottom: 8px;
-  }
-  .slot:last-child {
-    margin-bottom: 0;
-  }
-  .slot.editing {
-    display: flex;
-    align-items: flex-start;
-    gap: 4px;
-  }
-  .slot.editing > :global(:first-child) {
-    flex: 1;
-  }
-  .slot-adder {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 8px;
-  }
-  .slot-adder select {
-    background: var(--panel);
-    color: inherit;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    font-size: 12px;
-    padding: 2px 6px;
-  }
-  .slot-adder button,
   .add-card,
   .add-section {
     background: none;
@@ -923,7 +630,6 @@
     opacity: 0.6;
     padding: 4px 10px;
   }
-  .slot-adder button:hover,
   .add-card:hover,
   .add-section:hover {
     opacity: 1;
@@ -936,15 +642,6 @@
   }
   .add-card {
     flex: 1;
-  }
-  .type-name-input {
-    background: var(--panel);
-    color: inherit;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    font-size: 12px;
-    padding: 2px 6px;
-    width: 140px;
   }
   .gallery {
     display: grid;

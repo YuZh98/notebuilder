@@ -40,6 +40,8 @@ export type Card = {
   back?: Slot[];
   tags?: string[];
   accent?: string;
+  /** Card width in twelfths of the section grid (default 12); written by the resize engine. */
+  w?: number;
 };
 
 /** A section within a notebook. `kind: 'divider'` marks a chapter break — dividers hold no cards. */
