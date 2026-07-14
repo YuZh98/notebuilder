@@ -272,6 +272,19 @@
     else delete card.tags;
   }
 
+  function setCardW(card: Card, w: number) {
+    card.w = w;
+  }
+
+  function setFuseW(card: Card, leftId: string, rightId: string, leftW: number, rightW: number) {
+    const all = [...card.slots, ...(card.back ?? [])];
+    const left = all.find((s) => s.id === leftId);
+    const right = all.find((s) => s.id === rightId);
+    if (!left || !right) return;
+    left.fuseW = leftW;
+    right.fuseW = rightW;
+  }
+
   // ---- drag reorder (Edit mode) ----
 
   let dragCardId: string | null = $state(null);
@@ -486,6 +499,8 @@
     ondragend={() => (dragCardId = null)}
     ondragover={allowDrop}
     ondrop={(e) => dropCard(section.id, card.id, e)}
+    onresize={(w) => setCardW(card, w)}
+    onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
   />
 {/snippet}
 

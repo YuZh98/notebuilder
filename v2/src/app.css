@@ -1217,6 +1217,10 @@ body.side-collapsed #main {
     var(--glow);
   transition: flex-basis 0.12s ease;
 }
+.furn.dragging {
+  transition: none;
+  opacity: 0.6;
+}
 .furn.bare {
   background: transparent !important;
   background-image: none !important;

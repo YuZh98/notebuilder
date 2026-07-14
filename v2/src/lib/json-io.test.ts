@@ -141,6 +141,69 @@ describe('validateNotebookJSON', () => {
   });
 });
 
+describe('card width and fuse ratio fields', () => {
+  it('round-trips card w through export/import', () => {
+    const nb: Notebook = structuredClone(sampleNotebook);
+    nb.sections[0].cards[0].w = 8.35;
+    const json = exportNotebook(nb);
+    expect(json.notebook.sections[0].cards[0].w).toBe(8.35);
+    expect(validateNotebookJSON(json)).toEqual([]);
+    expect(importNotebook(json).sections[0].cards[0].w).toBe(8.35);
+  });
+
+  it('omits card w from export when absent', () => {
+    const json = exportNotebook(sampleNotebook);
+    expect(json.notebook.sections[0].cards[0]).not.toHaveProperty('w');
+    expect(importNotebook(json).sections[0].cards[0].w).toBeUndefined();
+  });
+
+  it('validate rejects a card w outside [3, 12] or non-numeric', () => {
+    for (const bad of [0, 2.9, 12.1, '6', NaN, null] as unknown[]) {
+      const json = exportNotebook(sampleNotebook) as unknown as {
+        notebook: { sections: { cards: { w?: unknown }[] }[] };
+      };
+      json.notebook.sections[0].cards[0].w = bad;
+      const errors = validateNotebookJSON(json);
+      expect(errors.some((e) => /cards\[0\]\.w/.test(e)), `w=${String(bad)}`).toBe(true);
+    }
+  });
+
+  it('validate accepts card w at the bounds and absent', () => {
+    for (const ok of [3, 12, 8.35, undefined]) {
+      const json = exportNotebook(sampleNotebook);
+      if (ok !== undefined) json.notebook.sections[0].cards[0].w = ok;
+      expect(validateNotebookJSON(json)).toEqual([]);
+    }
+  });
+
+  it('validate rejects a non-positive or non-numeric slot fuseW', () => {
+    for (const bad of [-1, 0, '2', NaN] as unknown[]) {
+      const json = exportNotebook(sampleNotebook) as unknown as {
+        notebook: { sections: { cards: { slots: { fuseW?: unknown }[] }[] }[] };
+      };
+      json.notebook.sections[0].cards[0].slots[0].fuseW = bad;
+      const errors = validateNotebookJSON(json);
+      expect(errors.some((e) => /fuseW/.test(e)), `fuseW=${String(bad)}`).toBe(true);
+    }
+  });
+
+  it('validate accepts a positive slot fuseW and absent', () => {
+    const json = exportNotebook(sampleNotebook);
+    expect(validateNotebookJSON(json)).toEqual([]);
+    json.notebook.sections[0].cards[0].slots[0].fuseW = 1.5;
+    expect(validateNotebookJSON(json)).toEqual([]);
+  });
+
+  it('validates fuseW on back-face slots too', () => {
+    const json = exportNotebook(sampleNotebook) as unknown as {
+      notebook: { sections: { cards: { back?: { type: string; props: object; fuseW?: unknown }[] }[] }[] };
+    };
+    json.notebook.sections[0].cards[0].back = [{ type: 'text', props: { text: 'b' }, fuseW: -2 }];
+    const errors = validateNotebookJSON(json);
+    expect(errors.some((e) => /back\[0\]\.fuseW/.test(e))).toBe(true);
+  });
+});
+
 describe('chapter and chrome fields', () => {
   function chromeNotebook(): Notebook {
     const nb: Notebook = structuredClone(sampleNotebook);

@@ -32,6 +32,7 @@ type CardJSON = {
   back?: SlotJSON[];
   tags?: string[];
   accent?: string;
+  w?: number;
 };
 
 type SlotJSON = {
@@ -64,6 +65,7 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
           ...(c.back && { back: c.back.map(exportSlot) }),
           ...(c.tags && c.tags.length > 0 && { tags: c.tags }),
           ...(c.accent !== undefined && { accent: c.accent }),
+          ...(c.w !== undefined && { w: c.w }),
         })),
       })),
     },
@@ -100,6 +102,7 @@ export function importNotebook(json: NotebookJSON): Notebook {
       ...(c.back && { back: c.back.map(importSlot) }),
       ...(c.tags && { tags: c.tags }),
       ...(c.accent !== undefined && { accent: c.accent }),
+      ...(c.w !== undefined && { w: c.w }),
     }));
     return {
       id: sectionId,
@@ -214,6 +217,11 @@ export function validateNotebookJSON(json: unknown): string[] {
       if (accent !== undefined && typeof accent !== 'string') {
         errors.push(`${where}.accent must be a string`);
       }
+      // resize engine range: card width in twelfths, clamped to [3, 12]
+      const w = (c as Record<string, unknown>).w;
+      if (w !== undefined && (typeof w !== 'number' || !Number.isFinite(w) || w < 3 || w > 12)) {
+        errors.push(`${where}.w must be a number between 3 and 12`);
+      }
       const slots = (c as Record<string, unknown>).slots;
       validateSlotsField(errors, slots, `${where}.slots`);
       const back = (c as Record<string, unknown>).back;
@@ -265,5 +273,9 @@ function validateSlotsField(errors: string[], slots: unknown, where: string): vo
       return;
     }
     if (!getSlot(type)) errors.push(`${at} has unknown slot type: ${type}`);
+    const fuseW = (slot as Record<string, unknown>).fuseW;
+    if (fuseW !== undefined && (typeof fuseW !== 'number' || !Number.isFinite(fuseW) || fuseW <= 0)) {
+      errors.push(`${at}.fuseW must be a positive number`);
+    }
   });
 }

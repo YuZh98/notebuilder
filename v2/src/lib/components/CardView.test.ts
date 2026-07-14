@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import CardView from './CardView.svelte';
 import { mode } from '../stores/mode';
 import { CARD_STATE_KEY } from '../card-done';
@@ -45,7 +46,20 @@ function baseProps(card: Card) {
     ondragend: vi.fn(),
     ondragover: vi.fn(),
     ondrop: vi.fn(),
+    onresize: vi.fn(),
+    onfusew: vi.fn(),
   };
+}
+
+// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
+function pev(type: string, x: number, y = 0): PointerEvent {
+  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }) as PointerEvent;
+}
+
+// jsdom has no layout: rect-dependent gesture math reads getBoundingClientRect, stubbed here.
+function stubRect(el: Element, left: number, right: number) {
+  (el as HTMLElement).getBoundingClientRect = () =>
+    ({ left, right, top: 0, bottom: 0, width: right - left, height: 0, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
 }
 
 afterEach(() => {
@@ -81,12 +95,12 @@ describe('CardView grid vars', () => {
 });
 
 describe('CardView chrome', () => {
-  it('renders grip and inert rz when editable', () => {
+  it('renders grip and rz when editable', () => {
     const { container } = render(CardView, { props: baseProps(cardOf()) });
     expect(container.querySelector('.furn .grip')).toBeInTheDocument();
     const rz = container.querySelector('.furn .rz');
     expect(rz).toBeInTheDocument();
-    expect(rz?.getAttribute('title')).toBe('resize arrives with the drag engine');
+    expect(rz?.getAttribute('title')).toBeNull();
   });
 
   it('suppresses grip, rz, and cardtools when not editable (locked section)', () => {
@@ -284,6 +298,33 @@ describe('CardView fuse chains', () => {
     expect(chainSlot?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:12');
   });
 
+  it('renders two independent chains and a plain slot in one row', () => {
+    const card = cardOf({
+      slots: [
+        slot('a', { fuse: true, w: 3 }),
+        slot('b', { w: 3 }),
+        slot('c', { w: 2 }),
+        slot('d', { fuse: true, w: 2 }),
+        slot('e', { w: 2 }),
+      ],
+    });
+    const { container } = render(CardView, { props: baseProps(card) });
+
+    const row = container.querySelector('.cardrow');
+    const wraps = row?.querySelectorAll('.fusewrap') ?? [];
+    expect(wraps).toHaveLength(2);
+    expect([...wraps[0].querySelectorAll('.fusecell')].map((c) => c.getAttribute('data-sid'))).toEqual(['a', 'b']);
+    expect([...wraps[1].querySelectorAll('.fusecell')].map((c) => c.getAttribute('data-sid'))).toEqual(['d', 'e']);
+    // exactly one seam per chain, owned by that chain's left cell
+    expect([...(row?.querySelectorAll('.fusegut') ?? [])].map((g) => g.getAttribute('data-fusegut'))).toEqual(['a', 'd']);
+    // the slot between the chains stays plain
+    const c = row?.querySelector('.cardslot[data-sid="c"]');
+    expect(c).toBeInTheDocument();
+    expect(c?.querySelector('.fusewrap')).toBeNull();
+    expect(wraps[0].closest('.cardslot')?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:6');
+    expect(wraps[1].closest('.cardslot')?.getAttribute('style')?.replace(/\s/g, '')).toContain('--sw:4');
+  });
+
   it('drops the whole chain when every cell is hidden (Study), keeps it in Edit', () => {
     const slots = [
       slot('a', { fuse: true, verbs: hidden }),
@@ -415,5 +456,128 @@ describe('CardView flip faces', () => {
     await fireEvent.click(gut);
     expect(props.onstate).not.toHaveBeenCalled();
     expect(container.querySelector('.fc.flipped')).toBeNull();
+  });
+});
+
+describe('CardView card width resize', () => {
+  function setup(w = 6) {
+    const card = cardOf({ w });
+    const snapshot = JSON.parse(JSON.stringify(card));
+    const props = baseProps(card);
+    const { container } = render(CardView, { props });
+    const furn = container.querySelector('.furn') as HTMLElement;
+    // colW = 1200 / 12 = 100px per column (v1: grid width / 12)
+    stubRect(furn.parentElement as HTMLElement, 0, 1200);
+    const rz = furn.querySelector('.rz') as HTMLElement;
+    return { card, snapshot, props, furn, rz };
+  }
+
+  const wOf = (furn: HTMLElement) => furn.getAttribute('style')?.replace(/\s/g, '');
+
+  it('updates --w live with .dragging during the drag, fires onresize with the snapped width on up', async () => {
+    const { card, snapshot, props, furn, rz } = setup(6);
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 333)); // dx=233 → 6+2.33 → snaps to 8.35
+    await tick();
+    expect(wOf(furn)).toContain('--w:8.35');
+    expect(furn.classList.contains('dragging')).toBe(true);
+    expect(card).toEqual(snapshot); // live preview never touches the model
+
+    document.dispatchEvent(pev('pointerup', 333));
+    await tick();
+    expect(props.onresize).toHaveBeenCalledWith(8.35);
+    expect(furn.classList.contains('dragging')).toBe(false);
+    expect(wOf(furn)).toContain('--w:6'); // back to the model value until App commits
+    expect(card).toEqual(snapshot);
+  });
+
+  it('clamps to [3, 12]', async () => {
+    const { furn, rz, props } = setup(6);
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 5000));
+    await tick();
+    expect(wOf(furn)).toContain('--w:12');
+    document.dispatchEvent(pev('pointermove', -5000));
+    await tick();
+    expect(wOf(furn)).toContain('--w:3');
+    document.dispatchEvent(pev('pointerup', -5000));
+    await tick();
+    expect(props.onresize).toHaveBeenCalledWith(3);
+  });
+
+  it('pointercancel restores the pre-drag --w and never fires onresize', async () => {
+    const { card, snapshot, props, furn, rz } = setup(6);
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 300));
+    await tick();
+    expect(wOf(furn)).toContain('--w:8');
+    document.dispatchEvent(pev('pointercancel', 300));
+    await tick();
+    expect(wOf(furn)).toContain('--w:6');
+    expect(furn.classList.contains('dragging')).toBe(false);
+    expect(props.onresize).not.toHaveBeenCalled();
+    expect(card).toEqual(snapshot);
+  });
+});
+
+describe('CardView fuse ratio resize', () => {
+  function setup() {
+    const card = cardOf({ slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })] });
+    const snapshot = JSON.parse(JSON.stringify(card));
+    const props = baseProps(card);
+    const { container } = render(CardView, { props });
+    const gut = container.querySelector('.fusegut') as HTMLElement;
+    const lc = gut.previousElementSibling as HTMLElement;
+    const rc = gut.nextElementSibling as HTMLElement;
+    // ratio span: lb.left=0 .. rb.right=200 (v1: pointer x between the cell rects)
+    stubRect(lc, 0, 95);
+    stubRect(rc, 105, 200);
+    return { card, snapshot, props, gut, lc, rc };
+  }
+
+  // jsdom normalizes the flex shorthand, so read the parsed grow factor, not the attribute text
+  const flexOf = (el: HTMLElement) => el.style.flexGrow;
+
+  it('updates both cells\' flex live and fires onfusew with both ids on up', async () => {
+    const { card, snapshot, props, gut, lc, rc } = setup();
+    await fireEvent(gut, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 150)); // r=.75, T=2 → 1.5 / 0.5
+    await tick();
+    expect(flexOf(lc)).toBe('1.5');
+    expect(flexOf(rc)).toBe('0.5');
+    expect(card).toEqual(snapshot);
+
+    document.dispatchEvent(pev('pointerup', 150));
+    await tick();
+    expect(props.onfusew).toHaveBeenCalledWith('a', 'b', 1.5, 0.5);
+    expect(flexOf(lc)).toBe('1'); // back to model values until App commits
+    expect(flexOf(rc)).toBe('1');
+    expect(card).toEqual(snapshot);
+  });
+
+  it('clamps the ratio to [.15, .85]', async () => {
+    const { props, gut, lc, rc } = setup();
+    await fireEvent(gut, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', -500));
+    await tick();
+    expect(flexOf(lc)).toBe('0.3');
+    expect(flexOf(rc)).toBe('1.7');
+    document.dispatchEvent(pev('pointerup', -500));
+    await tick();
+    expect(props.onfusew).toHaveBeenCalledWith('a', 'b', 0.3, 1.7);
+  });
+
+  it('pointercancel restores both flex values and never fires onfusew', async () => {
+    const { card, snapshot, props, gut, lc, rc } = setup();
+    await fireEvent(gut, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 150));
+    await tick();
+    expect(flexOf(lc)).toBe('1.5');
+    document.dispatchEvent(pev('pointercancel', 150));
+    await tick();
+    expect(flexOf(lc)).toBe('1');
+    expect(flexOf(rc)).toBe('1');
+    expect(props.onfusew).not.toHaveBeenCalled();
+    expect(card).toEqual(snapshot);
   });
 });

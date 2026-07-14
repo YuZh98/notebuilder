@@ -4,6 +4,9 @@
   import { buildCardScope } from '../card-scope';
   import { isCardDone, CARD_STATE_KEY } from '../card-done';
   import { shouldShow, isLocked } from '../verbs';
+  import { startEdgeResize } from '../drag/resize';
+  import { clampCardW, fuseSplit } from '../drag/geometry';
+  import { pushGestureSnapshot } from '../drag/gesture-history';
   import VerbWrapper from '../slots/VerbWrapper.svelte';
   import ProgressStudy from '../slots/ProgressStudy.svelte';
   import CardNotes from './CardNotes.svelte';
@@ -36,6 +39,8 @@
     ondragend,
     ondragover,
     ondrop,
+    onresize,
+    onfusew,
   }: {
     card: Card;
     editable: boolean;
@@ -62,6 +67,8 @@
     ondragend: () => void;
     ondragover: (e: DragEvent) => void;
     ondrop: (e: DragEvent) => void;
+    onresize: (w: number) => void;
+    onfusew: (leftId: string, rightId: string, leftW: number, rightW: number) => void;
   } = $props();
 
   let newSlotType = $state('text');
@@ -83,9 +90,74 @@
   });
   const scope = $derived(resolved.scope);
 
+  // Live gesture previews stay local; the model is only written by the App on commit.
+  let furnEl: HTMLElement | null = $state(null);
+  let liveW: number | null = $state(null);
+  let resizing = $state(false);
+  let liveFuse: Record<string, number> | null = $state(null);
+
   const styleVars = $derived(
-    `--w:${card.w ?? 12}` + (card.accent ? `;--cardc:${card.accent}` : ''),
+    `--w:${liveW ?? card.w ?? 12}` + (card.accent ? `;--cardc:${card.accent}` : ''),
   );
+
+  // colW = grid width / 12; live --w while dragging, commit the snapped value on up
+  // (v1 100-drag-furniture.js:6-10). Pointercancel restores the start width (D12).
+  function startCardResize(ev: PointerEvent) {
+    const parent = furnEl?.parentElement;
+    if (!parent) return;
+    const colW = parent.getBoundingClientRect().width / 12;
+    if (colW <= 0) return;
+    const startW = card.w ?? 12;
+    let w = startW;
+    resizing = true;
+    pushGestureSnapshot();
+    startEdgeResize(
+      ev,
+      (dx) => {
+        w = clampCardW(startW + dx / colW);
+        liveW = w;
+      },
+      (mv) => {
+        resizing = false;
+        liveW = null;
+        if (mv !== null) onresize(w);
+      },
+    );
+  }
+
+  // Split the pair's summed fuseW by the pointer's ratio between the two cell rects
+  // (v1 100-drag-furniture.js:22-26). The right cell comes from the DOM, not the array
+  // successor, so seams still pair correctly around reveal-hidden cells.
+  function startFuseResize(ev: PointerEvent, leftId: string) {
+    const gut = ev.currentTarget as HTMLElement;
+    const lc = gut.previousElementSibling as HTMLElement | null;
+    const rc = gut.nextElementSibling as HTMLElement | null;
+    const rightId = rc?.dataset.sid;
+    if (!lc || !rc || !rightId) return;
+    const all = [...card.slots, ...(card.back ?? [])];
+    const left = all.find((s) => s.id === leftId);
+    const right = all.find((s) => s.id === rightId);
+    if (!left || !right) return;
+    const total = (left.fuseW ?? 1) + (right.fuseW ?? 1);
+    const lb = lc.getBoundingClientRect();
+    const rb = rc.getBoundingClientRect();
+    const span = rb.right - lb.left;
+    if (span <= 0) return;
+    let lw = left.fuseW ?? 1;
+    let rw = right.fuseW ?? 1;
+    pushGestureSnapshot();
+    startEdgeResize(
+      ev,
+      (_dx, _dy, mv) => {
+        [lw, rw] = fuseSplit(total, (mv.clientX - lb.left) / span);
+        liveFuse = { [leftId]: lw, [rightId]: rw };
+      },
+      (mv) => {
+        liveFuse = null;
+        if (mv !== null) onfusew(leftId, rightId, lw, rw);
+      },
+    );
+  }
 
   // Flipping records seenBack so flip cards can count as done once both sides were viewed.
   function flip() {
@@ -223,8 +295,17 @@
           <div class="cardslot" style="--sw:{group.sumw}">
             <div class="fusewrap">
               {#each vis as cell, k (cell.slot.id)}
-                {#if k}<div class="fusegut" data-fusegut={vis[k - 1].slot.id}></div>{/if}
-                <div class="fusecell" data-sid={cell.slot.id} style="flex:{cell.slot.fuseW ?? 1}">
+                {#if k}<div
+                    class="fusegut"
+                    role="presentation"
+                    data-fusegut={vis[k - 1].slot.id}
+                    onpointerdown={(e) => startFuseResize(e, vis[k - 1].slot.id)}
+                  ></div>{/if}
+                <div
+                  class="fusecell"
+                  data-sid={cell.slot.id}
+                  style="flex:{liveFuse?.[cell.slot.id] ?? cell.slot.fuseW ?? 1}"
+                >
                   {#if edit}
                     {@render editBody(cell.slot)}
                   {:else}
@@ -250,10 +331,12 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
+  bind:this={furnEl}
   class="furn"
   class:sel={selected && !studying}
   class:bare={card.verbs?.bare}
   class:done
+  class:dragging={resizing}
   style={styleVars}
   data-card={card.id}
   role="presentation"
@@ -269,7 +352,7 @@
       {ondragstart}
       {ondragend}
     >⋮⋮</span>
-    <span class="rz" title="resize arrives with the drag engine"></span>
+    <span class="rz" role="presentation" onpointerdown={startCardResize}></span>
   {/if}
   {#if studying && done}
     <div class="done-badge">Done</div>
