@@ -254,7 +254,13 @@
   {@const slotType = getSlot(slot.type)}
   {#if slotType}
     <div class="slot editing">
-      <slotType.renderEdit props={slot.props} {scope} onUpdate={(p) => onupdateslot(slot.id, p)} />
+      <slotType.renderEdit
+        props={slot.props}
+        {scope}
+        onUpdate={(p) => onupdateslot(slot.id, p)}
+        state={slotState(slot.id)}
+        onState={(next) => onstate(slot.id, next)}
+      />
       <button class="slot-del" title="Remove slot" onclick={() => ondeleteslot(slot.id)}>✕</button>
     </div>
   {/if}

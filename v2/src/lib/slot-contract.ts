@@ -10,11 +10,17 @@ export type StudyComponent<P extends SlotProps> = Component<{
   onState?: (next: Record<string, unknown>) => void;
 }>;
 
-/** Edit-mode component contract: receives props, an update callback, and the card scope */
+/**
+ * Edit-mode component contract: receives props, an update callback, and the card scope.
+ * `state`/`onState` expose the same reader-state channel Study mode uses — Edit-mode
+ * structural changes (e.g. reordering checklist items) must remap reader ticks with them.
+ */
 export type EditComponent<P extends SlotProps> = Component<{
   props: P;
   onUpdate: (props: P) => void;
   scope?: Scope;
+  state?: Record<string, unknown>;
+  onState?: (next: Record<string, unknown>) => void;
 }>;
 
 /** The contract every slot type must implement */

@@ -1,5 +1,8 @@
 <script lang="ts">
   import type { ChoiceProps } from './choice';
+  import { startPointerDrag, type EngineCallbacks } from '../drag/engine';
+  import { reorderItems, remapAnswers } from '../drag/qopt-remap';
+  import { pushGestureSnapshot } from '../drag/gesture-history';
 
   let { props, onUpdate } = $props<{
     props: ChoiceProps;
@@ -7,6 +10,35 @@
   }>();
 
   const answer = $derived(props.answer ?? []);
+
+  let listEl: HTMLElement | null = $state(null);
+
+  // v1 90-drag-engine.js:103-105 — reorder the options, remap the correct-answer indices.
+  const dragCallbacks: EngineCallbacks = {
+    canDrag: () => true,
+    canDrop: (_src, grid) => grid === listEl,
+    onDrop: (src, t) => {
+      if (t.kind !== 'grid') return;
+      const from = Number(src.meta?.from);
+      if (!Number.isInteger(from) || from < 0 || from >= props.options.length) return;
+      const to = Math.max(0, Math.min(t.idx, props.options.length - 1));
+      pushGestureSnapshot();
+      onUpdate({
+        ...props,
+        options: reorderItems(props.options, from, to),
+        answer: remapAnswers(answer, from, to),
+      });
+    },
+    phWidth: () => 8,
+  };
+
+  function gripDown(ev: PointerEvent, from: number) {
+    const row = (ev.currentTarget as Element).closest('[data-qrow]');
+    if (!row) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    startPointerDrag({ kind: 'qopt', id: 'options', srcEl: row, meta: { key: 'options', from } }, ev, dragCallbacks);
+  }
 
   function updateOption(idx: number, value: string) {
     const options = props.options.map((o: string, i: number) => (i === idx ? value : o));
@@ -47,9 +79,10 @@
     Allow multiple correct answers
   </label>
 
-  <ul>
+  <ul class="ce-choice" bind:this={listEl}>
     {#each props.options as option, idx (idx)}
-      <li class="option-row">
+      <li class="option-row ce-opt" data-qrow>
+        <span class="ce-opt-grip" role="presentation" onpointerdown={(e) => gripDown(e, idx)}>⋮⋮</span>
         <input
           type={props.multi ? 'checkbox' : 'radio'}
           checked={answer.includes(idx)}

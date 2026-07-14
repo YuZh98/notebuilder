@@ -994,6 +994,22 @@ body.side-collapsed #main {
   font-weight: 400;
   color: var(--muted);
 }
+/* ---------- ported: v1 choice/list option rows (styles.css .ce-opt) ---------- */
+.ce-opt {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 3px 0;
+}
+.ce-opt-grip {
+  cursor: grab;
+  opacity: 0.4;
+  user-select: none;
+  font-size: 0.85em;
+}
+.ce-opt-grip:hover {
+  opacity: 0.85;
+}
 /* ---------- ported: v1 floating markdown toolbar (styles.css #mdbar) ---------- */
 #mdbar {
   display: none;
