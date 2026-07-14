@@ -49,6 +49,8 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
+  import { startEdgeResize } from './lib/drag/resize';
+  import { clampSideW, parseSideWidthPref } from './lib/shell';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
@@ -130,35 +132,32 @@
 
   // ---- sidebar resize / collapse (v1 gesture: drag resizes, sub-4px click toggles) ----
 
-  function clampSideW(x: number): number {
-    return Math.max(220, Math.min(560, x));
-  }
-
   function toggleSide() {
     sideCollapsed = !sideCollapsed;
     if (isTauri()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
   }
 
   function startSideResize(e: PointerEvent) {
-    e.preventDefault();
     const startX = e.clientX;
+    const startW = sideW;
     let moved = false;
-    function onMove(ev: PointerEvent) {
-      if (Math.abs(ev.clientX - startX) > 4) moved = true;
-      if (moved && !sideCollapsed) sideW = clampSideW(ev.clientX);
-    }
-    function onUp(ev: PointerEvent) {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      if (moved && !sideCollapsed) {
-        sideW = clampSideW(ev.clientX);
-        if (isTauri()) void setPreference('side_width', String(sideW));
-      } else {
-        toggleSide();
-      }
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    startEdgeResize(
+      e,
+      (dx) => {
+        if (Math.abs(dx) > 4) moved = true;
+        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+      },
+      (mv) => {
+        if (mv === null) {
+          sideW = startW;
+        } else if (moved && !sideCollapsed) {
+          sideW = clampSideW(mv.clientX);
+          if (isTauri()) void setPreference('side_width', String(sideW));
+        } else {
+          toggleSide();
+        }
+      },
+    );
   }
 
   // ---- notebook shell ----
@@ -335,8 +334,8 @@
           getPreference('side_width'),
           getPreference('side_collapsed'),
         ]);
-        const w = savedW === null ? NaN : parseInt(savedW, 10);
-        if (Number.isFinite(w)) sideW = clampSideW(w);
+        const w = parseSideWidthPref(savedW);
+        if (w !== null) sideW = w;
         sideCollapsed = savedCollapsed === '1';
         const rows = await listNotebooks();
         if (rows.length === 0) {
