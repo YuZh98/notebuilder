@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+// @ts-expect-error -- node builtin, untyped in the browser-only tsconfig (test runs in vitest/node)
+import { readFileSync } from 'node:fs';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CardView from './CardView.svelte';
@@ -142,6 +144,33 @@ describe('CardView chrome', () => {
     const furn = container.querySelector('.furn.bare');
     expect(furn).toBeInTheDocument();
     expect(furn?.getAttribute('style')?.replace(/\s/g, '')).toContain('--cardc:#00ff00');
+  });
+
+  // jsdom has no hit-testing, so the D1 fix is asserted as a CSS contract on app.css:
+  // the hidden cardtools row (opacity<1 stacks above the positioned .grip) must be
+  // pointer-events:none so the grip's pointerdown is never intercepted, and must get
+  // pointer-events back exactly when revealed.
+  it('hidden cardtools cannot intercept the grip pointerdown (app.css contract)', () => {
+    const appCss: string = readFileSync('src/app.css', 'utf8');
+    const rule = (selector: string) => {
+      const at = appCss.indexOf(`${selector} {`);
+      expect(at, `selector "${selector}" present`).toBeGreaterThan(-1);
+      return appCss.slice(at, appCss.indexOf('}', at));
+    };
+    const hidden = rule('.cardtools');
+    expect(hidden).toMatch(/opacity:\s*0\b/);
+    expect(hidden).toMatch(/pointer-events:\s*none\b/);
+    const revealed = rule('.furn:hover .cardtools,\n.cardtools:focus-within');
+    expect(revealed).toMatch(/opacity:\s*1\b/);
+    expect(revealed).toMatch(/pointer-events:\s*auto\b/);
+  });
+
+  it('grip pointerdown starts the gesture with the cardtools row present', async () => {
+    const props = baseProps(cardOf());
+    const { container } = render(CardView, { props });
+    expect(container.querySelector('.cardtools')).toBeInTheDocument();
+    await fireEvent(container.querySelector('.grip') as HTMLElement, pev('pointerdown', 12, 10));
+    expect(props.ongrip).toHaveBeenCalledTimes(1);
   });
 
   it('renders the shell without rows when the card has no slots', () => {

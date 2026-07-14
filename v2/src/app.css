@@ -1010,6 +1010,17 @@ body.side-collapsed #main {
 .ce-opt-grip:hover {
   opacity: 0.85;
 }
+/* ---------- v2 glue (not v1): .ce-opt rows hold <input>s where v1 held .ce spans ---------- */
+/* the correct-mark radio would otherwise take the global input{width:100%} and its flex
+   basis eats the whole row, collapsing the option text input to its minimum */
+.ce-opt input[type="radio"] {
+  width: auto;
+  flex: 0 0 auto;
+}
+.ce-opt input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 /* ---------- ported: v1 floating markdown toolbar (styles.css #mdbar) ---------- */
 #mdbar {
   display: none;
@@ -1425,17 +1436,26 @@ body[data-theme] .room.edit .furn.bare {
   gap: 10px;
   font-size: 12px;
   margin-bottom: 8px;
-  /* left padding clears the absolutely-positioned v1 .grip; while hidden the row still
-     hit-tests (opacity 0 forms a stacking context above the grip), so they must not overlap */
+  /* left padding keeps the revealed row's first button clear of the absolutely-positioned
+     v1 .grip, which paints above the row once opacity hits 1 */
   padding-left: 14px;
   padding-bottom: 6px;
   border-bottom: 1px dashed var(--line);
   opacity: 0;
+  /* hidden row still hit-tests (opacity<1 stacks above the positioned .grip) and would
+     swallow the grip's pointerdown, killing card drag — dead to the pointer until revealed */
+  pointer-events: none;
   transition: 0.15s;
 }
 .furn:hover .cardtools,
 .cardtools:focus-within {
   opacity: 1;
+  pointer-events: auto;
+}
+/* while the row fades in (opacity<1 = stacking context) it would still paint above the
+   grip with pointer-events restored; lift the grip so it wins hit-testing at all times */
+.furn .grip {
+  z-index: 1;
 }
 .cardtools label {
   display: flex;
