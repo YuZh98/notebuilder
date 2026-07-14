@@ -8,6 +8,7 @@
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
   import Toast from './lib/components/Toast.svelte';
+  import Dustbin from './lib/components/Dustbin.svelte';
   import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
   import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
@@ -575,6 +576,7 @@
 
 <MdBar />
 <Toast />
+<Dustbin />
 
 <style>
   .matrix-toggle {

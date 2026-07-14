@@ -1425,3 +1425,66 @@ body[data-theme] .room.edit .furn.bare {
 .cardtools button:hover {
   opacity: 1;
 }
+
+#dustbin {
+  display: none;
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 85;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 96px;
+  height: 96px;
+  border: 2px dashed var(--warn);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
+  color: var(--warn);
+  font-size: 30px;
+}
+#dustbin.show {
+  display: flex;
+}
+#dustbin.hot {
+  background: color-mix(in srgb, var(--warn) 30%, var(--panel));
+  transform: scale(1.06);
+}
+#dustbin .sm {
+  font-size: 10px;
+}
+/* unified drag: the floating follower + the live landing placeholder */
+.drag-fly {
+  position: fixed;
+  z-index: 95;
+  pointer-events: none;
+  opacity: 0.9;
+  transform: rotate(1.5deg);
+  max-width: 340px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.5);
+  transition: none;
+  overflow: hidden;
+}
+.drag-ph {
+  border: 2px dashed var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 12%, transparent) !important;
+  box-shadow: none !important;
+  min-height: 40px;
+  transition: none;
+}
+.drag-ph > * {
+  visibility: hidden;
+}
+.furn.drag-ph {
+  flex: 0 0 calc((var(--w, 6) / 12) * 100% - 9px);
+}
+.room-grid.drop-on {
+  outline: 2px dashed var(--accent);
+  outline-offset: 5px;
+  border-radius: 10px;
+  min-height: 48px;
+}
