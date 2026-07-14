@@ -3,6 +3,9 @@
   import { mode } from '../stores/mode';
   import { renderMarkdown } from '../markdown';
   import { sectionsOfChapter } from '../notebook-ops';
+  import { startEdgeResize } from '../drag/resize';
+  import { clampRoomW } from '../drag/geometry';
+  import { pushGestureSnapshot } from '../drag/gesture-history';
   import CeText from './CeText.svelte';
   import type { Notebook, Section, Card } from '../types';
 
@@ -15,6 +18,7 @@
     onpatch,
     collapsed,
     ontogglecollapse,
+    ongrip,
     cardView,
     sectionTools,
     sectionFooter,
@@ -29,6 +33,8 @@
     /** Study-only per-section collapse — session state owned by Stage, never persisted. */
     collapsed: boolean;
     ontogglecollapse: () => void;
+    /** Grip pointerdown → the App starts the engine drag with this .room as source. */
+    ongrip?: (ev: PointerEvent, roomEl: HTMLElement) => void;
     cardView: Snippet<[Section, Card, boolean]>;
     sectionTools?: Snippet<[Section]>;
     sectionFooter?: Snippet<[Section]>;
@@ -46,11 +52,47 @@
   const chapterCount = $derived(
     section.kind === 'divider' ? sectionsOfChapter(notebook, section.id).length : 0,
   );
+  // Live gesture preview stays local; the model is only written via onpatch on commit.
+  let liveW: number | null = $state(null);
+
   const widthStyle = $derived(
-    typeof section.width === 'number' && section.width > 0
-      ? `width:${section.width}px;max-width:100%`
-      : undefined,
+    liveW !== null
+      ? `width:${liveW}px;max-width:100%`
+      : typeof section.width === 'number' && section.width > 0
+        ? `width:${section.width}px;max-width:100%`
+        : undefined,
   );
+
+  function gripDown(ev: PointerEvent) {
+    const roomEl = (ev.currentTarget as Element).closest<HTMLElement>('.room');
+    if (!roomEl) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    ongrip?.(ev, roomEl);
+  }
+
+  // clampRoomW(startW+dx, shell width), live px while dragging, persist on commit
+  // (v1 90-drag-engine.js:157). Pointercancel restores the start width (D12).
+  function startRoomResize(ev: PointerEvent) {
+    const roomEl = (ev.currentTarget as Element).closest<HTMLElement>('.room');
+    const shell = roomEl?.parentElement;
+    if (!roomEl || !shell) return;
+    const startW = roomEl.getBoundingClientRect().width;
+    const maxW = shell.getBoundingClientRect().width;
+    let w: number | null = null;
+    pushGestureSnapshot();
+    startEdgeResize(
+      ev,
+      (dx) => {
+        w = clampRoomW(startW + dx, maxW);
+        liveW = w;
+      },
+      (mv) => {
+        liveW = null;
+        if (mv !== null && w !== null) onpatch({ width: w });
+      },
+    );
+  }
 
   function select() {
     if (!studying) onselect();
@@ -80,6 +122,18 @@
     }
   }
 </script>
+
+{#snippet roomGrip()}
+  {#if !studying}
+    <span
+      class="rgrip"
+      role="presentation"
+      data-roomgrip={section.id}
+      title="drag to reorder section"
+      onpointerdown={gripDown}
+    >⠿</span>
+  {/if}
+{/snippet}
 
 {#snippet staticTitles(withMeta: boolean)}
   <div class="room-title">
@@ -115,6 +169,7 @@
     data-section={section.id}
     onclick={select}
   >
+    {@render roomGrip()}
     {#if !studying && sectionTools}{@render sectionTools(section)}{/if}
     <div class="row" style="align-items:flex-start;gap:6px">
       <span
@@ -150,6 +205,7 @@
     style={widthStyle}
     onclick={select}
   >
+    {@render roomGrip()}
     {#if !studying && sectionTools}{@render sectionTools(section)}{/if}
     {#if !studying}
       <button
@@ -201,6 +257,15 @@
         </div>
       </div>
       {#if editable && sectionFooter}{@render sectionFooter(section)}{/if}
+    {/if}
+    {#if !studying}
+      <span
+        class="rz room-edge"
+        role="presentation"
+        data-roomrz={section.id}
+        title="drag the edge to resize this section"
+        onpointerdown={startRoomResize}
+      ></span>
     {/if}
   </div>
 {/if}

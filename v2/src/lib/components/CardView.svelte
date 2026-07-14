@@ -35,10 +35,7 @@
     ontogglenotes,
     onaddnote,
     ondeletenote,
-    ondragstart,
-    ondragend,
-    ondragover,
-    ondrop,
+    ongrip,
     onresize,
     onfusew,
   }: {
@@ -63,10 +60,8 @@
     ontogglenotes: () => void;
     onaddnote: (body: string) => void;
     ondeletenote: (id: string) => void;
-    ondragstart: () => void;
-    ondragend: () => void;
-    ondragover: (e: DragEvent) => void;
-    ondrop: (e: DragEvent) => void;
+    /** Grip pointerdown → the App starts the engine drag with this card's .furn as source. */
+    ongrip: (ev: PointerEvent, srcEl: HTMLElement) => void;
     onresize: (w: number) => void;
     onfusew: (leftId: string, rightId: string, leftW: number, rightW: number) => void;
   } = $props();
@@ -234,6 +229,13 @@
     if (name) onsavetype(name);
   }
 
+  // v1 90-drag-engine.js:156 — the grip owns the pointerdown; the card click must not fire.
+  function gripDown(e: PointerEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (furnEl) ongrip(e, furnEl);
+  }
+
   function handleClick(e: MouseEvent) {
     if (studying || !editable) return;
     // Card selection is exclusive with section selection — the room's click handler must not fire.
@@ -341,17 +343,9 @@
   data-card={card.id}
   role="presentation"
   onclick={handleClick}
-  {ondragover}
-  {ondrop}
 >
   {#if editable}
-    <span
-      class="grip"
-      role="presentation"
-      draggable="true"
-      {ondragstart}
-      {ondragend}
-    >⋮⋮</span>
+    <span class="grip" role="presentation" onpointerdown={gripDown}>⋮⋮</span>
     <span class="rz" role="presentation" onpointerdown={startCardResize}></span>
   {/if}
   {#if studying && done}

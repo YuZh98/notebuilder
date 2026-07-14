@@ -42,10 +42,7 @@ function baseProps(card: Card) {
     ontogglenotes: vi.fn(),
     onaddnote: vi.fn(),
     ondeletenote: vi.fn(),
-    ondragstart: vi.fn(),
-    ondragend: vi.fn(),
-    ondragover: vi.fn(),
-    ondrop: vi.fn(),
+    ongrip: vi.fn(),
     onresize: vi.fn(),
     onfusew: vi.fn(),
   };
@@ -101,6 +98,25 @@ describe('CardView chrome', () => {
     const rz = container.querySelector('.furn .rz');
     expect(rz).toBeInTheDocument();
     expect(rz?.getAttribute('title')).toBeNull();
+  });
+
+  it('grip is engine-wired: no HTML5 draggable, pointerdown fires ongrip with the furn element', async () => {
+    const props = baseProps(cardOf());
+    const { container } = render(CardView, { props });
+    const grip = container.querySelector('.grip') as HTMLElement;
+    expect(grip.hasAttribute('draggable')).toBe(false);
+    const down = pev('pointerdown', 5, 5);
+    await fireEvent(grip, down);
+    expect(props.ongrip).toHaveBeenCalledTimes(1);
+    const [ev, el] = props.ongrip.mock.calls[0] as [PointerEvent, HTMLElement];
+    expect(ev).toBe(down);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(el).toBe(container.querySelector('.furn'));
+  });
+
+  it('carries no HTML5 drag attributes anywhere on the card shell', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    expect(container.querySelector('[draggable]')).toBeNull();
   });
 
   it('suppresses grip, rz, and cardtools when not editable (locked section)', () => {

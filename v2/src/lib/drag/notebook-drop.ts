@@ -1,0 +1,92 @@
+import { toast } from '../toast.svelte';
+import { pushGestureSnapshot } from './gesture-history';
+import { deleteCard, deleteSection, findCard, moveCardBefore, moveSectionBefore } from '../notebook-ops';
+import type { Notebook, Section } from '../types';
+import type { DragSource, DropTarget, EngineCallbacks } from './engine';
+
+export type NotebookDropDeps = {
+  notebook: () => Notebook;
+  selectedCard: () => string | null;
+  selectedSection: () => string | null;
+  clearSelection: () => void;
+  confirmDelete: (message: string, title: string) => Promise<boolean>;
+};
+
+function sectionOf(nb: Notebook, cardId: string): Section | undefined {
+  return nb.sections.find((s) => s.cards.some((c) => c.id === cardId));
+}
+
+/**
+ * The engine's drop idx counts grid items minus the dragged one; resolve it against the
+ * grid DOM (which already reflects chapter folds) to the id to insert before.
+ * An idx past the end yields null → append, the v1 clamp (90-drag-engine.js:97).
+ */
+function idAt(grid: Element, itemSel: string, key: 'card' | 'section', srcId: string, idx: number): string | null {
+  const ids = [...grid.children]
+    .filter((c): c is HTMLElement => c instanceof HTMLElement && c.matches(itemSel) && !c.classList.contains('drag-ph'))
+    .map((el) => el.dataset[key])
+    .filter((id): id is string => typeof id === 'string' && id !== srcId);
+  return ids[idx] ?? null;
+}
+
+/** Drop rules for the notebook stage — v1 90-drag-engine.js:23,61-62,82,85,95-101. */
+export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbacks {
+  const dropCard = (src: DragSource, t: DropTarget): void => {
+    const nb = deps.notebook();
+    if (t.kind === 'dust') {
+      pushGestureSnapshot();
+      if (deps.selectedCard() === src.id) deps.clearSelection();
+      deleteCard(nb, src.id);
+      toast('card deleted (Undo to restore)');
+      return;
+    }
+    const targetSectionId = (t.grid as HTMLElement).dataset.section;
+    if (!targetSectionId) return;
+    pushGestureSnapshot();
+    moveCardBefore(nb, src.id, targetSectionId, idAt(t.grid, '.furn', 'card', src.id, t.idx));
+  };
+
+  const dropSection = (src: DragSource, t: DropTarget): void => {
+    const nb = deps.notebook();
+    if (t.kind === 'dust') {
+      if (nb.sections.length <= 1) {
+        toast('keep at least one section');
+        return;
+      }
+      const section = nb.sections.find((s) => s.id === src.id);
+      if (!section) return;
+      void deps.confirmDelete(`Delete section "${section.name}"? (Undoable)`, 'Delete Section').then((ok) => {
+        if (!ok) return;
+        pushGestureSnapshot();
+        const selectedCard = deps.selectedCard();
+        if (deps.selectedSection() === src.id || section.cards.some((c) => c.id === selectedCard)) {
+          deps.clearSelection();
+        }
+        deleteSection(deps.notebook(), src.id);
+        toast('section deleted');
+      });
+      return;
+    }
+    pushGestureSnapshot();
+    moveSectionBefore(nb, src.id, idAt(t.grid, '.room', 'section', src.id, t.idx));
+  };
+
+  return {
+    canDrag: (src) => {
+      if (src.kind !== 'card') return true;
+      const from = sectionOf(deps.notebook(), src.id);
+      return from !== undefined && from.locked !== true;
+    },
+    canDrop: (src, grid) => {
+      if (src.kind !== 'card') return true;
+      const id = (grid as HTMLElement).dataset.section;
+      const target = deps.notebook().sections.find((s) => s.id === id);
+      return target !== undefined && target.kind !== 'divider' && target.locked !== true;
+    },
+    onDrop: (src, t) => {
+      if (src.kind === 'card') dropCard(src, t);
+      else if (src.kind === 'section') dropSection(src, t);
+    },
+    phWidth: (src) => (src.kind === 'card' ? (findCard(deps.notebook(), src.id)?.w ?? 12) : 8),
+  };
+}

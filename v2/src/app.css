@@ -1095,6 +1095,24 @@ body.side-collapsed #main {
 .room {
   position: relative;
 }
+.room > .room-edge {
+  position: absolute;
+  top: 0;
+  right: -7px;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+  opacity: 0;
+  flex: none;
+}
+.room:hover > .room-edge {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 25%, transparent)
+  );
+}
 .room {
   margin-bottom: 26px;
 }

@@ -14,6 +14,7 @@
     onrename,
     onsubtitle,
     onpatchsection,
+    onsectiongrip,
     cardView,
     matrix,
     sectionTools,
@@ -27,6 +28,8 @@
     onrename: (name: string) => void;
     onsubtitle: (v: string) => void;
     onpatchsection: (section: Section, patch: Partial<Section>) => void;
+    /** Section grip pointerdown → the App starts the engine drag for this section. */
+    onsectiongrip?: (section: Section, ev: PointerEvent, roomEl: HTMLElement) => void;
     cardView: Snippet<[Section, Card, boolean]>;
     matrix?: Snippet;
     sectionTools?: Snippet<[Section]>;
@@ -111,6 +114,7 @@
       onpatch={(patch) => onpatchsection(section, patch)}
       collapsed={studyCollapsed[section.id] === true}
       ontogglecollapse={() => (studyCollapsed[section.id] = studyCollapsed[section.id] !== true)}
+      ongrip={(ev, el) => onsectiongrip?.(section, ev, el)}
       {cardView}
       {sectionTools}
       {sectionFooter}

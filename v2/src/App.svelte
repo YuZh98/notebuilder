@@ -45,12 +45,12 @@
     moveCard,
     addSlot,
     deleteSlot,
-    moveCardBefore,
-    moveSectionBefore,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { debounce } from './lib/debounce';
   import { startEdgeResize } from './lib/drag/resize';
+  import { startPointerDrag } from './lib/drag/engine';
+  import { makeNotebookDropCallbacks } from './lib/drag/notebook-drop';
   import { clampSideW, parseSideWidthPref } from './lib/shell';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
@@ -286,26 +286,25 @@
     right.fuseW = rightW;
   }
 
-  // ---- drag reorder (Edit mode) ----
+  // ---- drag reorder / dust delete (Edit mode, pointer engine) ----
 
-  let dragCardId: string | null = $state(null);
-  let dragSectionId: string | null = $state(null);
+  const dropCallbacks = makeNotebookDropCallbacks({
+    notebook: () => notebook,
+    selectedCard: () => selCard,
+    selectedSection: () => selSection,
+    clearSelection: () => {
+      selCard = null;
+      selSection = null;
+    },
+    confirmDelete: confirmDialog,
+  });
 
-  function dropCard(sectionId: string, beforeCardId: string | null, e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (dragCardId) moveCardBefore(notebook, dragCardId, sectionId, beforeCardId);
-    dragCardId = null;
+  function gripCard(card: Card, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'card', id: card.id, srcEl }, ev, dropCallbacks);
   }
 
-  function dropSection(beforeSectionId: string | null, e: DragEvent) {
-    e.preventDefault();
-    if (dragSectionId) moveSectionBefore(notebook, dragSectionId, beforeSectionId);
-    dragSectionId = null;
-  }
-
-  function allowDrop(e: DragEvent) {
-    if (dragCardId || dragSectionId) e.preventDefault();
+  function gripSection(section: Section, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'section', id: section.id, srcEl }, ev, dropCallbacks);
   }
 
   // ---- gallery / factory ----
@@ -450,19 +449,7 @@
 {/snippet}
 
 {#snippet sectionTools(section: Section)}
-  <div
-    class="section-head"
-    role="presentation"
-    ondragover={allowDrop}
-    ondrop={(e) => dropSection(section.id, e)}
-  >
-    <span
-      class="drag-handle"
-      role="presentation"
-      draggable="true"
-      ondragstart={() => (dragSectionId = section.id)}
-      ondragend={() => (dragSectionId = null)}
-    >⠿</span>
+  <div class="section-head">
     <input
       class="section-name"
       value={section.name}
@@ -496,17 +483,14 @@
     ontogglenotes={() => (notesFor = notesFor === card.id ? null : card.id)}
     onaddnote={(body) => addNote(card.id, body)}
     ondeletenote={deleteNote}
-    ondragstart={() => (dragCardId = card.id)}
-    ondragend={() => (dragCardId = null)}
-    ondragover={allowDrop}
-    ondrop={(e) => dropCard(section.id, card.id, e)}
+    ongrip={(ev, el) => gripCard(card, ev, el)}
     onresize={(w) => setCardW(card, w)}
     onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
   />
 {/snippet}
 
 {#snippet sectionFooter(section: Section)}
-  <div class="add-row" role="presentation" ondragover={allowDrop} ondrop={(e) => dropCard(section.id, null, e)}>
+  <div class="add-row">
     <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
     <button
       class="add-card"
@@ -532,12 +516,7 @@
 
 {#snippet stageFooter()}
   {#if $mode === 'edit'}
-    <button
-      class="add-section"
-      ondragover={allowDrop}
-      ondrop={(e) => dropSection(null, e)}
-      onclick={() => addSection(notebook)}
-    >+ section</button>
+    <button class="add-section" onclick={() => addSection(notebook)}>+ section</button>
   {/if}
 {/snippet}
 
@@ -558,6 +537,7 @@
       onrename={renameNotebook}
       onsubtitle={setNotebookSubtitle}
       onpatchsection={patchSection}
+      onsectiongrip={gripSection}
       {cardView}
       {matrix}
       {sectionTools}
@@ -613,15 +593,6 @@
   .section-name:focus {
     border-color: var(--line);
     background: var(--panel);
-  }
-  .drag-handle {
-    cursor: grab;
-    opacity: 0.35;
-    font-size: 13px;
-    user-select: none;
-  }
-  .drag-handle:hover {
-    opacity: 0.8;
   }
   .section-head button {
     background: none;

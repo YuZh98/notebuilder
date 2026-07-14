@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import Stage from './Stage.svelte';
 import { mode } from '../stores/mode';
 import type { Notebook, Section, Card } from '../types';
@@ -172,6 +172,123 @@ describe('Stage — Study mode', () => {
     expect(container.querySelector('.house-title')?.textContent).toContain('🏠 My House');
     expect(container.querySelector('.house-sub b')?.textContent).toBe('bold');
     expect(container.querySelector('.ceview')).toBeNull();
+  });
+});
+
+// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
+function pev(type: string, x: number, y = 0): PointerEvent {
+  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }) as PointerEvent;
+}
+
+// jsdom has no layout: rect-dependent gesture math reads getBoundingClientRect, stubbed here.
+function stubWidth(el: Element, width: number) {
+  (el as HTMLElement).getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width, height: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+}
+
+describe('Stage — section grip (engine drag affordance)', () => {
+  it('renders data-roomgrip on rooms and dividers in Edit, never in Study', () => {
+    const nb = nbOf([sec('s1'), sec('d1', { kind: 'divider' })]);
+    const { container, unmount } = render(Stage, { props: baseProps(nb) });
+    expect(container.querySelector('[data-section="s1"] [data-roomgrip="s1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-section="d1"] [data-roomgrip="d1"]')).toBeInTheDocument();
+    expect(container.querySelector('[draggable]')).toBeNull();
+    unmount();
+
+    mode.set('study');
+    const study = render(Stage, { props: baseProps(nbOf([sec('s1', { cards: [card('c1', 's1')] })])) });
+    expect(study.container.querySelector('[data-roomgrip]')).toBeNull();
+  });
+
+  it('grip pointerdown fires onsectiongrip with the section and its .room element', async () => {
+    const nb = nbOf([sec('s1'), sec('s2')]);
+    const onsectiongrip = vi.fn();
+    const { container } = render(Stage, { props: { ...baseProps(nb), onsectiongrip } });
+    const grip = container.querySelector('[data-roomgrip="s2"]') as HTMLElement;
+    const down = pev('pointerdown', 3, 3);
+    await fireEvent(grip, down);
+    expect(onsectiongrip).toHaveBeenCalledTimes(1);
+    const [section, ev, el] = onsectiongrip.mock.calls[0] as [Section, PointerEvent, HTMLElement];
+    expect(section.id).toBe('s2');
+    expect(ev).toBe(down);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(el).toBe(container.querySelector('[data-section="s2"]'));
+  });
+});
+
+describe('Stage — section width resize (data-roomrz)', () => {
+  function setup(width?: number) {
+    const nb = nbOf([sec('s1', width !== undefined ? { width } : {}), sec('d1', { kind: 'divider' })]);
+    // render() wraps props in $state, so model writes land on the proxy — record the
+    // patches themselves and let patchSection apply them for the DOM assertions.
+    const patches: Partial<Section>[] = [];
+    const { container } = render(Stage, {
+      props: {
+        ...baseProps(nb),
+        onpatchsection: (s: Section, p: Partial<Section>) => {
+          patches.push(p);
+          patchSection(s, p);
+        },
+      },
+    });
+    const room = container.querySelector('[data-section="s1"]') as HTMLElement;
+    stubWidth(room, 400);
+    stubWidth(room.parentElement as HTMLElement, 1000); // the .card-shell
+    const rz = room.querySelector('[data-roomrz="s1"]') as HTMLElement;
+    return { nb, patches, container, room, rz };
+  }
+
+  it('renders the handle on rooms only, in Edit only', () => {
+    const { container, unmount } = render(Stage, {
+      props: baseProps(nbOf([sec('s1'), sec('d1', { kind: 'divider' })])),
+    });
+    expect(container.querySelector('[data-section="s1"] [data-roomrz="s1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-section="d1"] [data-roomrz]')).toBeNull();
+    unmount();
+
+    mode.set('study');
+    const study = render(Stage, { props: baseProps(nbOf([sec('s1', { cards: [card('c1', 's1')] })])) });
+    expect(study.container.querySelector('[data-roomrz]')).toBeNull();
+  });
+
+  it('live-updates the room width while dragging, commits section.width on up (v1 :157)', async () => {
+    const { patches, room, rz } = setup();
+    await fireEvent(rz, pev('pointerdown', 500));
+    document.dispatchEvent(pev('pointermove', 700)); // dx=200 → 400+200
+    await tick();
+    expect(room.style.width).toBe('600px');
+    expect(patches).toEqual([]); // live preview never touches the model
+
+    document.dispatchEvent(pev('pointerup', 700));
+    await tick();
+    expect(patches).toEqual([{ width: 600 }]);
+    expect(room.style.width).toBe('600px');
+  });
+
+  it('clamps to [240, shell width]', async () => {
+    const { patches, room, rz } = setup();
+    await fireEvent(rz, pev('pointerdown', 500));
+    document.dispatchEvent(pev('pointermove', 5000));
+    await tick();
+    expect(room.style.width).toBe('1000px');
+    document.dispatchEvent(pev('pointermove', -5000));
+    await tick();
+    expect(room.style.width).toBe('240px');
+    document.dispatchEvent(pev('pointerup', -5000));
+    await tick();
+    expect(patches).toEqual([{ width: 240 }]);
+  });
+
+  it('pointercancel restores the pre-drag width and commits nothing (D12)', async () => {
+    const { patches, room, rz } = setup(420);
+    await fireEvent(rz, pev('pointerdown', 500));
+    document.dispatchEvent(pev('pointermove', 700));
+    await tick();
+    expect(room.style.width).toBe('600px');
+    document.dispatchEvent(pev('pointercancel', 700));
+    await tick();
+    expect(room.style.width).toBe('420px');
+    expect(patches).toEqual([]);
   });
 });
 
