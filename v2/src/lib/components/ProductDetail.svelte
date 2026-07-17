@@ -19,6 +19,9 @@
       ',',
     ),
   );
+  // v2 addition — enum-typed slot props (list.style, progress.scope) that v1's per-type
+  // `fields` gate never exposed; without this they surface as free-text inputs.
+  for (const k of ['style', 'scope']) STRUCTURAL.add(k);
 
   const noop = () => {};
 

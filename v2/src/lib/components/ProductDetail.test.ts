@@ -33,6 +33,22 @@ describe('ProductDetail', () => {
     expect(container.querySelector('input[data-draft]')?.getAttribute('data-key')).toBe('text');
   });
 
+  it('renders no draft inputs for a tracker-shaped type (enum style prop is not free text)', () => {
+    const { container } = mount({
+      slots: [{ type: 'list', props: { items: ['a', 'b'], style: 'check' } }],
+    });
+    expect(container.querySelectorAll('input[data-draft]')).toHaveLength(0);
+  });
+
+  it('exposes only label on a mastery-shaped type, never the enum scope prop', () => {
+    const { container } = mount({
+      slots: [{ type: 'progress', props: { label: 'Chapter 1', scope: 'chapter' } }],
+    });
+    const inputs = container.querySelectorAll('input[data-draft]');
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0].getAttribute('data-key')).toBe('label');
+  });
+
   it('editing a draft input flows into the live preview', async () => {
     const { container } = mount();
     await fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'study')!);
