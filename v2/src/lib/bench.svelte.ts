@@ -1,6 +1,6 @@
 import { uid } from './uid';
 import { getSlot } from './slots/registry';
-import type { Card, Slot, SlotProps } from './types';
+import type { Card, Slot, SlotProps, VerbConfig } from './types';
 import { stampSlot, templateSlot, type CardType, type Variety } from './card-types';
 
 /**
@@ -144,13 +144,39 @@ export function setBenchVerb(b: Bench, key: 'flip' | 'bare', on: boolean): void 
   }
 }
 
-/** Append a slot of `type` to a bench face (front by default). */
-export function addBenchSlot(b: Bench, type: string, face?: 'back'): void {
+/**
+ * Insert a slot of `type` into a bench face (front by default, append if `at` omitted).
+ * Selects the new slot when it lands on the currently edited face (v1 addslot 70-events:130).
+ */
+export function addBenchSlot(b: Bench, type: string, face?: 'back', at?: number): void {
   const st = getSlot(type);
   if (!st) return;
   const slot: Slot = { id: uid('slot'), type, props: st.create(), w: 12 };
-  if (face === 'back') (b.back ??= []).push(slot);
-  else b.slots.push(slot);
+  const arr = face === 'back' ? (b.back ??= []) : b.slots;
+  const idx = at == null ? arr.length : Math.max(0, Math.min(at, arr.length));
+  arr.splice(idx, 0, slot);
+  if ((face === 'back') === (factory.face === 'back')) factory.sel = idx;
+}
+
+/**
+ * Toggle a per-slot effect on the selected slot of the current face (v1 sverb 70-events:137).
+ * Turning `reveal` on seeds `{key:'pick',op:'==',val:0}` unless one already exists.
+ */
+export function setSlotVerb(idx: number, key: 'reveal' | 'glow' | 'emphasis', on: boolean): void {
+  const b = activeBench();
+  const arr = factory.face === 'back' ? (b.back ?? []) : b.slots;
+  const slot = arr[idx];
+  if (!slot) return;
+  if (on) {
+    const next: VerbConfig = { ...slot.verbs };
+    if (key === 'reveal') next.reveal = slot.verbs?.reveal ?? { key: 'pick', op: '==', val: 0 };
+    else next[key] = true;
+    slot.verbs = next;
+  } else if (slot.verbs) {
+    const next = { ...slot.verbs };
+    delete next[key];
+    slot.verbs = Object.keys(next).length ? next : undefined;
+  }
 }
 
 /** Remove a slot from either face of a bench. */

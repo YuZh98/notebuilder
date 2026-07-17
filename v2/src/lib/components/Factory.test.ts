@@ -129,6 +129,52 @@ describe('Factory — Build stage', () => {
   });
 });
 
+function dt(map: Record<string, string>) {
+  return {
+    types: Object.keys(map),
+    getData: (k: string) => map[k] ?? '',
+    setData: () => {},
+    dropEffect: 'none',
+  };
+}
+
+describe('Factory — decorator drops', () => {
+  it('nb-slot dropped on the bench grid adds a slot to the active face', async () => {
+    const { a } = seed();
+    const { container } = render(Factory, { props: props() });
+    const grid = container.querySelector(`.faccard[data-bench="${a.id}"] .bench`) as HTMLElement;
+    await fireEvent.drop(grid, { dataTransfer: dt({ 'text/nb-slot': 'slider' }) });
+    expect(factory.benches[0].slots.map((s) => s.type)).toEqual(['text', 'slider']);
+  });
+
+  it('nb-sverb dropped on a bench slot applies the effect and selects it', async () => {
+    const { a } = seed();
+    const { container } = render(Factory, { props: props() });
+    const cell = container.querySelector(
+      `.faccard[data-bench="${a.id}"] .cardslot[data-sid]`,
+    ) as HTMLElement;
+    await fireEvent.drop(cell, { dataTransfer: dt({ 'text/nb-sverb': 'glow' }) });
+    expect(factory.benches[0].slots[0].verbs?.glow).toBe(true);
+    expect(factory.sel).toBe(0);
+  });
+
+  it('nb-verb dropped on the container turns on the flip mode', async () => {
+    const { a } = seed();
+    const { container } = render(Factory, { props: props() });
+    const faccard = container.querySelector(`.faccard[data-bench="${a.id}"]`) as HTMLElement;
+    await fireEvent.drop(faccard, { dataTransfer: dt({ 'text/nb-verb': 'flip' }) });
+    expect(factory.benches[0].verbs?.flip).toBe(true);
+  });
+
+  it('nb-col dropped on the container sets the accent', async () => {
+    const { a } = seed();
+    const { container } = render(Factory, { props: props() });
+    const faccard = container.querySelector(`.faccard[data-bench="${a.id}"]`) as HTMLElement;
+    await fireEvent.drop(faccard, { dataTransfer: dt({ 'text/nb-col': '#54d6a0' }) });
+    expect(factory.benches[0].accent).toBe('#54d6a0');
+  });
+});
+
 describe('Factory — Preview stage', () => {
   it('renders every bench with no builder chrome', () => {
     seed();

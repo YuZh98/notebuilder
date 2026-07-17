@@ -3,6 +3,7 @@
   import { computeProgress, progressScopeCards, type ProgressScope } from './lib/progress';
   import TopBar from './lib/components/TopBar.svelte';
   import SideBar from './lib/components/SideBar.svelte';
+  import SideFactory from './lib/components/SideFactory.svelte';
   import Stage from './lib/components/Stage.svelte';
   import Factory from './lib/components/Factory.svelte';
   import CardView from './lib/components/CardView.svelte';
@@ -546,12 +547,16 @@
 {/snippet}
 
 <div id="main" style="--sidew:{sideW}px">
-  <SideBar
-    notebookName={notebook.name}
-    canPersist={isTauri()}
-    onrename={renameNotebook}
-    ondelete={() => void removeNotebook()}
-  />
+  {#if $place === 'factory'}
+    <SideFactory />
+  {:else}
+    <SideBar
+      notebookName={notebook.name}
+      canPersist={isTauri()}
+      onrename={renameNotebook}
+      ondelete={() => void removeNotebook()}
+    />
+  {/if}
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
   <div id="stage">
     {#if $place === 'factory'}

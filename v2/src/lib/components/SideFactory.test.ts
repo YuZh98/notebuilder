@@ -1,0 +1,107 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
+import SideFactory from './SideFactory.svelte';
+import { factory, activeBench, addBenchSlot, hydrateFactory } from '../bench.svelte';
+import { toastState } from '../toast.svelte';
+
+beforeEach(() => {
+  hydrateFactory(null);
+});
+
+function lanes(container: HTMLElement) {
+  return [...container.querySelectorAll('.store-lane')];
+}
+
+describe('SideFactory', () => {
+  it('renders a Slots palette with one chip per registered slot type', () => {
+    const { container } = render(SideFactory);
+    const palette = lanes(container)[0].querySelectorAll('.chip');
+    const labels = [...palette].map((c) => c.textContent?.trim());
+    expect(labels).toContain('text');
+    expect(labels).toContain('slider');
+    expect(palette.length).toBeGreaterThan(7);
+  });
+
+  it('clicking a palette chip adds a slot to the active face and selects it', async () => {
+    const { container } = render(SideFactory);
+    const text = [...lanes(container)[0].querySelectorAll('.chip')].find(
+      (c) => c.textContent?.trim() === 'text',
+    );
+    await fireEvent.click(text as Element);
+    expect(activeBench().slots).toHaveLength(1);
+    expect(activeBench().slots[0].type).toBe('text');
+    expect(factory.sel).toBe(0);
+  });
+
+  it('a card-mode chip toggles the container flip verb', async () => {
+    const { container } = render(SideFactory);
+    const flip = [...lanes(container)[1].querySelectorAll('.chip')].find((c) =>
+      c.textContent?.includes('Flip'),
+    );
+    await fireEvent.click(flip as Element);
+    expect(activeBench().verbs?.flip).toBe(true);
+  });
+
+  it('clicking a slot effect with no selection toasts', async () => {
+    const b = activeBench();
+    addBenchSlot(b, 'text');
+    factory.sel = null;
+    const { container } = render(SideFactory);
+    const glow = [...lanes(container)[2].querySelectorAll('.chip')].find((c) =>
+      c.textContent?.includes('Glow'),
+    );
+    await fireEvent.click(glow as Element);
+    expect(toastState.message).toContain('select a slot first');
+    expect(activeBench().slots[0].verbs?.glow).toBeUndefined();
+  });
+
+  it('clicking a slot effect with a selection applies it', async () => {
+    const b = activeBench();
+    addBenchSlot(b, 'text');
+    factory.sel = 0;
+    const { container } = render(SideFactory);
+    const glow = [...lanes(container)[2].querySelectorAll('.chip')].find((c) =>
+      c.textContent?.includes('Glow'),
+    );
+    await fireEvent.click(glow as Element);
+    expect(activeBench().slots[0].verbs?.glow).toBe(true);
+  });
+
+  it('clicking a colour swatch sets the bench accent', async () => {
+    const { container } = render(SideFactory);
+    const blue = [...lanes(container)[3].querySelectorAll('.swatch')].find(
+      (s) => s.getAttribute('title') === 'Blue',
+    );
+    await fireEvent.click(blue as Element);
+    expect(activeBench().accent).toBe('#6ea8fe');
+  });
+
+  it('the Default swatch clears the accent', async () => {
+    const b = activeBench();
+    b.accent = '#6ea8fe';
+    const { container } = render(SideFactory);
+    const def = [...lanes(container)[3].querySelectorAll('.swatch')].find(
+      (s) => s.getAttribute('title') === 'Default',
+    );
+    await fireEvent.click(def as Element);
+    expect(activeBench().accent).toBeUndefined();
+  });
+
+  it('renders SlotConfig only when a slot is selected', async () => {
+    const b = activeBench();
+    addBenchSlot(b, 'text');
+    factory.sel = null;
+    const { container } = render(SideFactory);
+    expect(container.textContent).not.toContain('Slot: text');
+    factory.sel = 0;
+    await tick();
+    expect(container.textContent).toContain('Slot: text');
+  });
+
+  it('palette chips carry the nb-slot drag payload', () => {
+    const { container } = render(SideFactory);
+    const chip = lanes(container)[0].querySelector('.chip') as HTMLElement;
+    expect(chip.getAttribute('draggable')).toBe('true');
+  });
+});

@@ -9,11 +9,13 @@
     benchPreviewCard,
     setBenchVerb,
     addBenchSlot,
+    setSlotVerb,
     deleteBenchSlot,
     updateBenchSlot,
     fuseBenchSlot,
     type Bench,
   } from '../bench.svelte';
+  import { toast } from '../toast.svelte';
 
   let { onseal }: { onseal: (benchId: string) => void } = $props();
 
@@ -25,6 +27,52 @@
   function selectBench(id: string) {
     factory.active = id;
     factory.sel = null;
+  }
+
+  const has = (e: DragEvent, kind: string) => (e.dataTransfer?.types ?? []).includes(kind);
+
+  // Decorator drops onto the container: card-mode verbs and the product colour (v1 130-boot:11-12).
+  function faccardOver(e: DragEvent) {
+    if (has(e, 'text/nb-verb') || has(e, 'text/nb-col')) e.preventDefault();
+  }
+  function faccardDrop(e: DragEvent, b: Bench) {
+    if (has(e, 'text/nb-verb')) {
+      e.preventDefault();
+      const verb = e.dataTransfer!.getData('text/nb-verb') as 'flip' | 'bare';
+      setBenchVerb(b, verb, true);
+      toast(verb === 'flip' ? 'flip applied — back face created' : 'frameless applied');
+    } else if (has(e, 'text/nb-col')) {
+      e.preventDefault();
+      b.accent = e.dataTransfer!.getData('text/nb-col') || undefined;
+      toast('look applied');
+    }
+  }
+
+  // Decorator drops onto the slot grid: add a slot (nb-slot) or apply a slot effect (nb-sverb).
+  function benchOver(e: DragEvent) {
+    if (has(e, 'text/nb-slot') || has(e, 'text/nb-sverb')) e.preventDefault();
+  }
+  function benchDrop(e: DragEvent, b: Bench) {
+    const back = factory.face === 'back';
+    const arr = back ? (b.back ?? []) : b.slots;
+    const cell = (e.target as HTMLElement).closest?.('.cardslot') as HTMLElement | null;
+    const at = cell?.dataset.sid ? arr.findIndex((s) => s.id === cell.dataset.sid) : -1;
+    if (has(e, 'text/nb-sverb')) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (at < 0) {
+        toast('drop a slot verb onto a slot');
+        return;
+      }
+      const key = e.dataTransfer!.getData('text/nb-sverb') as 'reveal' | 'glow' | 'emphasis';
+      setSlotVerb(at, key, true);
+      factory.sel = at;
+      toast('effect applied');
+    } else if (has(e, 'text/nb-slot')) {
+      e.preventDefault();
+      e.stopPropagation();
+      addBenchSlot(b, e.dataTransfer!.getData('text/nb-slot'), back ? 'back' : undefined, at >= 0 ? at : undefined);
+    }
   }
 
   function renameBench(b: Bench, v: string) {
@@ -83,7 +131,14 @@
           <div class="sm muted bench-caption">{b.name}</div>
         </div>
       {:else if b.id === factory.active}
-        <div class="benchcard faccard on" style="--w:6" data-bench={b.id}>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="benchcard faccard on"
+          style="--w:6"
+          data-bench={b.id}
+          ondragover={faccardOver}
+          ondrop={(e) => faccardDrop(e, b)}
+        >
           <div class="row bench-head">
             <span class="grip">⋮⋮</span>
             <span class="bench-name-wrap">
@@ -122,7 +177,8 @@
                 onclick={() => (factory.face = 'back')}>Back</button>
             </div>
           {/if}
-          <div class="bench">
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="bench" ondragover={benchOver} ondrop={(e) => benchDrop(e, b)}>
             <CardView {...benchProps(b, true)} />
           </div>
         </div>

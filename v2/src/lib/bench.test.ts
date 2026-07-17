@@ -14,6 +14,7 @@ import {
   deleteBenchSlot,
   updateBenchSlot,
   fuseBenchSlot,
+  setSlotVerb,
   serializeFactory,
   hydrateFactory,
   type Bench,
@@ -245,6 +246,72 @@ describe('bench slot mutators', () => {
     fuseBenchSlot(b, a.id, c.id, 1.5, 0.5);
     expect(a.fuseW).toBe(1.5);
     expect(c.fuseW).toBe(0.5);
+  });
+
+  it('addBenchSlot selects the new slot on the current face', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    expect(factory.sel).toBe(0);
+    addBenchSlot(b, 'slider');
+    expect(factory.sel).toBe(1);
+  });
+
+  it('addBenchSlot inserts at an explicit index', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'slider');
+    addBenchSlot(b, 'choice', undefined, 1);
+    expect(b.slots.map((s) => s.type)).toEqual(['text', 'choice', 'slider']);
+    expect(factory.sel).toBe(1);
+  });
+
+  it('addBenchSlot does not select when adding off the current face', () => {
+    const b = freshBench();
+    addBench(b);
+    factory.face = 'front';
+    factory.sel = null;
+    addBenchSlot(b, 'text', 'back');
+    expect(factory.sel).toBe(null);
+  });
+});
+
+describe('setSlotVerb', () => {
+  it('seeds a default reveal config when turned on', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    setSlotVerb(0, 'reveal', true);
+    expect(activeBench().slots[0].verbs?.reveal).toEqual({ key: 'pick', op: '==', val: 0 });
+  });
+
+  it('sets and clears glow, dropping empty verbs', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    setSlotVerb(0, 'glow', true);
+    expect(activeBench().slots[0].verbs?.glow).toBe(true);
+    setSlotVerb(0, 'glow', false);
+    expect(activeBench().slots[0].verbs).toBeUndefined();
+  });
+
+  it('preserves an existing reveal config when re-enabled', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    b.slots[0].verbs = { reveal: { key: 'score', op: '>=', val: 5 } };
+    setSlotVerb(0, 'reveal', true);
+    expect(b.slots[0].verbs?.reveal).toEqual({ key: 'score', op: '>=', val: 5 });
+  });
+
+  it('targets the back face when it is the current face', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text', 'back');
+    factory.face = 'back';
+    setSlotVerb(0, 'emphasis', true);
+    expect(activeBench().back?.[0].verbs?.emphasis).toBe(true);
   });
 });
 
