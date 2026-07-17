@@ -78,7 +78,7 @@
   <div class="grid fac-grid">
     {#each factory.benches as b (b.id)}
       {#if factory.preview}
-        <div class="furn" class:bare={b.verbs?.bare} style="--w:6" data-benchprev={b.id}>
+        <div class="benchprev" data-benchprev={b.id}>
           <CardView {...benchProps(b, false)} forceMode="study" />
           <div class="sm muted bench-caption">{b.name}</div>
         </div>

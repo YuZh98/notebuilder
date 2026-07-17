@@ -160,7 +160,12 @@ describe('Factory — Preview stage', () => {
     expect(container.querySelector('.fc-edit')).toBeNull();
     // furn-style wrapper, not the collapsed .prod.pv thumbnail
     expect(container.querySelector('.prod.pv')).toBeNull();
-    expect(container.querySelector('[data-benchprev]')).toHaveClass('furn');
+    // wrapper is a plain .benchprev; CardView's own root carries the single .furn
+    const prev = container.querySelector('[data-benchprev]')!;
+    expect(prev).toHaveClass('benchprev');
+    expect(prev).not.toHaveClass('furn');
+    expect(prev.querySelectorAll('.furn')).toHaveLength(1);
+    expect(prev.querySelectorAll('.furn .furn')).toHaveLength(0);
   });
 });
 
