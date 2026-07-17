@@ -1,9 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SideFactory from './SideFactory.svelte';
 import { factory, activeBench, addBenchSlot, hydrateFactory } from '../bench.svelte';
 import { toastState } from '../toast.svelte';
+import type { CardType } from '../card-types';
+
+const type = (over: Partial<CardType> = {}): CardType => ({
+  id: 'ct_a',
+  name: 'Alpha',
+  store: 'write',
+  slots: [{ type: 'text', props: { text: 'x' } }],
+  ...over,
+});
+
+function inventory(container: HTMLElement) {
+  return [...container.querySelectorAll('.sect')].find((s) =>
+    s.querySelector('h3')?.textContent?.includes('Inventory'),
+  ) as HTMLElement;
+}
 
 beforeEach(() => {
   hydrateFactory(null);
@@ -120,5 +135,48 @@ describe('SideFactory', () => {
     const { container } = render(SideFactory);
     const chip = lanes(container)[0].querySelector('.chip') as HTMLElement;
     expect(chip.getAttribute('draggable')).toBe('true');
+  });
+
+  it('groups inventory by store with a Workshop lane for store-less types', () => {
+    const { container } = render(SideFactory, {
+      props: { cardTypes: [type(), type({ id: 'ct_k', name: 'Kilo', store: null })] },
+    });
+    const invLanes = inventory(container).querySelectorAll('.store-lane');
+    expect(invLanes).toHaveLength(4); // Workshop + write + practice + live
+    const workshop = [...invLanes].find((l) => l.querySelector('h4')?.textContent?.includes('Workshop'));
+    expect(workshop?.textContent).toContain('Kilo');
+    expect(workshop?.textContent).not.toContain('Alpha');
+  });
+
+  it('clicking an inventory chip forks the type into a new active bench', async () => {
+    const { container } = render(SideFactory, { props: { cardTypes: [type()] } });
+    const before = factory.benches.length;
+    const chip = [...inventory(container).querySelectorAll('.prodchip')].find((c) =>
+      c.textContent?.includes('Alpha'),
+    );
+    await fireEvent.click(chip as Element);
+    expect(factory.benches.length).toBe(before + 1);
+    expect(activeBench().name).toBe('Alpha');
+    expect(activeBench().src?.id).toBe('ct_a');
+    expect(toastState.message).toContain('copied');
+  });
+
+  it('the inventory ✕ fires ondelprod for its type', async () => {
+    const ondelprod = vi.fn();
+    const { container } = render(SideFactory, { props: { cardTypes: [type()], ondelprod } });
+    const wrap = [...inventory(container).querySelectorAll('.prodchip-wrap')].find((w) =>
+      w.textContent?.includes('Alpha'),
+    );
+    await fireEvent.click(wrap?.querySelector('.chipx') as Element);
+    expect(ondelprod).toHaveBeenCalledTimes(1);
+    expect(ondelprod.mock.calls[0][0].id).toBe('ct_a');
+  });
+
+  it('hides the inventory while a slot is selected', async () => {
+    const b = activeBench();
+    addBenchSlot(b, 'text');
+    factory.sel = 0;
+    const { container } = render(SideFactory, { props: { cardTypes: [type()] } });
+    expect(inventory(container)).toBeUndefined();
   });
 });

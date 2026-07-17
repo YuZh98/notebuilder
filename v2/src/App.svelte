@@ -34,7 +34,7 @@
     setPreference,
   } from './lib/db';
   import { uid } from './lib/uid';
-  import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, serializeFactory, hydrateFactory } from './lib/bench.svelte';
   import { place, togglePlace } from './lib/stores/place';
@@ -115,6 +115,8 @@
   // Edit-mode selection (v1 sel/selKind): a section OR a card, never both; Escape clears.
   let selSection: string | null = $state(null);
   let selCard: string | null = $state(null);
+  // Store detail selection (v1 selProd): a product open in the house sidebar detail panel.
+  let selProd: string | null = $state(null);
 
   function selectSection(id: string | null) {
     selSection = id;
@@ -377,6 +379,34 @@
     galleryFor = null;
   }
 
+  // ---- house store: product detail + placement (v1 selprod / placeProduct) ----
+
+  function pickProduct(id: string) {
+    selProd = id;
+  }
+
+  function placeProduct(variety: Variety | null, draft: Record<string, SlotProps>) {
+    const ct = cardTypes.find((t) => t.id === selProd);
+    if (!ct) return;
+    const target =
+      notebook.sections.find((s) => s.id === selSection && s.kind !== 'divider') ??
+      notebook.sections.find((s) => s.kind !== 'divider');
+    if (!target) {
+      toast('add a section first');
+      return;
+    }
+    // Overlay the draft onto a pure copy of the type's slot templates (by index) before stamping.
+    const snap = $state.snapshot(ct) as CardType;
+    const drafted: CardType = {
+      ...snap,
+      slots: snap.slots.map((t, i) =>
+        draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
+      ),
+    };
+    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
+    toast(`placed "${ct.name}"`);
+  }
+
   function saveCardAsType(card: Card, name: string) {
     const ct = cardToType($state.snapshot(card) as Card, name);
     cardTypes = [...cardTypes, ct];
@@ -439,6 +469,11 @@
         else toggleMode();
       }
       if (e.key === 'Escape') {
+        // Close the store detail panel first; a second Escape then clears card/section selection.
+        if (selProd) {
+          selProd = null;
+          return;
+        }
         selSection = null;
         selCard = null;
       }
@@ -588,13 +623,18 @@
 
 <div id="main" style="--sidew:{sideW}px">
   {#if $place === 'factory'}
-    <SideFactory />
+    <SideFactory {cardTypes} ondelprod={(ct) => void removeCardType(ct)} />
   {:else}
     <SideBar
       notebookName={notebook.name}
       canPersist={isTauri()}
+      {cardTypes}
+      {selProd}
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
+      onpickprod={pickProduct}
+      onplaceprod={placeProduct}
+      onclosedetail={() => (selProd = null)}
     />
   {/if}
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>

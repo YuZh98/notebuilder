@@ -46,6 +46,26 @@ export type CardType = {
   varieties?: Variety[];
 };
 
+/** Store → notebook: stamp a card and overlay the chosen accent (variety > type > none, v1 80-actions:12-14). */
+export function placeType(
+  ct: CardType,
+  sectionId: string,
+  position: number,
+  variety?: Variety,
+): Card {
+  const card = stampCard(ct, sectionId, position);
+  const accent = variety?.accent || ct.accent || undefined;
+  if (accent) card.accent = accent;
+  return card;
+}
+
+/** The chip glyph for a product: its icon, else the first letter of its name, else a box. */
+export function prodIcon(ct: CardType): string {
+  if (ct.icon) return ct.icon;
+  const first = ct.name.trim().charAt(0);
+  return first ? first.toUpperCase() : '📦';
+}
+
 /** Gallery → notebook: stamp an independent card instance from a type. */
 export function stampCard(type: CardType, sectionId: string, position: number): Card {
   return {

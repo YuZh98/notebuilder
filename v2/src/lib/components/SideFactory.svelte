@@ -5,14 +5,38 @@
   import {
     factory,
     activeBench,
+    addBench,
     addBenchSlot,
     setBenchVerb,
     setSlotVerb,
     deleteBenchSlot,
     fuseBenchSlot,
+    typeToBench,
   } from '../bench.svelte';
   import { VAR } from '../var-colors';
+  import { STORES, prodIcon, type CardType } from '../card-types';
   import type { Slot } from '../types';
+
+  let {
+    cardTypes = [],
+    ondelprod = () => {},
+  }: {
+    cardTypes?: CardType[];
+    ondelprod?: (ct: CardType) => void;
+  } = $props();
+
+  // Workshop (store:null) first, then the three stores — mirrors v1 inventory order (50-render:239).
+  const invLanes = [{ id: null as string | null, name: '🛠 Workshop' }, ...STORES];
+  let invFold = $state<Record<string, boolean>>({});
+  const invKey = (id: string | null) => id ?? '';
+  const invItems = (id: string | null) =>
+    cardTypes.filter((t) => (id ? (t.store || null) === id : !t.store));
+
+  function fork(ct: CardType) {
+    // v1 loadprod (70-events:139): copy into a fresh bench and stay in the Factory.
+    addBench(typeToBench($state.snapshot(ct) as CardType));
+    toast(`copied "${ct.name}" — edit freely, then seal`);
+  }
 
   const CVERBS = [
     { key: 'flip', icon: '⟳', label: 'Flip' },
@@ -154,5 +178,55 @@
       onpatch={patchSlot}
       ondelete={delSlot}
     />
+  {/if}
+
+  {#if factory.sel == null}
+    <div class="sect">
+      <h3 title="Click a product to fork a copy into a new container, then edit and seal.">📦 Inventory</h3>
+      {#each invLanes as lane (invKey(lane.id))}
+        {@const items = invItems(lane.id)}
+        <div class="store-lane" data-lane={invKey(lane.id)}>
+          <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+          <h4
+            style="cursor:pointer"
+            title="collapse / expand"
+            role="button"
+            tabindex="0"
+            onclick={() => (invFold[invKey(lane.id)] = !invFold[invKey(lane.id)])}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                invFold[invKey(lane.id)] = !invFold[invKey(lane.id)];
+              }
+            }}
+          >
+            {invFold[invKey(lane.id)] ? '▸' : '▾'}
+            {lane.name}
+            <span class="muted sm">{items.length}</span>
+          </h4>
+          {#if !invFold[invKey(lane.id)]}
+            {#if !items.length}
+              <div class="muted sm">—</div>
+            {:else}
+              <div class="palette">
+                {#each items as ct (ct.id)}
+                  <span class="prodchip-wrap">
+                    <button
+                      class="chip prodchip"
+                      data-prod={ct.id}
+                      title={`${ct.name} — click to fork a copy into a new container`}
+                      onclick={() => fork(ct)}>{prodIcon(ct)} {ct.name}</button>
+                    <button
+                      class="chipx"
+                      title="delete product"
+                      onclick={() => ondelprod(ct)}>✕</button>
+                  </span>
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
+      {/each}
+    </div>
   {/if}
 </div>

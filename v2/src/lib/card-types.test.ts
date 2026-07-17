@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stampCard, cardToType, builtinCardTypes, typePreviewCard, STORES } from './card-types';
+import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES } from './card-types';
 import type { CardType } from './card-types';
 import { getSlot } from './slots/registry';
 import type { Card } from './types';
@@ -105,6 +105,53 @@ describe('CardType product metadata', () => {
     expect(stamped.slots.map((s) => s.props)).toEqual([{ text: 'Q' }]);
     expect(stamped.back?.map((s) => s.props)).toEqual([{ text: 'A' }]);
     expect(stamped.verbs).toEqual({ flip: true });
+  });
+});
+
+describe('placeType', () => {
+  const ct: CardType = {
+    id: 'ct_v',
+    name: 'V',
+    accent: '#111111',
+    slots: [{ type: 'text', props: { text: 'hi' } }],
+    varieties: [{ name: 'Red', accent: '#ff0000' }],
+  };
+
+  it('stamps fresh ids and sets typeId', () => {
+    const a = placeType(ct, 'sec_1', 2);
+    const b = placeType(ct, 'sec_1', 3);
+    expect(a.id).not.toBe(b.id);
+    expect(a.slots[0].id).not.toBe(b.slots[0].id);
+    expect(a.typeId).toBe('ct_v');
+    expect(a.sectionId).toBe('sec_1');
+    expect(a.position).toBe(2);
+  });
+
+  it('prefers the variety accent over the type accent', () => {
+    expect(placeType(ct, 's', 0, ct.varieties![0]).accent).toBe('#ff0000');
+  });
+
+  it('falls back to the type accent when no variety is given', () => {
+    expect(placeType(ct, 's', 0).accent).toBe('#111111');
+  });
+
+  it('leaves accent unset when neither variety nor type carries one', () => {
+    const plain: CardType = { id: 'ct_p', name: 'P', slots: [{ type: 'text', props: { text: 'x' } }] };
+    expect(placeType(plain, 's', 0).accent).toBeUndefined();
+  });
+});
+
+describe('prodIcon', () => {
+  it('returns the type icon when present', () => {
+    expect(prodIcon({ id: 'a', name: 'Widget', icon: '🎚', slots: [] })).toBe('🎚');
+  });
+
+  it('falls back to the uppercased first letter of the name', () => {
+    expect(prodIcon({ id: 'a', name: 'widget', slots: [] })).toBe('W');
+  });
+
+  it('falls back to a box when the name is blank', () => {
+    expect(prodIcon({ id: 'a', name: '  ', slots: [] })).toBe('📦');
   });
 });
 
