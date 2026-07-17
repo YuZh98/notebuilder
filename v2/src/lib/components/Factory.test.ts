@@ -101,6 +101,23 @@ describe('Factory — Build stage', () => {
     expect(factory.active).not.toBe(a.id);
   });
 
+  it('deleting the active bench when it is the last self-heals to one fresh bench', async () => {
+    const a = benchWithSlots();
+    factory.benches = [a];
+    factory.active = a.id;
+    factory.preview = false;
+    factory.sel = null;
+    factory.face = 'front';
+    const { container } = render(Factory, { props: props() });
+    const head = container.querySelector(`.faccard[data-bench="${a.id}"] .bench-head`) as HTMLElement;
+    const del = [...head.querySelectorAll('button')].find((x) => x.textContent?.includes('✕'));
+    await fireEvent.click(del as HTMLElement);
+    expect(factory.benches).toHaveLength(1);
+    expect(factory.benches[0].id).not.toBe(a.id);
+    expect(factory.benches[0].name).toBe('New product');
+    expect(factory.benches[0].slots).toHaveLength(0);
+  });
+
   it('flip container shows the Front/Back face chips', () => {
     const { a } = seed();
     a.verbs = { flip: true };
@@ -129,6 +146,21 @@ describe('Factory — Preview stage', () => {
     factory.preview = true;
     const { container } = render(Factory, { props: props() });
     expect(container.querySelector('.bench-caption')?.textContent).toBe('Photosynthesis');
+  });
+
+  it('renders each bench as a live study card even while the house is in Edit mode', () => {
+    const { a } = seed();
+    mode.set('edit');
+    a.verbs = { flip: true };
+    a.back = [];
+    factory.preview = true;
+    const { container } = render(Factory, { props: props() });
+    // forceMode="study" wins over the house Edit mode: interactive flip, not read-only fc-edit
+    expect(container.querySelector('[data-benchprev] .fc')).toBeInTheDocument();
+    expect(container.querySelector('.fc-edit')).toBeNull();
+    // furn-style wrapper, not the collapsed .prod.pv thumbnail
+    expect(container.querySelector('.prod.pv')).toBeNull();
+    expect(container.querySelector('[data-benchprev]')).toHaveClass('furn');
   });
 });
 

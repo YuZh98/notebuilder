@@ -528,6 +528,31 @@ describe('CardView flip faces', () => {
   });
 });
 
+describe('CardView forceMode override', () => {
+  const flipCard = (over: Partial<Card> = {}) =>
+    cardOf({ verbs: { flip: true }, back: [slot('bk1')], ...over });
+
+  it('forceMode="study" renders the interactive flip while the global mode is Edit', () => {
+    mode.set('edit');
+    const { container } = render(CardView, {
+      props: { ...baseProps(flipCard()), editable: false, forceMode: 'study' as const },
+    });
+    // interactive 3D stack, not the read-only fc-edit branch
+    expect(container.querySelector('.fc')).toBeInTheDocument();
+    expect(container.querySelector('.fc-edit')).toBeNull();
+    expect(container.querySelector('.fc')?.textContent).toContain('↻ click to flip');
+  });
+
+  it('without forceMode, the global mode still governs (unchanged): Edit shows fc-edit', () => {
+    mode.set('edit');
+    const { container } = render(CardView, {
+      props: { ...baseProps(flipCard()), editable: false },
+    });
+    expect(container.querySelector('.fc-edit')).toBeInTheDocument();
+    expect(container.querySelector('.fc')).toBeNull();
+  });
+});
+
 describe('CardView card width resize', () => {
   function setup(w = 6) {
     const card = cardOf({ w });

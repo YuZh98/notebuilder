@@ -38,10 +38,13 @@
     ongrip,
     onresize,
     onfusew,
+    forceMode,
   }: {
     card: Card;
     editable: boolean;
     selected: boolean;
+    /** Override the global $mode gate (e.g. Factory Preview forces a live study card). */
+    forceMode?: 'edit' | 'study';
     /** This card's reader state, keyed by slot id (CARD_STATE_KEY holds card-level flags). */
     state: Record<string, Record<string, unknown>>;
     notes: Annotation[];
@@ -70,7 +73,7 @@
   let namingType = $state(false);
   let typeNameDraft = $state('');
 
-  const studying = $derived($mode === 'study');
+  const studying = $derived((forceMode ?? $mode) === 'study');
   const flipped = $derived(cardState[CARD_STATE_KEY]?.flipped === true);
   const done = $derived(studying && isCardDone(card, cardState));
 
