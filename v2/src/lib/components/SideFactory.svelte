@@ -11,6 +11,7 @@
     deleteBenchSlot,
     fuseBenchSlot,
   } from '../bench.svelte';
+  import { VAR } from '../var-colors';
   import type { Slot } from '../types';
 
   const CVERBS = [
@@ -23,19 +24,6 @@
     { key: 'glow', icon: '✦', label: 'Glow' },
     { key: 'emphasis', icon: '❝', label: 'Emphasis' },
   ] as const;
-
-  const VAR = [
-    { name: 'Default', accent: '' },
-    { name: 'Blue', accent: '#6ea8fe' },
-    { name: 'Violet', accent: '#b388ff' },
-    { name: 'Mint', accent: '#54d6a0' },
-    { name: 'Amber', accent: '#f0a500' },
-    { name: 'Rose', accent: '#ff6b81' },
-    { name: 'Cyan', accent: '#34e1ff' },
-    { name: 'Lime', accent: '#9ade3b' },
-    { name: 'Coral', accent: '#ff8a5c' },
-    { name: 'Slate', accent: '#8b93a7' },
-  ];
 
   const b = $derived(activeBench());
   const faceSlots = $derived(factory.face === 'back' ? (b.back ?? []) : b.slots);

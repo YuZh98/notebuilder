@@ -6,6 +6,7 @@
   import SideFactory from './lib/components/SideFactory.svelte';
   import Stage from './lib/components/Stage.svelte';
   import Factory from './lib/components/Factory.svelte';
+  import SealModal from './lib/components/SealModal.svelte';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -34,6 +35,7 @@
   } from './lib/db';
   import { uid } from './lib/uid';
   import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
+  import type { SealOutcome } from './lib/seal';
   import { factory, addBench, serializeFactory, hydrateFactory } from './lib/bench.svelte';
   import { place, togglePlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
@@ -321,9 +323,47 @@
     factory.preview = !factory.preview;
   }
 
-  function handleSeal(_benchId: string) {
-    // The seal → Inventory modal arrives with Task 5; keep the affordance discoverable until then.
-    toast('Sealing into the Inventory arrives soon');
+  let sealBenchId: string | null = $state(null);
+  const sealBench = $derived(
+    sealBenchId ? (factory.benches.find((b) => b.id === sealBenchId) ?? null) : null,
+  );
+  const sealExisting = $derived.by(() => {
+    const src = sealBench?.src;
+    return src ? (cardTypes.find((t) => t.id === src.id) ?? null) : null;
+  });
+  const sealTaken = $derived(
+    cardTypes.filter((t) => t.id !== sealExisting?.id).map((t) => t.name),
+  );
+
+  function handleSeal(benchId: string) {
+    const b = factory.benches.find((x) => x.id === benchId);
+    if (!b) return;
+    if (!b.slots.length) {
+      toast('add a slot first');
+      return;
+    }
+    sealBenchId = benchId;
+  }
+
+  function confirmSeal(o: SealOutcome) {
+    const b = sealBench;
+    if (b) {
+      // Mirror the sealed metadata back onto the bench (v1 sealConfirm 80-actions:29,31).
+      b.name = o.type.name;
+      if (o.type.note) b.note = o.type.note;
+      else delete b.note;
+      if (o.type.icon) b.icon = o.type.icon;
+      else delete b.icon;
+    }
+    if (o.kind === 'replace') {
+      cardTypes = cardTypes.map((t) => (t.id === o.type.id ? o.type : t));
+    } else {
+      cardTypes = [...cardTypes, o.type];
+      if (b) b.src = null;
+    }
+    if (isTauri()) void saveCardType(o.type);
+    sealBenchId = null;
+    toast(`sealed "${o.type.name}"`);
   }
 
   function isBuiltinType(id: string): boolean {
@@ -587,6 +627,16 @@
   title={sideCollapsed ? 'show the panel' : 'hide the panel'}
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
+
+{#if sealBench}
+  <SealModal
+    bench={sealBench}
+    existing={sealExisting}
+    taken={sealTaken}
+    onconfirm={confirmSeal}
+    oncancel={() => (sealBenchId = null)}
+  />
+{/if}
 
 <MdBar />
 <Toast />
