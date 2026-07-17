@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { mode, toggleMode } from '../stores/mode';
   import { THEMES, type ThemeId } from '../themes';
+  import type { Place } from '../stores/place';
   import { getPreference, setPreference, isTauri } from '../db';
 
   let {
@@ -9,6 +10,8 @@
     currentId,
     themeId,
     canSwitch,
+    place,
+    factoryPreview,
     onswitch,
     oncreate,
     onsettheme,
@@ -16,11 +19,16 @@
     onaddchapter,
     onexport,
     onimport,
+    onplace,
+    onfacmode,
+    onaddbench,
   }: {
     notebooks: { id: string; name: string }[];
     currentId: string;
     themeId: ThemeId;
     canSwitch: boolean;
+    place: Place;
+    factoryPreview: boolean;
     onswitch: (id: string) => void;
     oncreate: () => void;
     onsettheme: (id: ThemeId) => void;
@@ -28,6 +36,9 @@
     onaddchapter: () => void;
     onexport: () => void;
     onimport: () => void;
+    onplace: () => void;
+    onfacmode: () => void;
+    onaddbench: () => void;
   } = $props();
 
   let openMenu: 'theme' | 'nb' | null = $state(null);
@@ -106,10 +117,16 @@
         </div>
       {/if}
     </span>
-    <button class="btn staged" disabled title="Factory arrives in a later phase">🏭 Factory</button>
+    <button
+      class="btn"
+      class:on={place === 'factory'}
+      title="Factory — build reusable product containers"
+      onclick={onplace}
+    >🏭 Factory</button>
     <span class="nbwrap">
       <button
-        class="btn on"
+        class="btn"
+        class:on={place === 'house'}
         data-act="nbmenu"
         title="switch notebook"
         aria-haspopup="menu"
@@ -130,34 +147,56 @@
   </div>
   <div class="spacer"></div>
   <div class="row" id="topright">
-    <button
-      class="btn sm"
-      class:on={$mode === 'edit'}
-      onclick={() => {
-        if ($mode !== 'edit') toggleMode();
-      }}
-    >Edit</button>
-    <button
-      class="btn sm"
-      class:on={$mode === 'study'}
-      onclick={() => {
-        if ($mode !== 'study') toggleMode();
-      }}
-    >Study</button>
-    {#if $mode === 'edit'}
-      <button class="btn sm" onclick={onaddsection}>＋ section</button>
-      <button class="btn sm" title="Add a chapter divider" onclick={onaddchapter}>＋ chapter</button>
+    {#if place === 'factory'}
+      <button
+        class="btn sm"
+        class:on={!factoryPreview}
+        onclick={() => {
+          if (factoryPreview) onfacmode();
+        }}
+      >Build</button>
+      <button
+        class="btn sm"
+        class:on={factoryPreview}
+        onclick={() => {
+          if (!factoryPreview) onfacmode();
+        }}
+      >Preview</button>
+      {#if !factoryPreview}
+        <button class="btn sm" title="Add a new product container" onclick={onaddbench}>＋ container</button>
+      {/if}
+    {:else}
+      <button
+        class="btn sm"
+        class:on={$mode === 'edit'}
+        onclick={() => {
+          if ($mode !== 'edit') toggleMode();
+        }}
+      >Edit</button>
+      <button
+        class="btn sm"
+        class:on={$mode === 'study'}
+        onclick={() => {
+          if ($mode !== 'study') toggleMode();
+        }}
+      >Study</button>
+      {#if $mode === 'edit'}
+        <button class="btn sm" onclick={onaddsection}>＋ section</button>
+        <button class="btn sm" title="Add a chapter divider" onclick={onaddchapter}>＋ chapter</button>
+      {/if}
     {/if}
     <span style="width:10px;display:inline-block"></span>
     <button class="btn sm staged" disabled title="Undo">↶</button>
     <button class="btn sm staged" disabled title="Redo">↷</button>
-    <span style="width:8px;display:inline-block"></span>
-    <button class="btn primary share-btn staged" disabled title="One-file HTML share arrives in a later phase">Share</button>
-    <span class="util-grp">
-      <button class="btn sm ghost" title="Backup as JSON (data only)" onclick={onexport}>⤓</button>
-      <button class="btn sm ghost" title="Import a notebook JSON" onclick={onimport}>⤒</button>
-      <button class="btn sm ghost" title="Print / Save as PDF" onclick={printPdf}>🖨</button>
-    </span>
+    {#if place !== 'factory'}
+      <span style="width:8px;display:inline-block"></span>
+      <button class="btn primary share-btn staged" disabled title="One-file HTML share arrives in a later phase">Share</button>
+      <span class="util-grp">
+        <button class="btn sm ghost" title="Backup as JSON (data only)" onclick={onexport}>⤓</button>
+        <button class="btn sm ghost" title="Import a notebook JSON" onclick={onimport}>⤒</button>
+        <button class="btn sm ghost" title="Print / Save as PDF" onclick={printPdf}>🖨</button>
+      </span>
+    {/if}
   </div>
 </div>
 

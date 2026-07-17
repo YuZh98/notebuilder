@@ -476,6 +476,30 @@ describe('CardView flip faces', () => {
     expect(container.querySelector('.done-badge')).toBeInTheDocument();
   });
 
+  it('Edit: an empty flip face shows the muted "front empty"/"back empty" placeholder', () => {
+    const { container } = render(CardView, {
+      props: baseProps(cardOf({ verbs: { flip: true }, slots: [], back: [] })),
+    });
+    const sides = container.querySelectorAll('.fc-edit .fc-side');
+    expect(sides[0].querySelector('.face-empty')?.textContent).toBe('front empty');
+    expect(sides[1].querySelector('.face-empty')?.textContent).toBe('back empty');
+  });
+
+  it('Study: an empty flip face shows the placeholder; a filled face does not', () => {
+    mode.set('study');
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf({ verbs: { flip: true }, back: [] })), editable: false },
+    });
+    const faces = container.querySelectorAll('.fc-stack .fc-face');
+    expect(faces[0].querySelector('.face-empty')).toBeNull();
+    expect(faces[1].querySelector('.face-empty')?.textContent).toBe('back empty');
+  });
+
+  it('a non-flip empty card renders no placeholder (unchanged shell)', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf({ slots: [] })) });
+    expect(container.querySelector('.face-empty')).toBeNull();
+  });
+
   it('fused slots render inside a flip face (Study)', () => {
     mode.set('study');
     const card = flipCard({

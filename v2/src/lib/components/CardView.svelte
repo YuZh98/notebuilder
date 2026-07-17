@@ -293,9 +293,13 @@
   {/if}
 {/snippet}
 
-<!-- One .cardslot per slot; consecutive fused slots share a .cardslot (v1 renderSlots). -->
-{#snippet faceRows(face: Slot[], edit: boolean)}
+<!-- One .cardslot per slot; consecutive fused slots share a .cardslot (v1 renderSlots).
+     `emptyLabel` renders v1's muted "front empty" / "back empty" placeholder for a bare flip face. -->
+{#snippet faceRows(face: Slot[], edit: boolean, emptyLabel = '')}
   <div class="cardrow">
+    {#if emptyLabel && face.length === 0}
+      <span class="muted sm face-empty">{emptyLabel}</span>
+    {/if}
     {#each groupSlots(face) as group (group.cells[0].slot.id)}
       {#if group.fused}
         {@const vis = chainCells(group.cells, face, edit)}
@@ -409,11 +413,11 @@
         <div class="fc-edit">
           <div class="fc-side">
             <div class="faceflag">FRONT</div>
-            {@render faceRows(card.slots, true)}
+            {@render faceRows(card.slots, true, 'front empty')}
           </div>
           <div class="fc-side back">
             <div class="faceflag">BACK</div>
-            {@render faceRows(card.back ?? [], true)}
+            {@render faceRows(card.back ?? [], true, 'back empty')}
           </div>
         </div>
       {:else}
@@ -436,10 +440,10 @@
         <div class="fc" class:flipped onclick={flipClick} role="presentation">
           <div class="fc-stack">
             <div class="fc-face">
-              {@render faceRows(card.slots, false)}
+              {@render faceRows(card.slots, false, 'front empty')}
             </div>
             <div class="fc-face back">
-              {@render faceRows(card.back ?? [], false)}
+              {@render faceRows(card.back ?? [], false, 'back empty')}
             </div>
           </div>
           <div class="sm muted" style="margin-top:6px">↻ click to flip</div>
@@ -449,11 +453,11 @@
         <div class="fc-edit">
           <div class="fc-side">
             <div class="faceflag">FRONT</div>
-            {@render faceRows(card.slots, false)}
+            {@render faceRows(card.slots, false, 'front empty')}
           </div>
           <div class="fc-side back">
             <div class="faceflag">BACK</div>
-            {@render faceRows(card.back ?? [], false)}
+            {@render faceRows(card.back ?? [], false, 'back empty')}
           </div>
         </div>
       {:else}

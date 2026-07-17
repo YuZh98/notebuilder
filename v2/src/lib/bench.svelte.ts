@@ -1,5 +1,6 @@
 import { uid } from './uid';
-import type { Card, Slot } from './types';
+import { getSlot } from './slots/registry';
+import type { Card, Slot, SlotProps } from './types';
 import { stampSlot, templateSlot, type CardType, type Variety } from './card-types';
 
 /**
@@ -129,6 +130,51 @@ export function benchPreviewCard(b: Bench): Card {
   };
 }
 
+/**
+ * Toggle a bench container verb. Turning `flip` on with no back seeds it from a
+ * fresh-id clone of the front slots (v1 70-events.js:133) and resets the edited face.
+ */
+export function setBenchVerb(b: Bench, key: 'flip' | 'bare', on: boolean): void {
+  const verbs = { ...b.verbs, [key]: on || undefined };
+  b.verbs = verbs.flip || verbs.bare ? verbs : undefined;
+  if (key === 'flip') {
+    if (on && !b.back?.length) b.back = b.slots.map(cloneSlot);
+    factory.face = 'front';
+    factory.sel = null;
+  }
+}
+
+/** Append a slot of `type` to a bench face (front by default). */
+export function addBenchSlot(b: Bench, type: string, face?: 'back'): void {
+  const st = getSlot(type);
+  if (!st) return;
+  const slot: Slot = { id: uid('slot'), type, props: st.create(), w: 12 };
+  if (face === 'back') (b.back ??= []).push(slot);
+  else b.slots.push(slot);
+}
+
+/** Remove a slot from either face of a bench. */
+export function deleteBenchSlot(b: Bench, slotId: string): void {
+  b.slots = b.slots.filter((s) => s.id !== slotId);
+  if (b.back) b.back = b.back.filter((s) => s.id !== slotId);
+}
+
+/** Replace a bench slot's props (Build-mode edits flow through the synthetic card). */
+export function updateBenchSlot(b: Bench, slotId: string, props: SlotProps): void {
+  const slot = [...b.slots, ...(b.back ?? [])].find((s) => s.id === slotId);
+  if (slot) slot.props = props;
+}
+
+/** Commit a fused pair's ratio widths on a bench (mirrors the notebook fuse resize). */
+export function fuseBenchSlot(b: Bench, leftId: string, rightId: string, leftW: number, rightW: number): void {
+  const all = [...b.slots, ...(b.back ?? [])];
+  const left = all.find((s) => s.id === leftId);
+  const right = all.find((s) => s.id === rightId);
+  if (!left || !right) return;
+  left.fuseW = leftW;
+  right.fuseW = rightW;
+}
+
 /** Persisted slice of Factory state — session-only fields are excluded by design. */
 export function serializeFactory(): string {
   return JSON.stringify({
@@ -154,3 +200,6 @@ export function hydrateFactory(json: string | null): void {
 }
 
 const reidSlot = (s: Slot): Slot => ({ ...s, id: uid('slot') });
+
+// Deep-independent clone (props unshared) with a fresh id — for seeding a flip back from front.
+const cloneSlot = (s: Slot): Slot => ({ ...($state.snapshot(s) as Slot), id: uid('slot') });

@@ -4,6 +4,7 @@
   import TopBar from './lib/components/TopBar.svelte';
   import SideBar from './lib/components/SideBar.svelte';
   import Stage from './lib/components/Stage.svelte';
+  import Factory from './lib/components/Factory.svelte';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -32,7 +33,8 @@
   } from './lib/db';
   import { uid } from './lib/uid';
   import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
-  import { serializeFactory, hydrateFactory } from './lib/bench.svelte';
+  import { factory, addBench, serializeFactory, hydrateFactory } from './lib/bench.svelte';
+  import { place, togglePlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
     createNotebook,
@@ -57,6 +59,7 @@
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
 
   // Reader state: cardId → slotId → arbitrary state object (persisted to SQLite inside Tauri)
   let readerState: Record<string, Record<string, Record<string, unknown>>> = $state({});
@@ -313,6 +316,15 @@
 
   // ---- gallery / factory ----
 
+  function toggleFacMode() {
+    factory.preview = !factory.preview;
+  }
+
+  function handleSeal(_benchId: string) {
+    // The seal → Inventory modal arrives with Task 5; keep the affordance discoverable until then.
+    toast('Sealing into the Inventory arrives soon');
+  }
+
   function isBuiltinType(id: string): boolean {
     return builtinCardTypes.some((b) => b.id === id);
   }
@@ -382,7 +394,8 @@
     function handleKey(e: KeyboardEvent) {
       if (e.metaKey && e.key === 'Enter') {
         e.preventDefault();
-        toggleMode();
+        if (get(place) === 'factory') toggleFacMode();
+        else toggleMode();
       }
       if (e.key === 'Escape') {
         selSection = null;
@@ -430,6 +443,8 @@
   currentId={notebook.id}
   {themeId}
   canSwitch={isTauri()}
+  place={$place}
+  factoryPreview={factory.preview}
   onswitch={(id) => void switchNotebook(id)}
   oncreate={newNotebook}
   onsettheme={setTheme}
@@ -437,6 +452,9 @@
   onaddchapter={() => addChapter(notebook)}
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
+  onplace={togglePlace}
+  onfacmode={toggleFacMode}
+  onaddbench={() => addBench()}
 />
 
 {#snippet matrix()}
@@ -536,21 +554,25 @@
   />
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
   <div id="stage">
-    <Stage
-      {notebook}
-      {visibleCardIds}
-      {selSection}
-      onselect={selectSection}
-      onrename={renameNotebook}
-      onsubtitle={setNotebookSubtitle}
-      onpatchsection={patchSection}
-      onsectiongrip={gripSection}
-      {cardView}
-      {matrix}
-      {sectionTools}
-      {sectionFooter}
-      {stageFooter}
-    />
+    {#if $place === 'factory'}
+      <Factory onseal={handleSeal} />
+    {:else}
+      <Stage
+        {notebook}
+        {visibleCardIds}
+        {selSection}
+        onselect={selectSection}
+        onrename={renameNotebook}
+        onsubtitle={setNotebookSubtitle}
+        onpatchsection={patchSection}
+        onsectiongrip={gripSection}
+        {cardView}
+        {matrix}
+        {sectionTools}
+        {sectionFooter}
+        {stageFooter}
+      />
+    {/if}
   </div>
 </div>
 

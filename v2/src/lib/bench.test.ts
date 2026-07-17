@@ -9,6 +9,11 @@ import {
   benchToType,
   typeToBench,
   benchPreviewCard,
+  setBenchVerb,
+  addBenchSlot,
+  deleteBenchSlot,
+  updateBenchSlot,
+  fuseBenchSlot,
   serializeFactory,
   hydrateFactory,
   type Bench,
@@ -145,6 +150,101 @@ describe('benchPreviewCard', () => {
     const card = benchPreviewCard(bench);
     expect(card.slots).toBe(bench.slots);
     expect(card.back).toBe(bench.back);
+  });
+});
+
+describe('setBenchVerb', () => {
+  it('flip-on seeds back as a fresh-id, unshared clone of front and resets the face', () => {
+    const b = freshBench();
+    addBenchSlot(b, 'text');
+    addBench(b);
+    factory.face = 'back';
+    factory.sel = 4;
+
+    setBenchVerb(b, 'flip', true);
+
+    expect(b.verbs?.flip).toBe(true);
+    expect(b.back).toHaveLength(b.slots.length);
+    expect(b.back![0].id).not.toBe(b.slots[0].id);
+    expect(b.back![0].props).toEqual(b.slots[0].props);
+    const frontText = b.slots[0].props.text;
+    b.back![0].props.text = 'edited back';
+    expect(b.slots[0].props.text).toBe(frontText);
+    expect(factory.face).toBe('front');
+    expect(factory.sel).toBe(null);
+  });
+
+  it('flip-on keeps an existing non-empty back untouched', () => {
+    const b = typeToBench(sampleType);
+    addBench(b);
+    const backId = b.back![0].id;
+    setBenchVerb(b, 'flip', true);
+    expect(b.back![0].id).toBe(backId);
+  });
+
+  it('bare toggles without touching back or the face', () => {
+    const b = freshBench();
+    addBench(b);
+    factory.face = 'back';
+    setBenchVerb(b, 'bare', true);
+    expect(b.verbs?.bare).toBe(true);
+    expect(b.back).toBeUndefined();
+    expect(factory.face).toBe('back');
+  });
+
+  it('turning both verbs off drops the verbs object', () => {
+    const b = freshBench();
+    b.verbs = { flip: true, bare: true };
+    addBench(b);
+    setBenchVerb(b, 'bare', false);
+    setBenchVerb(b, 'flip', false);
+    expect(b.verbs).toBeUndefined();
+  });
+});
+
+describe('bench slot mutators', () => {
+  it('addBenchSlot appends to front and back faces', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'text', 'back');
+    expect(b.slots).toHaveLength(1);
+    expect(b.slots[0].type).toBe('text');
+    expect(b.slots[0].w).toBe(12);
+    expect(b.back).toHaveLength(1);
+  });
+
+  it('deleteBenchSlot removes from either face', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'text', 'back');
+    const frontId = b.slots[0].id;
+    const backId = b.back![0].id;
+    deleteBenchSlot(b, frontId);
+    expect(b.slots).toHaveLength(0);
+    deleteBenchSlot(b, backId);
+    expect(b.back).toHaveLength(0);
+  });
+
+  it('updateBenchSlot writes props by id across faces', () => {
+    const b = typeToBench(sampleType);
+    addBench(b);
+    updateBenchSlot(b, b.slots[0].id, { text: 'new front' });
+    updateBenchSlot(b, b.back![0].id, { text: 'new back' });
+    expect(b.slots[0].props).toEqual({ text: 'new front' });
+    expect(b.back![0].props).toEqual({ text: 'new back' });
+  });
+
+  it('fuseBenchSlot commits both ratio widths', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'text');
+    const [a, c] = b.slots;
+    fuseBenchSlot(b, a.id, c.id, 1.5, 0.5);
+    expect(a.fuseW).toBe(1.5);
+    expect(c.fuseW).toBe(0.5);
   });
 });
 
