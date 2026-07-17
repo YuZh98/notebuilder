@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { stampCard, cardToType, builtinCardTypes } from './card-types';
+import { stampCard, cardToType, builtinCardTypes, typePreviewCard, STORES } from './card-types';
+import type { CardType } from './card-types';
 import { getSlot } from './slots/registry';
 import type { Card } from './types';
 
@@ -58,6 +59,70 @@ describe('cardToType', () => {
     const ct = cardToType(card, 'T');
     (card.slots[0].props as { text: string }).text = 'changed';
     expect((ct.slots[0].props as { text: string }).text).toBe('Q');
+  });
+});
+
+describe('STORES', () => {
+  it('lists write, practice, live in order', () => {
+    expect(STORES.map((s) => s.id)).toEqual(['write', 'practice', 'live']);
+    expect(STORES.map((s) => s.name)).toEqual(['Write', 'Practice', 'Live']);
+  });
+});
+
+describe('CardType product metadata', () => {
+  it('round-trips a fully-populated type through JSON (blob persistence shape)', () => {
+    const ct: CardType = {
+      id: 'ct_x',
+      name: 'X',
+      description: 'desc',
+      verbs: { flip: true },
+      slots: [{ type: 'text', props: { text: 'front' } }],
+      back: [{ type: 'text', props: { text: 'back' } }],
+      accent: '#6ea8fe',
+      note: 'a note',
+      icon: '🎚',
+      store: 'live',
+      varieties: [{ name: 'Blue', accent: '#6ea8fe' }],
+    };
+    const round = JSON.parse(JSON.stringify(ct)) as CardType;
+    expect(round).toEqual(ct);
+  });
+
+  it('cardToType output still round-trips through stampCard', () => {
+    const card: Card = {
+      id: 'card_1',
+      sectionId: 'sec_1',
+      position: 0,
+      verbs: { flip: true },
+      slots: [{ id: 'slot_1', type: 'text', props: { text: 'Q' } }],
+      back: [{ id: 'slot_2', type: 'text', props: { text: 'A' } }],
+    };
+    const ct = cardToType(card, 'Captured');
+    const stamped = stampCard(ct, 'sec_2', 3);
+    expect(stamped.typeId).toBe(ct.id);
+    expect(stamped.sectionId).toBe('sec_2');
+    expect(stamped.position).toBe(3);
+    expect(stamped.slots.map((s) => s.props)).toEqual([{ text: 'Q' }]);
+    expect(stamped.back?.map((s) => s.props)).toEqual([{ text: 'A' }]);
+    expect(stamped.verbs).toEqual({ flip: true });
+  });
+});
+
+describe('typePreviewCard', () => {
+  it('yields a card whose slots have ids', () => {
+    const ct = builtinCardTypes.find((c) => c.back)!;
+    const preview = typePreviewCard(ct);
+    for (const s of [...preview.slots, ...(preview.back ?? [])]) {
+      expect(s.id).toBeTruthy();
+    }
+  });
+
+  it('deep-clones props so mutating the preview never touches the type', () => {
+    const ct = builtinCardTypes[0];
+    const original = JSON.stringify(ct.slots[0].props);
+    const preview = typePreviewCard(ct);
+    (preview.slots[0].props as Record<string, unknown>).text = 'mutated';
+    expect(JSON.stringify(ct.slots[0].props)).toBe(original);
   });
 });
 
