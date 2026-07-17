@@ -99,6 +99,23 @@ describe('SideFactory', () => {
     expect(container.textContent).toContain('Slot: text');
   });
 
+  it('the split slider preserves the fused pair total instead of forcing 2', async () => {
+    const b = activeBench();
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'text');
+    b.slots[0].fuse = true;
+    b.slots[0].fuseW = 1.5;
+    b.slots[1].fuseW = 1.0;
+    factory.sel = 0;
+    const { container } = render(SideFactory);
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+    await fireEvent.input(range, { target: { value: '30' } });
+    const sum = (b.slots[0].fuseW ?? 1) + (b.slots[1].fuseW ?? 1);
+    expect(Number(sum.toFixed(2))).toBe(2.5);
+    expect(b.slots[0].fuseW).toBe(0.75);
+    expect(b.slots[1].fuseW).toBe(1.75);
+  });
+
   it('palette chips carry the nb-slot drag payload', () => {
     const { container } = render(SideFactory);
     const chip = lanes(container)[0].querySelector('.chip') as HTMLElement;

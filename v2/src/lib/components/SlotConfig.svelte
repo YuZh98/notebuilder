@@ -6,12 +6,14 @@
     slot,
     revKeys,
     hasNext,
+    nextFuseW,
     onpatch,
     ondelete,
   }: {
     slot: Slot;
     revKeys: string[];
     hasNext: boolean;
+    nextFuseW: number;
     onpatch: (patch: Partial<Slot>) => void;
     ondelete: () => void;
   } = $props();
@@ -19,11 +21,10 @@
   type RevOp = NonNullable<VerbConfig['reveal']>['op'];
   const REVOPS: RevOp[] = ['==', '!=', '>=', '<=', '>', '<'];
 
-  // Fused pairs seed 1/1 and stay sum-preserving, so the shared total is 2.
-  const FUSE_TOTAL = 2;
-
   const reveal = $derived(slot.verbs?.reveal);
-  const ratioPct = $derived(Math.round(((slot.fuseW ?? 1) / FUSE_TOTAL) * 100));
+  // Preserve whatever the pair currently sums to (v1 70-events.js:150), not a hardcoded 2.
+  const fuseTotal = $derived((slot.fuseW ?? 1) + (nextFuseW ?? 1));
+  const ratioPct = $derived(Math.round(((slot.fuseW ?? 1) / fuseTotal) * 100));
 
   function patchReveal(next: Partial<NonNullable<VerbConfig['reveal']>>) {
     if (!reveal) return;
@@ -35,7 +36,7 @@
   }
 
   function setRatio(pct: number) {
-    const [leftW] = fuseSplit(FUSE_TOTAL, pct / 100);
+    const [leftW] = fuseSplit(fuseTotal, pct / 100);
     onpatch({ fuseW: leftW });
   }
 </script>

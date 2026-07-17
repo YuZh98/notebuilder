@@ -75,6 +75,17 @@
     }
   }
 
+  // Click a bench slot to select it (v1 selslot); a bare-container click clears the selection.
+  function benchClick(e: MouseEvent, b: Bench) {
+    const arr = factory.face === 'back' ? (b.back ?? []) : b.slots;
+    const cell = (e.target as HTMLElement).closest?.('.cardslot') as HTMLElement | null;
+    if (cell?.dataset.sid) {
+      factory.sel = arr.findIndex((s) => s.id === cell.dataset.sid);
+    } else if (e.target === e.currentTarget) {
+      factory.sel = null;
+    }
+  }
+
   function renameBench(b: Bench, v: string) {
     const t = v.trim();
     if (t) b.name = t;
@@ -177,8 +188,14 @@
                 onclick={() => (factory.face = 'back')}>Back</button>
             </div>
           {/if}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="bench" ondragover={benchOver} ondrop={(e) => benchDrop(e, b)}>
+          <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+          <!-- Capture phase: CardView's editable click handler stops bubbling, so intercept on the way down. -->
+          <div
+            class="bench bench-grid"
+            ondragover={benchOver}
+            ondrop={(e) => benchDrop(e, b)}
+            onclickcapture={(e) => benchClick(e, b)}
+          >
             <CardView {...benchProps(b, true)} />
           </div>
         </div>

@@ -175,6 +175,35 @@ describe('Factory — decorator drops', () => {
   });
 });
 
+describe('Factory — bench slot selection', () => {
+  it('the bench grid carries the .bench-grid class', () => {
+    const { a } = seed();
+    const { container } = render(Factory, { props: props() });
+    const bench = container.querySelector(`.faccard[data-bench="${a.id}"] .bench`);
+    expect(bench).toHaveClass('bench-grid');
+  });
+
+  it('clicking a bench slot cell selects it', async () => {
+    const { a } = seed();
+    factory.sel = null;
+    const { container } = render(Factory, { props: props() });
+    const cell = container.querySelector(
+      `.faccard[data-bench="${a.id}"] .cardslot[data-sid]`,
+    ) as HTMLElement;
+    await fireEvent.click(cell);
+    expect(factory.sel).toBe(0);
+  });
+
+  it('clicking the bench background clears the selection', async () => {
+    const { a } = seed();
+    factory.sel = 0;
+    const { container } = render(Factory, { props: props() });
+    const bench = container.querySelector(`.faccard[data-bench="${a.id}"] .bench`) as HTMLElement;
+    await fireEvent.click(bench);
+    expect(factory.sel).toBeNull();
+  });
+});
+
 describe('Factory — Preview stage', () => {
   it('renders every bench with no builder chrome', () => {
     seed();

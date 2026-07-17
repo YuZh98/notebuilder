@@ -74,7 +74,8 @@
       if (patch.fuse && nx) fuseBenchSlot(b, s.id, nx.id, s.fuseW ?? 1, nx.fuseW ?? 1);
     }
     if ('fuseW' in patch && nx) {
-      const rightW = Math.round((2 - patch.fuseW!) * 100) / 100;
+      const total = (s.fuseW ?? 1) + (nx.fuseW ?? 1);
+      const rightW = Math.round((total - patch.fuseW!) * 100) / 100;
       fuseBenchSlot(b, s.id, nx.id, patch.fuseW!, rightW);
     }
   }
@@ -161,6 +162,7 @@
       slot={selSlot}
       {revKeys}
       hasNext={factory.sel != null && !!faceSlots[factory.sel + 1]}
+      nextFuseW={(factory.sel != null ? faceSlots[factory.sel + 1]?.fuseW : undefined) ?? 1}
       onpatch={patchSlot}
       ondelete={delSlot}
     />

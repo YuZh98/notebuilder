@@ -12,6 +12,7 @@ function props(over: Record<string, unknown> = {}) {
     slot: slot(),
     revKeys: [] as string[],
     hasNext: false,
+    nextFuseW: 1,
     onpatch: vi.fn(),
     ondelete: vi.fn(),
     ...over,
@@ -77,6 +78,24 @@ describe('SlotConfig', () => {
     const range = container.querySelector('input[type="range"]') as HTMLInputElement;
     await fireEvent.input(range, { target: { value: '30' } });
     expect(p.onpatch).toHaveBeenCalledWith({ fuseW: 0.6 });
+  });
+
+  it('maps the split slider against the real pair total, not a hardcoded 2', async () => {
+    const p = props({ hasNext: true, slot: slot({ fuse: true, fuseW: 1.5 }), nextFuseW: 1.0 });
+    const { container } = render(SlotConfig, { props: p });
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+    // total = 2.5, ratio 0.3 -> leftW = round(2.5 * 0.3) = 0.75
+    await fireEvent.input(range, { target: { value: '30' } });
+    expect(p.onpatch).toHaveBeenCalledWith({ fuseW: 0.75 });
+  });
+
+  it('seeds the slider from the current ratio within the real total', () => {
+    const { container } = render(SlotConfig, {
+      props: props({ hasNext: true, slot: slot({ fuse: true, fuseW: 1.5 }), nextFuseW: 1.0 }),
+    });
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+    // 1.5 / 2.5 = 60%
+    expect(range.value).toBe('60');
   });
 
   it('fires ondelete from the delete button', async () => {
