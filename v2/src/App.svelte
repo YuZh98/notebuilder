@@ -32,6 +32,7 @@
   } from './lib/db';
   import { uid } from './lib/uid';
   import { stampCard, cardToType, builtinCardTypes, type CardType } from './lib/card-types';
+  import { serializeFactory, hydrateFactory } from './lib/bench.svelte';
   import { demoNotebook } from './lib/demo';
   import {
     createNotebook,
@@ -125,6 +126,9 @@
   }, 600);
   const persistReaderState = debounce((map: typeof readerState) => {
     if (isTauri()) void saveReaderState(map);
+  }, 600);
+  const persistFactory = debounce((json: string) => {
+    if (isTauri()) void setPreference('factory_state', json);
   }, 600);
 
   function confirmDialog(msg: string, title: string): Promise<boolean> {
@@ -343,13 +347,15 @@
         const savedTheme = await getPreference('theme');
         themeId = normalizeThemeId(savedTheme);
         applyTheme(themeId);
-        const [savedW, savedCollapsed] = await Promise.all([
+        const [savedW, savedCollapsed, savedFactory] = await Promise.all([
           getPreference('side_width'),
           getPreference('side_collapsed'),
+          getPreference('factory_state'),
         ]);
         const w = parseSideWidthPref(savedW);
         if (w !== null) sideW = w;
         sideCollapsed = savedCollapsed === '1';
+        hydrateFactory(savedFactory);
         const rows = await listNotebooks();
         if (rows.length === 0) {
           await saveNotebook($state.snapshot(notebook));
@@ -393,6 +399,7 @@
   // Debounced autosave whenever the document or reader state changes.
   $effect(() => persistNotebook($state.snapshot(notebook)));
   $effect(() => persistReaderState($state.snapshot(readerState)));
+  $effect(() => persistFactory(serializeFactory()));
   $effect(() => {
     document.body.classList.toggle('side-collapsed', sideCollapsed);
   });

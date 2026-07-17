@@ -75,7 +75,7 @@ export function typePreviewCard(ct: CardType): Card {
   return stampCard(ct, '', 0);
 }
 
-function stampSlot(t: SlotTemplate): Slot {
+export function stampSlot(t: SlotTemplate): Slot {
   return {
     id: uid('slot'),
     type: t.type,
@@ -84,7 +84,7 @@ function stampSlot(t: SlotTemplate): Slot {
   };
 }
 
-function templateSlot(s: Slot): SlotTemplate {
+export function templateSlot(s: Slot): SlotTemplate {
   return {
     type: s.type,
     props: structuredClone(s.props),
