@@ -55,7 +55,7 @@
   function benchDrop(e: DragEvent, b: Bench) {
     const back = factory.face === 'back';
     const arr = back ? (b.back ?? []) : b.slots;
-    const cell = (e.target as HTMLElement).closest?.('.cardslot') as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest?.('[data-sid]') as HTMLElement | null;
     const at = cell?.dataset.sid ? arr.findIndex((s) => s.id === cell.dataset.sid) : -1;
     if (has(e, 'text/nb-sverb')) {
       e.preventDefault();
@@ -77,8 +77,10 @@
 
   // Click a bench slot to select it (v1 selslot); a bare-container click clears the selection.
   function benchClick(e: MouseEvent, b: Bench) {
+    // Let interactive controls (e.g. the inline slot ✕) run without a stale selection.
+    if ((e.target as HTMLElement).closest('button, input, textarea, select, [contenteditable]')) return;
     const arr = factory.face === 'back' ? (b.back ?? []) : b.slots;
-    const cell = (e.target as HTMLElement).closest?.('.cardslot') as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest?.('[data-sid]') as HTMLElement | null;
     if (cell?.dataset.sid) {
       factory.sel = arr.findIndex((s) => s.id === cell.dataset.sid);
     } else if (e.target === e.currentTarget) {

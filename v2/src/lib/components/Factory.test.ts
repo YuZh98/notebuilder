@@ -202,6 +202,37 @@ describe('Factory — bench slot selection', () => {
     await fireEvent.click(bench);
     expect(factory.sel).toBeNull();
   });
+
+  it('clicking the inline slot delete ✕ keeps the selection on the same slot, not a shifted one', async () => {
+    const { a } = seed();
+    addBenchSlot(a, 'slider');
+    addBenchSlot(a, 'choice');
+    factory.sel = 2;
+    const firstId = a.slots[0].id;
+    const selectedId = a.slots[2].id;
+    const { container } = render(Factory, { props: props() });
+    const dels = container.querySelectorAll(
+      `.faccard[data-bench="${a.id}"] .bench .slot-del`,
+    );
+    await fireEvent.click(dels[0] as HTMLElement);
+    expect(factory.benches[0].slots.map((s) => s.id)).not.toContain(firstId);
+    expect(factory.sel).toBe(1);
+    expect(factory.benches[0].slots[factory.sel!].id).toBe(selectedId);
+  });
+
+  it('clicking a fused sub-cell selects that slot', async () => {
+    const { a } = seed();
+    addBenchSlot(a, 'slider');
+    a.slots[0].fuse = true;
+    factory.sel = null;
+    const { container } = render(Factory, { props: props() });
+    const cells = container.querySelectorAll(
+      `.faccard[data-bench="${a.id}"] .bench .fusecell[data-sid]`,
+    );
+    expect(cells).toHaveLength(2);
+    await fireEvent.click(cells[1] as HTMLElement);
+    expect(factory.sel).toBe(1);
+  });
 });
 
 describe('Factory — Preview stage', () => {

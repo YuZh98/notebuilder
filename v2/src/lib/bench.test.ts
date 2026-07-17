@@ -228,6 +228,37 @@ describe('bench slot mutators', () => {
     expect(b.back).toHaveLength(0);
   });
 
+  it('deleteBenchSlot clears sel when the selected slot is removed', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'slider');
+    factory.sel = 1;
+    deleteBenchSlot(b, b.slots[1].id);
+    expect(factory.sel).toBe(null);
+  });
+
+  it('deleteBenchSlot decrements sel when a slot below the selection is removed', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'slider');
+    factory.sel = 1;
+    deleteBenchSlot(b, b.slots[0].id);
+    expect(factory.sel).toBe(0);
+  });
+
+  it('deleteBenchSlot leaves sel unchanged when a slot above the selection is removed', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'slider');
+    addBenchSlot(b, 'choice');
+    factory.sel = 0;
+    deleteBenchSlot(b, b.slots[2].id);
+    expect(factory.sel).toBe(0);
+  });
+
   it('updateBenchSlot writes props by id across faces', () => {
     const b = typeToBench(sampleType);
     addBench(b);

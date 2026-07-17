@@ -179,8 +179,14 @@ export function setSlotVerb(idx: number, key: 'reveal' | 'glow' | 'emphasis', on
   }
 }
 
-/** Remove a slot from either face of a bench. */
+/** Remove a slot from either face of a bench, keeping `factory.sel` on the same slot. */
 export function deleteBenchSlot(b: Bench, slotId: string): void {
+  const face = factory.face === 'back' ? (b.back ?? []) : b.slots;
+  const removed = face.findIndex((s) => s.id === slotId);
+  if (removed >= 0 && factory.sel != null) {
+    if (removed === factory.sel) factory.sel = null;
+    else if (removed < factory.sel) factory.sel -= 1;
+  }
   b.slots = b.slots.filter((s) => s.id !== slotId);
   if (b.back) b.back = b.back.filter((s) => s.id !== slotId);
 }
