@@ -4,6 +4,7 @@
   import { renderInline, renderMarkdown } from '../markdown';
   import CeText from './CeText.svelte';
   import SectionView from './SectionView.svelte';
+  import type { ServiceKey } from '../services';
   import type { Notebook, Section, Card } from '../types';
 
   let {
@@ -15,6 +16,8 @@
     onsubtitle,
     onpatchsection,
     onsectiongrip,
+    onsvcrun,
+    onsvcattach,
     cardView,
     matrix,
     sectionTools,
@@ -30,6 +33,10 @@
     onpatchsection: (section: Section, patch: Partial<Section>) => void;
     /** Section grip pointerdown → the App starts the engine drag for this section. */
     onsectiongrip?: (section: Section, ev: PointerEvent, roomEl: HTMLElement) => void;
+    /** Study action run for a section (shuffle/flipAll/reset). */
+    onsvcrun?: (section: Section, key: ServiceKey) => void;
+    /** Native service chip dropped on a section body enables it. */
+    onsvcattach?: (section: Section, key: ServiceKey) => void;
     cardView: Snippet<[Section, Card, boolean]>;
     matrix?: Snippet;
     sectionTools?: Snippet<[Section]>;
@@ -115,6 +122,8 @@
       collapsed={studyCollapsed[section.id] === true}
       ontogglecollapse={() => (studyCollapsed[section.id] = studyCollapsed[section.id] !== true)}
       ongrip={(ev, el) => onsectiongrip?.(section, ev, el)}
+      onsvcrun={(k) => onsvcrun?.(section, k)}
+      onsvcattach={(k) => onsvcattach?.(section, k)}
       {cardView}
       {sectionTools}
       {sectionFooter}

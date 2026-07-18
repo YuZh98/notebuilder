@@ -47,6 +47,8 @@ function baseProps(card: Card) {
     ongrip: vi.fn(),
     onresize: vi.fn(),
     onfusew: vi.fn(),
+    onpin: vi.fn(),
+    onarchive: vi.fn(),
   };
 }
 
@@ -311,6 +313,48 @@ describe('CardView card controls', () => {
 
 // reveal key that never exists in scope -> the slot is hidden in Study
 const hidden = { reveal: { key: 'nope', op: '==' as const, val: 1 } };
+
+describe('CardView pin & archive buttons', () => {
+  it('shows the pin button only when pinEnabled, in either mode, and reflects the pinned tag', async () => {
+    const off = render(CardView, { props: baseProps(cardOf()) });
+    expect(off.container.querySelector('[data-act="pin"]')).toBeNull();
+    off.unmount();
+
+    const props = { ...baseProps(cardOf()), pinEnabled: true };
+    const { container } = render(CardView, { props });
+    const btn = container.querySelector('[data-act="pin"]') as HTMLElement;
+    expect(btn.textContent?.trim()).toBe('📍');
+    await fireEvent.click(btn);
+    expect(props.onpin).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders 📌 when the card is already pinned', () => {
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf({ tags: ['pinned'] })), pinEnabled: true },
+    });
+    expect(container.querySelector('[data-act="pin"]')?.textContent?.trim()).toBe('📌');
+  });
+
+  it('archive button shows 🗄 in the live view and ♻ in the archive view; fires onarchive', async () => {
+    const live = { ...baseProps(cardOf()), archEnabled: true, showArch: false };
+    const a = render(CardView, { props: live });
+    const archBtn = a.container.querySelector('[data-act="arch"]') as HTMLElement;
+    expect(archBtn.textContent?.trim()).toBe('🗄');
+    await fireEvent.click(archBtn);
+    expect(live.onarchive).toHaveBeenCalledTimes(1);
+    a.unmount();
+
+    const viewing = render(CardView, {
+      props: { ...baseProps(cardOf()), archEnabled: true, showArch: true },
+    });
+    expect(viewing.container.querySelector('[data-act="arch"]')?.textContent?.trim()).toBe('♻');
+  });
+
+  it('hides the archive button when archEnabled is false', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    expect(container.querySelector('[data-act="arch"]')).toBeNull();
+  });
+});
 
 describe('CardView fuse chains', () => {
   it('groups consecutive fused slots into one .cardslot > .fusewrap with seams between cells', () => {

@@ -53,6 +53,9 @@
     deleteSlot,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
+  import { session, shuffleSection, clearShuffle } from './lib/session.svelte';
+  import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
+  import { SERVICE_FEATURES, SERVICE_ACTIONS, type ServiceKey } from './lib/services';
   import { debounce } from './lib/debounce';
   import { startEdgeResize } from './lib/drag/resize';
   import { startPointerDrag } from './lib/drag/engine';
@@ -299,6 +302,70 @@
     if (!left || !right) return;
     left.fuseW = leftW;
     right.fuseW = rightW;
+  }
+
+  // ---- per-section services (bar actions, feature toggles, drag-attach) ----
+
+  const svcLabel = (key: string): string =>
+    [...SERVICE_FEATURES, ...SERVICE_ACTIONS].find((d) => d.key === key)?.label ?? key;
+
+  const selectedSection = $derived(
+    notebook.sections.find((s) => s.id === selSection && s.kind !== 'divider') ?? null,
+  );
+
+  // v1 80-actions.js:2-6 runService — shuffle is view-only; flipAll/reset write reader state.
+  function runService(section: Section, key: ServiceKey) {
+    if (key === 'shuffle') {
+      shuffleSection(section);
+      toast('shuffled (view only — your order is kept)');
+    } else if (key === 'flipAll') {
+      readerState = flipAllCards(section, readerState);
+      toast('flipped all');
+    } else if (key === 'reset') {
+      readerState = resetSectionState(section, readerState);
+      clearShuffle(section.id);
+      toast('reset — flips & answers cleared (pins and archive kept)');
+    }
+  }
+
+  function setSectionService(section: Section, key: ServiceKey, on: boolean) {
+    const services = { ...(section.services ?? {}) };
+    if (on) services[key] = true;
+    else delete services[key];
+    section.services = Object.keys(services).length ? services : undefined;
+  }
+
+  // Sidebar chip click toggles the selected section's feature (v1 70-events.js:67).
+  function toggleSectionService(key: ServiceKey) {
+    if (!selectedSection) {
+      toast('select a section first');
+      return;
+    }
+    setSectionService(selectedSection, key, !selectedSection.services?.[key]);
+  }
+
+  // Native chip dropped on a section body enables the service (v1 100-drag-furniture.js:12-15).
+  function attachSectionService(section: Section, key: ServiceKey) {
+    if (section.kind === 'divider') return;
+    setSectionService(section, key, true);
+    toast(`added “${svcLabel(key)}” to ${section.name}`);
+  }
+
+  // Native chip dropped on the dustbin disables it on the selected section (v1 130-boot.js:22).
+  function detachSectionService(key: ServiceKey) {
+    if (!selectedSection?.services?.[key]) return;
+    setSectionService(selectedSection, key, false);
+    toast(`removed “${svcLabel(key)}” from ${selectedSection.name}`);
+  }
+
+  function togglePinCard(card: Card) {
+    togglePin(card);
+  }
+
+  function toggleArchiveCard(section: Section, card: Card) {
+    const on = session.showArch[section.id] !== true;
+    setArchived(card, on);
+    toast(on ? 'archived — see the Archive view' : 'restored');
   }
 
   // ---- drag reorder / dust delete (Edit mode, pointer engine) ----
@@ -628,6 +695,11 @@
     ongrip={(ev, el) => gripCard(card, ev, el)}
     onresize={(w) => setCardW(card, w)}
     onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
+    pinEnabled={section.services?.pin === true}
+    archEnabled={$mode === 'study' && section.services?.archive === true}
+    showArch={session.showArch[section.id] === true}
+    onpin={() => togglePinCard(card)}
+    onarchive={() => toggleArchiveCard(section, card)}
   />
 {/snippet}
 
@@ -675,6 +747,7 @@
       canPersist={isTauri()}
       {cardTypes}
       {selProd}
+      section={selectedSection}
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
       onpickprod={pickProduct}
@@ -682,6 +755,7 @@
       onclosedetail={() => (selProd = null)}
       ongrip={gripProductHouse}
       onvariety={(v) => (selVariety = v)}
+      onsvctoggle={toggleSectionService}
     />
   {/if}
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
@@ -702,6 +776,8 @@
         onsubtitle={setNotebookSubtitle}
         onpatchsection={patchSection}
         onsectiongrip={gripSection}
+        onsvcrun={runService}
+        onsvcattach={attachSectionService}
         {cardView}
         {matrix}
         {sectionTools}
@@ -731,7 +807,7 @@
 
 <MdBar />
 <Toast />
-<Dustbin />
+<Dustbin onsvcdrop={detachSectionService} />
 
 <style>
   .matrix-toggle {

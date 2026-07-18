@@ -6,7 +6,11 @@
   import { startEdgeResize } from '../drag/resize';
   import { clampRoomW } from '../drag/geometry';
   import { pushGestureSnapshot } from '../drag/gesture-history';
+  import { session, studyOrder } from '../session.svelte';
+  import { visibleCards, archivedCount } from '../service-ops';
+  import { flipAllApplicable, type ServiceKey } from '../services';
   import CeText from './CeText.svelte';
+  import ServiceBar from './ServiceBar.svelte';
   import type { Notebook, Section, Card } from '../types';
 
   let {
@@ -19,6 +23,8 @@
     collapsed,
     ontogglecollapse,
     ongrip,
+    onsvcrun,
+    onsvcattach,
     cardView,
     sectionTools,
     sectionFooter,
@@ -35,6 +41,10 @@
     ontogglecollapse: () => void;
     /** Grip pointerdown → the App starts the engine drag with this .room as source. */
     ongrip?: (ev: PointerEvent, roomEl: HTMLElement) => void;
+    /** Study action (shuffle/flipAll/reset) — App owns notebook + readerState. */
+    onsvcrun?: (key: ServiceKey) => void;
+    /** Native `text/nb-svc` chip dropped on the section body enables that service. */
+    onsvcattach?: (key: ServiceKey) => void;
     cardView: Snippet<[Section, Card, boolean]>;
     sectionTools?: Snippet<[Section]>;
     sectionFooter?: Snippet<[Section]>;
@@ -44,11 +54,36 @@
   const editable = $derived(!studying && section.locked !== true);
   const title = $derived((section.title ?? '').trim());
   const subtitle = $derived((section.subtitle ?? '').trim());
-  const cards = $derived(
-    !studying || visibleCardIds === null
-      ? section.cards
-      : section.cards.filter((c) => visibleCardIds.has(c.id)),
-  );
+
+  const q = $derived(session.search[section.id] ?? '');
+  const showArch = $derived(session.showArch[section.id] === true);
+
+  // Study grid = shuffle order ∩ archive/search filter ∩ matrix filter (v1 60-stage.js:159-160).
+  const cards = $derived.by(() => {
+    if (!studying) return section.cards;
+    const ids = new Set(visibleCards(section, showArch, q).map((c) => c.id));
+    let list = studyOrder(section).filter((c) => ids.has(c.id));
+    if (visibleCardIds !== null) list = list.filter((c) => visibleCardIds.has(c.id));
+    return list;
+  });
+
+  const svcState = $derived({
+    q,
+    showArch,
+    archivedN: archivedCount(section),
+    flipApplicable: flipAllApplicable(section),
+  });
+
+  function svcDragOver(e: DragEvent) {
+    if ((e.dataTransfer?.types ?? []).includes('text/nb-svc')) e.preventDefault();
+  }
+
+  function svcDrop(e: DragEvent) {
+    const key = e.dataTransfer?.getData('text/nb-svc');
+    if (!key) return;
+    e.preventDefault();
+    onsvcattach?.(key as ServiceKey);
+  }
   const chapterCount = $derived(
     section.kind === 'divider' ? sectionsOfChapter(notebook, section.id).length : 0,
   );
@@ -204,6 +239,8 @@
     data-section={section.id}
     style={widthStyle}
     onclick={select}
+    ondragover={svcDragOver}
+    ondrop={svcDrop}
   >
     {@render roomGrip()}
     {#if !studying && sectionTools}{@render sectionTools(section)}{/if}
@@ -242,6 +279,14 @@
       {/if}
     </div>
     {#if !(studying && collapsed)}
+      <ServiceBar
+        {section}
+        mode={studying ? 'study' : 'edit'}
+        state={svcState}
+        onsearch={(v) => (session.search[section.id] = v)}
+        ontogglearch={() => (session.showArch[section.id] = !showArch)}
+        onrun={(k) => onsvcrun?.(k)}
+      />
       <div class="rgwrap">
         <div class="grid room-grid" data-section={section.id} style="flex:1 1 auto">
           {#if cards.length === 0 && !studying}

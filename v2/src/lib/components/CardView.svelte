@@ -3,6 +3,7 @@
   import { getSlot, allSlots } from '../slots/registry';
   import { buildCardScope } from '../card-scope';
   import { isCardDone, CARD_STATE_KEY } from '../card-done';
+  import { isPinned } from '../service-ops';
   import { shouldShow, isLocked } from '../verbs';
   import { startEdgeResize } from '../drag/resize';
   import { clampCardW, fuseSplit } from '../drag/geometry';
@@ -40,6 +41,11 @@
     onresize,
     onfusew,
     forceMode,
+    pinEnabled = false,
+    archEnabled = false,
+    showArch = false,
+    onpin,
+    onarchive,
   }: {
     card: Card;
     editable: boolean;
@@ -70,6 +76,14 @@
     ongrip: (ev: PointerEvent, srcEl: HTMLElement) => void;
     onresize: (w: number) => void;
     onfusew: (leftId: string, rightId: string, leftW: number, rightW: number) => void;
+    /** Section `pin` service on → show the 📌/📍 pin toggle in both modes (v1 60-stage.js:167). */
+    pinEnabled?: boolean;
+    /** Section `archive` service on in Study → show the 🗄/♻ archive toggle (v1 60-stage.js:168). */
+    archEnabled?: boolean;
+    /** Viewing the archive list → the archive button restores (♻) instead of archiving (🗄). */
+    showArch?: boolean;
+    onpin?: () => void;
+    onarchive?: () => void;
   } = $props();
 
   let newSlotType = $state('text');
@@ -369,6 +383,21 @@
   {#if editable}
     <span class="grip" role="presentation" onpointerdown={gripDown}>⋮⋮</span>
     <span class="rz" role="presentation" onpointerdown={startCardResize}></span>
+  {/if}
+  {#if pinEnabled}
+    <button
+      class="arch btn sm ghost"
+      data-act="pin"
+      title="pin this card — adds the pinned tag (filter it in Coverage)"
+      onclick={onpin}>{isPinned(card) ? '📌' : '📍'}</button>
+  {/if}
+  {#if archEnabled}
+    <button
+      class="arch btn sm ghost"
+      data-act="arch"
+      style="right:36px"
+      title={showArch ? 'restore' : 'archive'}
+      onclick={onarchive}>{showArch ? '♻' : '🗄'}</button>
   {/if}
   {#if studying && done}
     <div class="done-badge">Done</div>
