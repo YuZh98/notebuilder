@@ -24,6 +24,9 @@ type SectionJSON = {
   width?: number;
   title?: string;
   subtitle?: string;
+  services?: Record<string, boolean>;
+  svcOrder?: string[];
+  svcW?: Record<string, number>;
 };
 
 type CardJSON = {
@@ -33,6 +36,7 @@ type CardJSON = {
   tags?: string[];
   accent?: string;
   w?: number;
+  archived?: boolean;
 };
 
 type SlotJSON = {
@@ -59,6 +63,9 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
         ...(s.width !== undefined && { width: s.width }),
         ...(s.title !== undefined && { title: s.title }),
         ...(s.subtitle !== undefined && { subtitle: s.subtitle }),
+        ...(s.services !== undefined && { services: s.services }),
+        ...(s.svcOrder !== undefined && { svcOrder: s.svcOrder }),
+        ...(s.svcW !== undefined && { svcW: s.svcW }),
         cards: s.cards.map((c) => ({
           slots: c.slots.map(exportSlot),
           ...(c.verbs && { verbs: c.verbs }),
@@ -66,6 +73,7 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
           ...(c.tags && c.tags.length > 0 && { tags: c.tags }),
           ...(c.accent !== undefined && { accent: c.accent }),
           ...(c.w !== undefined && { w: c.w }),
+          ...(c.archived !== undefined && { archived: c.archived }),
         })),
       })),
     },
@@ -103,6 +111,7 @@ export function importNotebook(json: NotebookJSON): Notebook {
       ...(c.tags && { tags: c.tags }),
       ...(c.accent !== undefined && { accent: c.accent }),
       ...(c.w !== undefined && { w: c.w }),
+      ...(c.archived !== undefined && { archived: c.archived }),
     }));
     return {
       id: sectionId,
@@ -115,6 +124,9 @@ export function importNotebook(json: NotebookJSON): Notebook {
       ...(s.width !== undefined && { width: s.width }),
       ...(s.title !== undefined && { title: s.title }),
       ...(s.subtitle !== undefined && { subtitle: s.subtitle }),
+      ...(s.services !== undefined && { services: s.services }),
+      ...(s.svcOrder !== undefined && { svcOrder: s.svcOrder }),
+      ...(s.svcW !== undefined && { svcW: s.svcW }),
     };
   });
 
@@ -202,6 +214,15 @@ export function validateNotebookJSON(json: unknown): string[] {
     if (sec.subtitle !== undefined && typeof sec.subtitle !== 'string') {
       errors.push(`sections[${si}].subtitle must be a string`);
     }
+    if (sec.services !== undefined && !isBoolRecord(sec.services)) {
+      errors.push(`sections[${si}].services must be an object of booleans`);
+    }
+    if (sec.svcOrder !== undefined && !isStringArray(sec.svcOrder)) {
+      errors.push(`sections[${si}].svcOrder must be an array of strings`);
+    }
+    if (sec.svcW !== undefined && !isNumberRecord(sec.svcW)) {
+      errors.push(`sections[${si}].svcW must be an object of finite numbers`);
+    }
     const cards = sec.cards;
     if (!Array.isArray(cards)) {
       errors.push(`sections[${si}].cards must be an array`);
@@ -216,6 +237,10 @@ export function validateNotebookJSON(json: unknown): string[] {
       const accent = (c as Record<string, unknown>).accent;
       if (accent !== undefined && typeof accent !== 'string') {
         errors.push(`${where}.accent must be a string`);
+      }
+      const archived = (c as Record<string, unknown>).archived;
+      if (archived !== undefined && typeof archived !== 'boolean') {
+        errors.push(`${where}.archived must be a boolean`);
       }
       // resize engine range: card width in twelfths, clamped to [3, 12]
       const w = (c as Record<string, unknown>).w;
@@ -255,6 +280,17 @@ function validateCardGraph(errors: string[], slots: unknown[], where: string): v
   });
   for (const issue of findGraphIssues(decls)) errors.push(`${where}: ${issue}`);
 }
+
+const isStringArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+const isBoolRecord = (v: unknown): v is Record<string, boolean> =>
+  !!v && typeof v === 'object' && !Array.isArray(v) &&
+  Object.values(v).every((x) => typeof x === 'boolean');
+
+const isNumberRecord = (v: unknown): v is Record<string, number> =>
+  !!v && typeof v === 'object' && !Array.isArray(v) &&
+  Object.values(v).every((x) => typeof x === 'number' && Number.isFinite(x));
 
 function validateSlotsField(errors: string[], slots: unknown, where: string): void {
   if (!Array.isArray(slots)) {

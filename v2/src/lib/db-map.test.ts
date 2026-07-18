@@ -303,3 +303,60 @@ describe('round-trip', () => {
     expect(result.sections[0].cards[0]).not.toHaveProperty('tags');
   });
 });
+
+describe('service/archive fields round-trip', () => {
+  it('persists section services/svcOrder/svcW and card archived through rows', () => {
+    const nb: Notebook = {
+      id: 'nb5',
+      name: 'Services',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+      sections: [
+        {
+          id: 's5',
+          notebookId: 'nb5',
+          name: 'S',
+          position: 0,
+          services: { search: true, archive: true, shuffle: true },
+          svcOrder: ['shuffle', 'search'],
+          svcW: { search: 180, archive: 90 },
+          cards: [
+            {
+              id: 'c6',
+              sectionId: 's5',
+              position: 0,
+              slots: [{ id: 'sl8', type: 'text', props: { q: 'hi' } }],
+              archived: true,
+            },
+          ],
+        },
+      ],
+    };
+    const { notebook, sections, cards } = notebookToRows(nb);
+    expect(rowsToNotebook(notebook, sections, cards)).toEqual(nb);
+  });
+
+  it('omits absent fields', () => {
+    const nb: Notebook = {
+      id: 'nb6',
+      name: 'Bare',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+      sections: [
+        {
+          id: 's6',
+          notebookId: 'nb6',
+          name: 'S',
+          position: 0,
+          cards: [{ id: 'c7', sectionId: 's6', position: 0, slots: [] }],
+        },
+      ],
+    };
+    const { notebook, sections, cards } = notebookToRows(nb);
+    const result = rowsToNotebook(notebook, sections, cards);
+    expect(result.sections[0]).not.toHaveProperty('services');
+    expect(result.sections[0]).not.toHaveProperty('svcOrder');
+    expect(result.sections[0]).not.toHaveProperty('svcW');
+    expect(result.sections[0].cards[0]).not.toHaveProperty('archived');
+  });
+});

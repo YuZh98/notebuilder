@@ -30,9 +30,13 @@ type CardData = {
   back?: Slot[];
   tags?: string[];
   accent?: string;
+  archived?: boolean;
 };
 
-type SectionData = Pick<Section, 'kind' | 'locked' | 'width' | 'title' | 'subtitle' | 'folded'>;
+type SectionData = Pick<
+  Section,
+  'kind' | 'locked' | 'width' | 'title' | 'subtitle' | 'folded' | 'services' | 'svcOrder' | 'svcW'
+>;
 
 type NotebookData = Pick<Notebook, 'subtitle' | 'width'>;
 
@@ -61,6 +65,9 @@ export function notebookToRows(nb: Notebook): {
     if (s.title !== undefined) data.title = s.title;
     if (s.subtitle !== undefined) data.subtitle = s.subtitle;
     if (s.folded !== undefined) data.folded = s.folded;
+    if (s.services !== undefined) data.services = s.services;
+    if (s.svcOrder !== undefined) data.svcOrder = s.svcOrder;
+    if (s.svcW !== undefined) data.svcW = s.svcW;
     return {
       id: s.id,
       notebook_id: nb.id,
@@ -77,6 +84,7 @@ export function notebookToRows(nb: Notebook): {
       if (c.back) data.back = c.back;
       if (c.tags) data.tags = c.tags;
       if (c.accent !== undefined) data.accent = c.accent;
+      if (c.archived !== undefined) data.archived = c.archived;
       return {
         id: c.id,
         section_id: s.id,
@@ -114,6 +122,7 @@ export function rowsToNotebook(
         if (data.back !== undefined) card.back = data.back;
         if (data.tags !== undefined) card.tags = data.tags;
         if (data.accent !== undefined) card.accent = data.accent;
+        if (data.archived !== undefined) card.archived = data.archived;
         return card;
       });
 
@@ -131,6 +140,9 @@ export function rowsToNotebook(
     if (data.title !== undefined) section.title = data.title;
     if (data.subtitle !== undefined) section.subtitle = data.subtitle;
     if (data.folded !== undefined) section.folded = data.folded;
+    if (data.services !== undefined) section.services = data.services;
+    if (data.svcOrder !== undefined) section.svcOrder = data.svcOrder;
+    if (data.svcW !== undefined) section.svcW = data.svcW;
     return section;
   });
 

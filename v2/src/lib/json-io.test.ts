@@ -388,3 +388,49 @@ describe('tags round-trip', () => {
     expect(imported.sections[0].cards[0].tags).toEqual(['algebra', 'easy']);
   });
 });
+
+describe('service / archive fields round-trip', () => {
+  it('exports and re-imports section services/svcOrder/svcW and card archived', () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.sections[0].services = { search: true, shuffle: true };
+    nb.sections[0].svcOrder = ['shuffle', 'search'];
+    nb.sections[0].svcW = { search: 200 };
+    nb.sections[0].cards[0].archived = true;
+    const imported = importNotebook(exportNotebook(nb));
+    expect(imported.sections[0].services).toEqual({ search: true, shuffle: true });
+    expect(imported.sections[0].svcOrder).toEqual(['shuffle', 'search']);
+    expect(imported.sections[0].svcW).toEqual({ search: 200 });
+    expect(imported.sections[0].cards[0].archived).toBe(true);
+  });
+
+  it('tolerates absent fields', () => {
+    const imported = importNotebook(exportNotebook(sampleNotebook));
+    expect(imported.sections[0]).not.toHaveProperty('services');
+    expect(imported.sections[0]).not.toHaveProperty('svcOrder');
+    expect(imported.sections[0]).not.toHaveProperty('svcW');
+    expect(imported.sections[0].cards[0]).not.toHaveProperty('archived');
+  });
+
+  it('validation accepts valid fields and rejects wrong types', () => {
+    const good = exportNotebook(sampleNotebook) as unknown as {
+      notebook: { sections: Array<Record<string, unknown>> };
+    };
+    good.notebook.sections[0].services = { search: true };
+    good.notebook.sections[0].svcOrder = ['search'];
+    good.notebook.sections[0].svcW = { search: 120 };
+    expect(validateNotebookJSON(good)).toEqual([]);
+
+    const bad = exportNotebook(sampleNotebook) as unknown as {
+      notebook: { sections: Array<Record<string, unknown>> };
+    };
+    bad.notebook.sections[0].services = { search: 'yes' };
+    bad.notebook.sections[0].svcOrder = [1, 2];
+    bad.notebook.sections[0].svcW = { search: 'wide' };
+    (bad.notebook.sections[0].cards as Array<Record<string, unknown>>)[0].archived = 'yes';
+    const errors = validateNotebookJSON(bad);
+    expect(errors.some((e) => e.includes('services'))).toBe(true);
+    expect(errors.some((e) => e.includes('svcOrder'))).toBe(true);
+    expect(errors.some((e) => e.includes('svcW'))).toBe(true);
+    expect(errors.some((e) => e.includes('archived'))).toBe(true);
+  });
+});

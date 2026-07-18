@@ -42,6 +42,8 @@ export type Card = {
   accent?: string;
   /** Card width in twelfths of the section grid (default 12); written by the resize engine. */
   w?: number;
+  /** D20 — card is archived (hidden from the study grid unless the archive view is toggled on). */
+  archived?: boolean;
 };
 
 /** A section within a notebook. `kind: 'divider'` marks a chapter break — dividers hold no cards. */
@@ -58,6 +60,12 @@ export type Section = {
   subtitle?: string;
   /** Local-only fold state — persisted in the DB, never exported to interchange JSON. */
   folded?: boolean;
+  /** Enabled service-bar features, keyed by ServiceKey (e.g. `{ search: true, shuffle: true }`). */
+  services?: Record<string, boolean>;
+  /** Custom left-to-right order of service-bar items; keys absent here fall back to registry order. */
+  svcOrder?: string[];
+  /** Per-service pixel widths for the resizable bar items, keyed by ServiceKey. */
+  svcW?: Record<string, number>;
 };
 
 /** A notebook — the top-level container */
