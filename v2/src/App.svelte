@@ -314,7 +314,11 @@
       selSection = null;
     },
     confirmDelete: confirmDialog,
-    cardType: cardTypeById,
+    // Un-proxy before stamping: card-types' structuredClone throws DataCloneError on a $state proxy.
+    cardType: (id) => {
+      const t = cardTypeById(id);
+      return t ? ($state.snapshot(t) as CardType) : undefined;
+    },
     variety: (ct) => (ct.id === selProd ? selVariety : (ct.varieties?.[0] ?? null)),
   });
 

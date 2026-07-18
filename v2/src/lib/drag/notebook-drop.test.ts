@@ -5,6 +5,7 @@ import { dustState } from './dust.svelte';
 import { toastState, dismissToast } from '../toast.svelte';
 import type { Notebook, Section, Card } from '../types';
 import type { CardType } from '../card-types';
+import { proxiedCardType, snapshotType } from './notebook-drop.proxy-fixture.svelte';
 
 function card(id: string, sectionId: string, w?: number): Card {
   return { id, sectionId, position: 0, slots: [], ...(w !== undefined ? { w } : {}) };
@@ -290,6 +291,29 @@ describe('onDrop — product onto a room grid (v1 :94)', () => {
     expect(cb.canDrop(src, gridOf(shell, 's3'))).toBe(false); // locked
     expect(cb.canDrag(src)).toBe(true);
     expect(cb.phWidth(src)).toBe(8);
+  });
+
+  // Regression: a live $state CardType proxy reaches stampSlot's structuredClone and throws
+  // DataCloneError unless the injected cardType dep un-proxies first (App boundary snapshot).
+  it('places a product resolved from a live $state proxy (no DataCloneError)', () => {
+    const proxied = proxiedCardType();
+    // Sanity: the raw proxy is genuinely un-cloneable, which is what broke drag-place.
+    expect(() => structuredClone(proxied.slots[0].props)).toThrow();
+
+    const { nb, shell } = fixture();
+    const cb = makeNotebookDropCallbacks(
+      depsOf(nb, {
+        cardType: (id) => (id === proxied.id ? snapshotType(proxied) : undefined),
+        variety: (ct) => ct.varieties?.[0] ?? null,
+      }),
+    );
+    expect(() =>
+      cb.onDrop(
+        { kind: 'product', id: proxied.id, srcEl: document.createElement('button') },
+        { kind: 'grid', grid: gridOf(shell, 's1'), idx: 0 },
+      ),
+    ).not.toThrow();
+    expect(nb.sections[0].cards[0].typeId).toBe('ct_proxy');
   });
 });
 
