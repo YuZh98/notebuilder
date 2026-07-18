@@ -57,6 +57,7 @@
     moveCard,
     addSlot,
     deleteSlot,
+    reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { session, shuffleSection, clearShuffle } from './lib/session.svelte';
@@ -682,6 +683,7 @@
     onaxis={setMatrixAxes}
     oncells={(c) => (mtxCells = c)}
     onfold={() => (mtxFold = !mtxFold)}
+    onreordersections={(from, to) => reorderSectionsByValueIndex(notebook, from, to)}
   />
 {/snippet}
 

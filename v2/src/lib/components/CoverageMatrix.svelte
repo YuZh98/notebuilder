@@ -11,6 +11,7 @@
   } from '../coverage-matrix';
   import type { Notebook } from '../types';
   import type { CardType } from '../card-types';
+  import { startHeaderDrag } from '../drag/header-drag';
 
   let {
     notebook,
@@ -22,6 +23,7 @@
     onaxis,
     oncells,
     onfold,
+    onreordersections,
   }: {
     notebook: Notebook;
     cardTypes: CardType[];
@@ -33,7 +35,22 @@
     onaxis: (row: MatrixAxis | null, col: MatrixAxis | null) => void;
     oncells: (cells: string[]) => void;
     onfold: () => void;
+    /** Header drag-reorder of the section axis by value index (only the section axis reorders). */
+    onreordersections?: (from: number, to: number) => void;
   } = $props();
+
+  let mtxEl: HTMLElement | undefined = $state();
+
+  function startReorder(ev: PointerEvent, axis: 'row' | 'col', index: number) {
+    if (!mtxEl) return;
+    startHeaderDrag(ev, {
+      axis,
+      fromIndex: index,
+      headerSel: axis === 'row' ? '.mtx-rowh' : '.mtx-colh',
+      container: mtxEl,
+      onreorder: (from, to) => onreordersections?.(from, to),
+    });
+  }
 
   // Chip row order mirrors v1 axOpt (60-stage:84): Sections · Tags · Products.
   const CHIP_ORDER: MatrixAxis[] = ['section', 'tag', 'product'];
@@ -124,6 +141,7 @@
     {#if !fold}
       <div
         class="mtx"
+        bind:this={mtxEl}
         style="grid-template-columns:minmax(80px,auto) repeat({cols.length},minmax(42px,1fr))"
       >
         <button
@@ -132,7 +150,7 @@
           title="select everything / clear"
           onclick={toggleAll}>▦</button>
 
-        {#each cols as cv (cv.id)}
+        {#each cols as cv, ci (cv.id)}
           {@const on = rows.every((rv) => cellOn(rv.id, cv.id))}
           <button
             class="mtx-c mtx-colh"
@@ -146,11 +164,12 @@
                 class="mtxgrip"
                 data-mtxcolgrip={cv.id}
                 data-dim={C.key}
+                onpointerdown={(e) => startReorder(e, 'col', ci)}
                 title="drag to reorder">⠿</span>
             {/if}{cv.label}</button>
         {/each}
 
-        {#each rows as rv (rv.id)}
+        {#each rows as rv, ri (rv.id)}
           {@const rowOn = cols.every((cv) => cellOn(rv.id, cv.id))}
           <button
             class="mtx-c mtx-rowh"
@@ -164,6 +183,7 @@
                 class="mtxgrip"
                 data-mtxrowgrip={rv.id}
                 data-dim={R.key}
+                onpointerdown={(e) => startReorder(e, 'row', ri)}
                 title="drag to reorder">⠿</span>
             {/if}{rv.label}</button>
           {#each cols as cv (cv.id)}

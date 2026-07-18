@@ -15,6 +15,7 @@ import {
   addChapter,
   sectionsOfChapter,
   chapterOf,
+  reorderSectionsByValueIndex,
 } from './notebook-ops';
 import type { Notebook } from './types';
 
@@ -193,6 +194,61 @@ describe('moveSectionBefore', () => {
     expect(nb.sections.map((s) => s.position)).toEqual([0, 1, 2]);
     moveSectionBefore(nb, b.id, null);
     expect(nb.sections[2].id).toBe(b.id);
+  });
+});
+
+describe('reorderSectionsByValueIndex', () => {
+  function flat(): Notebook {
+    const nb = createNotebook('N');
+    nb.sections[0].name = 'A';
+    addSection(nb, 'B');
+    addSection(nb, 'C');
+    addSection(nb, 'D');
+    return nb;
+  }
+  const names = (nb: Notebook) => nb.sections.map((s) => s.name);
+
+  it('moves a value forward past a later one (to = splice slot after removal)', () => {
+    const nb = flat();
+    reorderSectionsByValueIndex(nb, 0, 1); // A after B → [B,A,C,D]
+    expect(names(nb)).toEqual(['B', 'A', 'C', 'D']);
+    expect(nb.sections.map((s) => s.position)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('moves a value backward before an earlier one', () => {
+    const nb = flat();
+    reorderSectionsByValueIndex(nb, 3, 1); // remove D → [A,B,C], insert at 1 → [A,D,B,C]
+    expect(names(nb)).toEqual(['A', 'D', 'B', 'C']);
+  });
+
+  it('appends to the end when to lands past the last remaining value', () => {
+    const nb = flat();
+    reorderSectionsByValueIndex(nb, 0, 3); // A to the end → [B,C,D,A]
+    expect(names(nb)).toEqual(['B', 'C', 'D', 'A']);
+  });
+
+  it('maps value indices across dividers and keeps dividers in place', () => {
+    // Layout: S0 | div1 | S1 S2 | div2 | S3 — values [S0,S1,S2,S3]
+    const nb = chapteredNotebook();
+    reorderSectionsByValueIndex(nb, 0, 1); // S0 after S1 among values → before S2 in full array
+    expect(names(nb)).toEqual(['Part I', 'S1', 'S0', 'S2', 'Part II', 'S3']);
+  });
+
+  it('append past the last value inserts before a trailing divider, preserving it', () => {
+    // Layout: S0 | div1 | S1 | div2 (trailing) — values [S0,S1]
+    const nb = createNotebook('N');
+    nb.sections[0].name = 'S0';
+    addChapter(nb, 'Part I');
+    addSection(nb, 'S1');
+    addChapter(nb, 'Part II');
+    reorderSectionsByValueIndex(nb, 0, 1); // S0 to the end of values → after S1, before the trailing divider
+    expect(names(nb)).toEqual(['Part I', 'S1', 'S0', 'Part II']);
+  });
+
+  it('is a no-op for an out-of-range from', () => {
+    const nb = flat();
+    reorderSectionsByValueIndex(nb, 9, 0);
+    expect(names(nb)).toEqual(['A', 'B', 'C', 'D']);
   });
 });
 

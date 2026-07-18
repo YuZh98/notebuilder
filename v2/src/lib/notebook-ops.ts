@@ -149,6 +149,29 @@ export function moveSectionBefore(nb: Notebook, sectionId: string, beforeSection
   renumber(nb.sections);
 }
 
+/**
+ * Matrix header drag: reorder the non-divider sections by their axis-value index. `from`/`to` index
+ * the value list (dividers excluded); `to` is the splice slot once `from` is removed. Placement maps
+ * back to the full array by inserting before whichever full-array section follows the target slot, so
+ * dividers keep their place.
+ */
+export function reorderSectionsByValueIndex(nb: Notebook, from: number, to: number): void {
+  const values = nb.sections.filter((s) => s.kind !== 'divider');
+  if (from < 0 || from >= values.length) return;
+  const moving = values[from];
+  const rest = values.filter((_, i) => i !== from);
+  const at = Math.max(0, Math.min(to, rest.length));
+  const before = rest[at];
+  if (before) {
+    moveSectionBefore(nb, moving.id, before.id);
+    return;
+  }
+  const last = rest[rest.length - 1];
+  if (!last) return;
+  const successor = nb.sections[nb.sections.findIndex((s) => s.id === last.id) + 1] ?? null;
+  moveSectionBefore(nb, moving.id, successor ? successor.id : null);
+}
+
 export function addSlot(nb: Notebook, cardId: string, type: string, face: 'front' | 'back' = 'front'): Slot {
   const card = findCard(nb, cardId);
   if (!card) throw new Error(`No such card: ${cardId}`);

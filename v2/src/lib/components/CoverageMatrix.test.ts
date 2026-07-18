@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import CoverageMatrix from './CoverageMatrix.svelte';
+import { _setElementFromPoint } from '../drag/header-drag';
 import { mode } from '../stores/mode';
 import { cellKey, UNTAG, type MatrixAxis } from '../coverage-matrix';
 import type { Notebook, Section, Card } from '../types';
@@ -54,7 +55,24 @@ function baseProps(over: Record<string, unknown> = {}) {
   };
 }
 
-afterEach(() => mode.set('edit'));
+afterEach(() => {
+  document.dispatchEvent(new MouseEvent('pointerup', { clientX: 0, clientY: 0 }));
+  _setElementFromPoint(null);
+  mode.set('edit');
+});
+
+function stubRect(el: Element, r: { left?: number; top?: number; width?: number; height?: number }) {
+  const left = r.left ?? 0;
+  const top = r.top ?? 0;
+  const width = r.width ?? 0;
+  const height = r.height ?? 0;
+  (el as HTMLElement).getBoundingClientRect = () =>
+    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+}
+
+function pev(type: string, x: number, y: number): PointerEvent {
+  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }) as PointerEvent;
+}
 
 describe('CoverageMatrix — structure', () => {
   it('renders nothing when fewer than two axes qualify', () => {
@@ -252,6 +270,23 @@ describe('CoverageMatrix — reorder grips', () => {
     mode.set('study');
     const study = render(CoverageMatrix, { props: baseProps() });
     expect(study.container.querySelector('[data-mtxrowgrip]')).toBeNull();
+  });
+
+  it('dragging a section row grip past the next header midline reorders and shows the drop-line', async () => {
+    const onreordersections = vi.fn();
+    const { container } = render(CoverageMatrix, { props: baseProps({ onreordersections }) });
+    const rowHeaders = [...container.querySelectorAll('.mtx-rowh')] as HTMLElement[]; // s1, s2
+    stubRect(rowHeaders[1], { left: 0, top: 40, width: 80, height: 20 }); // mid y = 50
+    _setElementFromPoint(() => rowHeaders[1]);
+    const grip = rowHeaders[0].querySelector('[data-mtxrowgrip]') as HTMLElement;
+
+    await fireEvent(grip, pev('pointerdown', 0, 0));
+    document.dispatchEvent(pev('pointermove', 10, 60)); // y past mid 50 → after
+    expect(rowHeaders[1]).toHaveClass('dropafter');
+
+    document.dispatchEvent(pev('pointerup', 10, 60));
+    expect(onreordersections).toHaveBeenCalledWith(0, 1); // section 0 moved after section 1
+    expect(container.querySelector('.dropafter')).toBeNull(); // line cleared on release
   });
 });
 
