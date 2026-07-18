@@ -64,6 +64,23 @@ describe('computeProgress', () => {
     const cards = [makeCard('c1')];
     expect(computeProgress(cards, {})).toEqual({ done: 0, total: 1, pct: 0 });
   });
+
+  it('excludes archived cards from the counted set', () => {
+    const cards: Card[] = [
+      { ...makeCard('c1'), archived: true },
+      makeCard('c2'),
+    ];
+    const states: Record<string, Record<string, Record<string, unknown>>> = {
+      c2: { 'slot-c2': { value: 'done' } },
+    };
+    // c1 is archived → not counted; only c2 remains, and it is done.
+    expect(computeProgress(cards, states)).toEqual({ done: 1, total: 1, pct: 100 });
+  });
+
+  it('returns {0,0,0} when every card is archived', () => {
+    const cards: Card[] = [{ ...makeCard('c1'), archived: true }];
+    expect(computeProgress(cards, {})).toEqual({ done: 0, total: 0, pct: 0 });
+  });
 });
 
 describe('progressScopeCards', () => {

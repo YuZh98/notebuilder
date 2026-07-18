@@ -15,11 +15,12 @@ export function computeProgress(
   cards: Card[],
   statesByCardThenSlot: Record<string, Record<string, Record<string, unknown>>>,
 ): { done: number; total: number; pct: number } {
-  const total = cards.length;
+  const counted = cards.filter((c) => !c.archived);
+  const total = counted.length;
   if (total === 0) return { done: 0, total: 0, pct: 0 };
 
   let done = 0;
-  for (const card of cards) {
+  for (const card of counted) {
     if (isCardDone(card, statesByCardThenSlot[card.id] ?? {})) done++;
   }
 
