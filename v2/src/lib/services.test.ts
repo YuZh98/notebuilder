@@ -4,6 +4,7 @@ import {
   SERVICE_ACTIONS,
   SERVICE_ORDER,
   svcBarItems,
+  reorderSvc,
   flipAllApplicable,
   cardMatchesSearch,
 } from './services';
@@ -108,5 +109,32 @@ describe('cardMatchesSearch', () => {
   it('matches tags', () => {
     const c = card({ tags: ['biology', 'unit-3'] });
     expect(cardMatchesSearch(c, 'unit-3')).toBe(true);
+  });
+});
+
+describe('reorderSvc (v1 splice-before-target)', () => {
+  const bar = ['search', 'archive', 'shuffle', 'reset'];
+
+  it('moves a middle item to the front (no svcOrder yet)', () => {
+    expect(reorderSvc(undefined, bar, 2, 0)).toEqual(['shuffle', 'search', 'archive', 'reset']);
+  });
+
+  it('appends when the drop index is past the last item', () => {
+    expect(reorderSvc(undefined, bar, 0, 3)).toEqual(['archive', 'shuffle', 'reset', 'search']);
+  });
+
+  it('inserts before the item at the drop index', () => {
+    expect(reorderSvc(undefined, bar, 0, 1)).toEqual(['archive', 'search', 'shuffle', 'reset']);
+  });
+
+  it('starts from svcOrder and preserves keys not in the bar', () => {
+    const order = ['pin', 'search', 'archive', 'shuffle', 'reset'];
+    expect(reorderSvc(order, bar, 3, 0)).toEqual(['pin', 'reset', 'search', 'archive', 'shuffle']);
+  });
+
+  it('returns a fresh copy of the base order when from is out of range', () => {
+    const out = reorderSvc(undefined, bar, 9, 0);
+    expect(out).toEqual(bar);
+    expect(out).not.toBe(bar);
   });
 });

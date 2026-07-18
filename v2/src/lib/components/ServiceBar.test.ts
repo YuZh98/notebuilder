@@ -1,7 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import ServiceBar from './ServiceBar.svelte';
+import { _setElementFromPoint } from '../drag/engine';
 import type { Section, Card } from '../types';
+
+// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
+function pev(type: string, x = 0, y = 0): PointerEvent {
+  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0 }) as PointerEvent;
+}
 
 function card(id: string, over: Partial<Card> = {}): Card {
   return { id, sectionId: 's1', position: 0, slots: [], ...over };
@@ -19,10 +25,13 @@ function props(section: Section, mode: 'edit' | 'study', stateOver = {}) {
   return {
     section,
     mode,
-    state: baseState(stateOver),
+    view: baseState(stateOver),
     onsearch: vi.fn(),
     ontogglearch: vi.fn(),
     onrun: vi.fn(),
+    onreorder: vi.fn(),
+    onresize: vi.fn(),
+    onremove: vi.fn(),
   };
 }
 
@@ -63,7 +72,7 @@ describe('ServiceBar — item selection & order', () => {
     off.unmount();
 
     const flippable = sec({ services: { flipAll: true }, cards: [card('c1', { verbs: { flip: true } })] });
-    const on = render(ServiceBar, { props: { ...props(flippable, 'study'), state: baseState({ flipApplicable: true }) } });
+    const on = render(ServiceBar, { props: { ...props(flippable, 'study'), view: baseState({ flipApplicable: true }) } });
     expect(on.container.querySelector('[data-svcrun="flipAll"]')).toBeInTheDocument();
   });
 });
@@ -81,14 +90,14 @@ describe('ServiceBar — study widgets', () => {
 
   it('archive button shows the count badge and Archive/Archived label per showArch', () => {
     const section = sec({ services: { archive: true } });
-    const live = render(ServiceBar, { props: { ...props(section, 'study'), state: baseState({ archivedN: 3 }) } });
+    const live = render(ServiceBar, { props: { ...props(section, 'study'), view: baseState({ archivedN: 3 }) } });
     const btn = live.container.querySelector('[data-svcarch]') as HTMLElement;
     expect(btn.textContent).toContain('(3)');
     expect(btn.textContent).toContain('Archive');
     expect(btn.classList.contains('on')).toBe(false);
     live.unmount();
 
-    const viewing = render(ServiceBar, { props: { ...props(section, 'study'), state: baseState({ showArch: true, archivedN: 3 }) } });
+    const viewing = render(ServiceBar, { props: { ...props(section, 'study'), view: baseState({ showArch: true, archivedN: 3 }) } });
     const btn2 = viewing.container.querySelector('[data-svcarch]') as HTMLElement;
     expect(btn2.textContent).toContain('Archived');
     expect(btn2.classList.contains('on')).toBe(true);
@@ -112,7 +121,17 @@ describe('ServiceBar — study widgets', () => {
 });
 
 describe('ServiceBar — edit chips', () => {
-  it('renders inert draggable chips, not live widgets', () => {
+  // jsdom's real elementFromPoint throws; every drag runs on the injected hit-test seam.
+  beforeEach(() => _setElementFromPoint(() => null));
+  afterEach(() => {
+    document.dispatchEvent(pev('pointercancel'));
+    document.dispatchEvent(pev('pointerup'));
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true })); // flush a live click suppressor
+    _setElementFromPoint(null);
+    document.body.innerHTML = '';
+  });
+
+  it('renders pointer-drag chips with resize handles, not native draggable or live widgets', () => {
     const section = sec({ services: { search: true, archive: true, shuffle: true } });
     const { container } = render(ServiceBar, { props: props(section, 'edit') });
     expect(container.querySelector('input')).toBeNull();
@@ -120,8 +139,57 @@ describe('ServiceBar — edit chips', () => {
     const chips = [...container.querySelectorAll('.svc-item')];
     expect(chips.length).toBe(3);
     for (const c of chips) {
-      expect(c.getAttribute('draggable')).toBe('true');
+      expect(c.hasAttribute('draggable')).toBe(false);
       expect(c.hasAttribute('data-svcbtn')).toBe(true);
+      expect(c.querySelector('[data-svcrz]')).toBeInTheDocument();
     }
+  });
+
+  it('resize handles are edit-only', () => {
+    const section = sec({ services: { shuffle: true } });
+    const { container } = render(ServiceBar, { props: props(section, 'study') });
+    expect(container.querySelector('[data-svcrz]')).toBeNull();
+  });
+
+  it('a chip drag reorders and suppresses the trailing click (no chip action fires)', () => {
+    const section = sec({ services: { search: true, shuffle: true } });
+    const p = props(section, 'edit');
+    const { container } = render(ServiceBar, { props: p });
+    const search = container.querySelector('[data-svcbtn="search"]') as HTMLElement;
+    const shuffle = container.querySelector('[data-svcbtn="shuffle"]') as HTMLElement;
+    // Drop lands on the shuffle chip inside the bar.
+    _setElementFromPoint(() => shuffle);
+
+    search.dispatchEvent(pev('pointerdown', 0, 0));
+    document.dispatchEvent(pev('pointermove', 40, 0)); // past the 5px threshold -> drag begins
+    document.dispatchEvent(pev('pointerup', 40, 0));
+    expect(p.onreorder).toHaveBeenCalledTimes(1);
+    expect(p.onreorder.mock.calls[0][0]).toBe(0); // 'search' is bar index 0
+
+    // The engine armed a capture-phase click suppressor: the post-drag click must not reach the chip.
+    const clicked = vi.fn();
+    search.addEventListener('click', clicked);
+    search.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(clicked).not.toHaveBeenCalled();
+  });
+
+  it('dragging the resize handle commits a floored width via onresize', () => {
+    const section = sec({ services: { shuffle: true } });
+    const p = props(section, 'edit');
+    const { container } = render(ServiceBar, { props: p });
+    const handle = container.querySelector('[data-svcrz="shuffle"]') as HTMLElement;
+    handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 0, bubbles: true, cancelable: true }));
+    // jsdom has no layout, so startW is 0: dx=120 -> 120, dx=-500 clamps to the 40px floor.
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 120, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: -500, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: -500, bubbles: true }));
+    expect(p.onresize).toHaveBeenCalledWith('shuffle', 40);
+  });
+
+  it('applies a persisted svcW as an inline width in study mode too', () => {
+    const section = sec({ services: { shuffle: true }, svcW: { shuffle: 180 } });
+    const { container } = render(ServiceBar, { props: props(section, 'study') });
+    const btn = container.querySelector('[data-svcrun="shuffle"]') as HTMLElement;
+    expect(btn.style.width).toBe('180px');
   });
 });

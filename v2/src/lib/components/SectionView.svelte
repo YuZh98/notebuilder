@@ -8,7 +8,7 @@
   import { pushGestureSnapshot } from '../drag/gesture-history';
   import { session, studyOrder } from '../session.svelte';
   import { visibleCards, archivedCount } from '../service-ops';
-  import { flipAllApplicable, type ServiceKey } from '../services';
+  import { svcBarItems, reorderSvc, flipAllApplicable, type ServiceKey } from '../services';
   import CeText from './CeText.svelte';
   import ServiceBar from './ServiceBar.svelte';
   import type { Notebook, Section, Card } from '../types';
@@ -73,6 +73,21 @@
     archivedN: archivedCount(section),
     flipApplicable: flipAllApplicable(section),
   });
+
+  // Bar keys in ServiceBar's exact display order — reorder indices are relative to this.
+  const svcBarKeys = (): ServiceKey[] =>
+    svcBarItems(section).filter((k) => k !== 'flipAll' || flipAllApplicable(section));
+
+  // Reorder/resize are not undoable (D22): plain onpatch, no gesture snapshot.
+  function setSvcW(key: ServiceKey, w: number) {
+    onpatch({ svcW: { ...(section.svcW ?? {}), [key]: Math.round(w) } });
+  }
+
+  function removeSvc(key: ServiceKey) {
+    const services = { ...(section.services ?? {}) };
+    delete services[key];
+    onpatch({ services: Object.keys(services).length ? services : undefined });
+  }
 
   function svcDragOver(e: DragEvent) {
     if ((e.dataTransfer?.types ?? []).includes('text/nb-svc')) e.preventDefault();
@@ -282,10 +297,13 @@
       <ServiceBar
         {section}
         mode={studying ? 'study' : 'edit'}
-        state={svcState}
+        view={svcState}
         onsearch={(v) => (session.search[section.id] = v)}
         ontogglearch={() => (session.showArch[section.id] = !showArch)}
         onrun={(k) => onsvcrun?.(k)}
+        onreorder={(from, to) => onpatch({ svcOrder: reorderSvc(section.svcOrder, svcBarKeys(), from, to) })}
+        onresize={setSvcW}
+        onremove={removeSvc}
       />
       <div class="rgwrap">
         <div class="grid room-grid" data-section={section.id} style="flex:1 1 auto">

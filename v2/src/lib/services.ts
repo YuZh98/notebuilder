@@ -47,6 +47,28 @@ export function svcBarItems(section: Section): ServiceKey[] {
   return [...items].sort((a, b) => svcRank(order, a) - svcRank(order, b));
 }
 
+/**
+ * Reorder a bar item, v1 splice-before-target (100-drag-furniture.js:28-31). `from`/`to` index
+ * the visible `barItems`; `to` is the engine drop slot among the items minus the dragged one.
+ * The base order is the section's `svcOrder` (preserving keys not in the bar) or `barItems` when
+ * none is set yet. Result is the new full order to write back to `section.svcOrder`.
+ */
+export function reorderSvc(
+  currentOrder: string[] | undefined,
+  barItems: string[],
+  from: number,
+  to: number,
+): string[] {
+  const base = currentOrder && currentOrder.length ? currentOrder.slice() : barItems.slice();
+  const fromKey = barItems[from];
+  if (fromKey === undefined) return base;
+  const arr = base.filter((k) => k !== fromKey);
+  const beforeKey = barItems.filter((_, i) => i !== from)[to];
+  const ti = beforeKey === undefined ? -1 : arr.indexOf(beforeKey);
+  arr.splice(ti < 0 ? arr.length : ti, 0, fromKey);
+  return arr;
+}
+
 /** Flip-all is offered only when some card actually has a flip face (v1 50-render.js:102). */
 export function flipAllApplicable(section: Section): boolean {
   return section.cards.some((c) => c.verbs?.flip);

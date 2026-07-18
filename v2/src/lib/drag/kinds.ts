@@ -1,4 +1,4 @@
-export type DragKind = 'card' | 'section' | 'qopt' | 'product' | 'slot' | 'bench' | 'tag';
+export type DragKind = 'card' | 'section' | 'qopt' | 'product' | 'slot' | 'bench' | 'tag' | 'svc';
 
 export type KindSpec = {
   itemSel: string;
@@ -52,4 +52,6 @@ export const DRAG_KINDS: Record<DragKind, KindSpec> = {
   bench: { itemSel: '.faccard', gridSels: ['.fac-grid'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
   // P6: tag reorder lands with the tag bar.
   tag: { itemSel: '[data-tagreorder]', gridSels: [], horiz: alwaysHoriz, deletable: false, ghostSource: true },
+  // Service-bar chip: reorder inside the horizontal bar; dust disables the service (v1 130-boot:17-24).
+  svc: { itemSel: '.svc-item', gridSels: ['.svcbar'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
 };

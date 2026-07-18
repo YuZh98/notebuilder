@@ -1773,3 +1773,35 @@ body[data-theme] .room.edit .furn.bare {
 .bench-caption {
   margin-top: 4px;
 }
+
+/* service bar (D5): horizontal chips; edit chips reorder by drag and resize from the right edge */
+.svcbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.svc-item {
+  position: relative;
+}
+.edit .svcbar .svc-item {
+  cursor: grab;
+}
+.svc-search {
+  width: 100%;
+}
+.svcrz {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  opacity: 0;
+  touch-action: none;
+}
+.svc-item:hover .svcrz {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.25));
+}
