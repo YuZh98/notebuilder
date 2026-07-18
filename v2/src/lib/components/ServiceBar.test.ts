@@ -179,11 +179,22 @@ describe('ServiceBar — edit chips', () => {
     const { container } = render(ServiceBar, { props: p });
     const handle = container.querySelector('[data-svcrz="shuffle"]') as HTMLElement;
     handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 0, bubbles: true, cancelable: true }));
-    // jsdom has no layout, so startW is 0: dx=120 -> 120, dx=-500 clamps to the 40px floor.
+    // jsdom has no layout, so startW is 0: dx=120 -> 120, dx=-500 clamps to the v1 70px floor.
     document.dispatchEvent(new MouseEvent('pointermove', { clientX: 120, bubbles: true, cancelable: true }));
     document.dispatchEvent(new MouseEvent('pointermove', { clientX: -500, bubbles: true, cancelable: true }));
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: -500, bubbles: true }));
-    expect(p.onresize).toHaveBeenCalledWith('shuffle', 40);
+    expect(p.onresize).toHaveBeenCalledWith('shuffle', 70);
+  });
+
+  it('clamps the resize width at the v1 440px ceiling', () => {
+    const section = sec({ services: { shuffle: true } });
+    const p = props(section, 'edit');
+    const { container } = render(ServiceBar, { props: p });
+    const handle = container.querySelector('[data-svcrz="shuffle"]') as HTMLElement;
+    handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 0, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 900, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 900, bubbles: true }));
+    expect(p.onresize).toHaveBeenCalledWith('shuffle', 440);
   });
 
   it('applies a persisted svcW as an inline width in study mode too', () => {

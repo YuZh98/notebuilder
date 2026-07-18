@@ -61,7 +61,7 @@
     startPointerDrag({ kind: 'svc', id: key, srcEl: ev.currentTarget as HTMLElement }, ev, svcCb);
   }
 
-  // Right-edge handle widens the chip live; commit on release. 40px floor is v2 glue (v1 had none).
+  // Right-edge handle widens the chip live; commit on release. Clamp [70, 440] per v1 100-drag-furniture.js:19.
   function svcResize(ev: PointerEvent, key: ServiceKey) {
     const item = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.svc-item');
     if (!item) return;
@@ -70,7 +70,7 @@
     startEdgeResize(
       ev,
       (dx) => {
-        w = Math.max(40, startW + dx);
+        w = Math.max(70, Math.min(440, startW + dx));
         live = { key, w };
       },
       (mv) => {
