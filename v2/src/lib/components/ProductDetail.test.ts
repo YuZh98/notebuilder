@@ -58,6 +58,23 @@ describe('ProductDetail', () => {
     expect(container.querySelector('.prev-card')?.textContent).toContain('goodbye world');
   });
 
+  it('the study preview is live: dragging a slider updates a dependent compute', async () => {
+    const { container } = mount({
+      slots: [
+        { type: 'slider', props: { key: 'a', value: 50, min: 0, max: 100, step: 1 } },
+        { type: 'compute', props: { expr: 'a', out: 'echo', note: 'echo =' } },
+      ],
+    });
+    await fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'study')!);
+    await tick();
+    const range = container.querySelector('.prev-card input[type="range"]') as HTMLInputElement;
+    expect(container.querySelector('.compute-study .val')?.textContent).toBe('50');
+    range.value = '80';
+    await fireEvent.input(range);
+    await tick();
+    expect(container.querySelector('.compute-study .val')?.textContent).toBe('80');
+  });
+
   it('the preview toggle flips only the panel, not the global mode', async () => {
     const { container } = mount();
     const study = [...container.querySelectorAll('button')].find((b) => b.textContent === 'study')!;

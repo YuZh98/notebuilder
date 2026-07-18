@@ -38,6 +38,7 @@ beforeEach(() => {
 afterEach(() => mode.set('edit'));
 
 const props = () => ({ onseal: vi.fn() });
+const flush = () => new Promise<void>((r) => setTimeout(r));
 
 describe('Factory — Build stage', () => {
   it('renders one .faccard per bench inside .fac-grid', () => {
@@ -107,21 +108,61 @@ describe('Factory — Build stage', () => {
     expect(factory.active).not.toBe(a.id);
   });
 
-  it('deleting the active bench when it is the last self-heals to one fresh bench', async () => {
+  it('the ✕ delete confirms, then self-heals the last bench to one fresh bench', async () => {
     const a = benchWithSlots();
     factory.benches = [a];
     factory.active = a.id;
     factory.preview = false;
     factory.sel = null;
     factory.face = 'front';
-    const { container } = render(Factory, { props: props() });
+    const confirm = vi.fn(() => Promise.resolve(true));
+    const { container } = render(Factory, { props: { onseal: vi.fn(), confirm } });
     const head = container.querySelector(`.faccard[data-bench="${a.id}"] .bench-head`) as HTMLElement;
     const del = [...head.querySelectorAll('button')].find((x) => x.textContent?.includes('✕'));
     await fireEvent.click(del as HTMLElement);
+    await flush();
+    expect(confirm).toHaveBeenCalledTimes(1);
     expect(factory.benches).toHaveLength(1);
     expect(factory.benches[0].id).not.toBe(a.id);
     expect(factory.benches[0].name).toBe('New product');
     expect(factory.benches[0].slots).toHaveLength(0);
+  });
+
+  it('a declined ✕ confirm keeps the bench', async () => {
+    const { a } = seed();
+    const confirm = vi.fn(() => Promise.resolve(false));
+    const { container } = render(Factory, { props: { onseal: vi.fn(), confirm } });
+    const head = container.querySelector(`.faccard[data-bench="${a.id}"] .bench-head`) as HTMLElement;
+    const del = [...head.querySelectorAll('button')].find((x) => x.textContent?.includes('✕'));
+    await fireEvent.click(del as HTMLElement);
+    await flush();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(factory.benches.some((x) => x.id === a.id)).toBe(true);
+  });
+
+  it('Preview is a live study: dragging a slider updates a dependent compute, bench untouched', async () => {
+    const b = freshBench();
+    addBenchSlot(b, 'slider');
+    addBenchSlot(b, 'compute');
+    b.slots[0].props = { key: 'a', value: 50, min: 0, max: 100, step: 1 };
+    b.slots[1].props = { expr: 'a', out: 'echo', note: 'echo =' };
+    factory.benches = [b];
+    factory.active = b.id;
+    factory.preview = true;
+    factory.sel = null;
+    factory.face = 'front';
+    const { container } = render(Factory, { props: props() });
+    await flush();
+    await tick();
+    const prev = container.querySelector(`[data-benchprev="${b.id}"]`) as HTMLElement;
+    const range = prev.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(prev.querySelector('.compute-study .val')?.textContent).toBe('50');
+    range.value = '80';
+    await fireEvent.input(range);
+    await tick();
+    expect(prev.querySelector('.compute-study .val')?.textContent).toBe('80');
+    // The real bench is never mutated by a preview interaction.
+    expect((b.slots[0].props as { value: number }).value).toBe(50);
   });
 
   it('flip container shows the Front/Back face chips', () => {

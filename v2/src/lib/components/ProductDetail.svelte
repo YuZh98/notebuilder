@@ -36,6 +36,9 @@
 
   // draft keyed by preview slot id → overridden props (front slots only, v1 productDetail).
   let draft = $state<Record<string, SlotProps>>({});
+  // Session-only reader state for the live preview (keyed by slot id); reset on product switch
+  // via the {#key} remount in SideBar.
+  let prevState = $state<Record<string, Record<string, unknown>>>({});
   let prevStudy = $state(false);
   let variety = $state<Variety | null>(ct.varieties?.[0] ?? null);
 
@@ -49,14 +52,20 @@
 
   const varietyAccent = $derived(variety?.accent || ct.accent || undefined);
 
-  const previewCard = $derived<Card>({
-    ...base,
-    slots: base.slots.map((s) => (draft[s.id] ? { ...s, props: { ...s.props, ...draft[s.id] } } : s)),
-    ...(varietyAccent ? { accent: varietyAccent } : {}),
+  // Reactive, session-only study card the live preview mutates in place (slider/compute react).
+  const previewCard = $state<Card>(structuredClone(base));
+
+  // Keep the variety accent in sync without rebuilding the card (which would reset slider drags).
+  $effect(() => {
+    if (varietyAccent) previewCard.accent = varietyAccent;
+    else if ('accent' in previewCard) delete previewCard.accent;
   });
 
   function setDraft(slotId: string, key: string, value: string) {
     draft[slotId] = { ...(draft[slotId] ?? {}), [key]: value };
+    // Patch only the edited free-text prop; maker-owned structural props (slider value) stay live.
+    const slot = previewCard.slots.find((s) => s.id === slotId);
+    if (slot) slot.props = { ...slot.props, [key]: value };
   }
 
   function place() {
@@ -72,11 +81,13 @@
     card: previewCard,
     editable: false,
     selected: false,
-    state: {},
+    state: prevState,
     notes: [],
     notesOpen: false,
     onselect: noop,
-    onstate: noop,
+    onstate: (slotId: string, next: Record<string, unknown>) => {
+      prevState[slotId] = next;
+    },
     onmove: noop,
     ondelete: noop,
     onverb: noop,

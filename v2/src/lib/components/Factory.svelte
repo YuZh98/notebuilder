@@ -16,16 +16,41 @@
     type Bench,
   } from '../bench.svelte';
   import { toast } from '../toast.svelte';
+  import { pushGestureSnapshot } from '../drag/gesture-history';
+  import type { Card } from '../types';
 
   let {
     onseal,
     ongripbench,
     ongripslot,
+    confirm = () => Promise.resolve(true),
   }: {
     onseal: (benchId: string) => void;
     ongripbench?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
     ongripslot?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
+    confirm?: (message: string, title: string) => Promise<boolean>;
   } = $props();
+
+  // Session-only live preview, keyed by bench id. `prevCards` holds a reactive copy the study
+  // card mutates in place (slider/compute react); `prevState` is the reader channel that
+  // choice/list/text-input and reveal-when read. Both reset on leaving Preview.
+  let prevCards = $state<Record<string, Card>>({});
+  let prevState = $state<Record<string, Record<string, Record<string, unknown>>>>({});
+  // Populate a reactive, discardable clone per bench on entering Preview; clear on leaving so
+  // each Preview session starts fresh. Edits to these clones never touch the real bench.
+  $effect(() => {
+    if (!factory.preview) {
+      prevCards = {};
+      prevState = {};
+      return;
+    }
+    for (const b of factory.benches) {
+      if (!prevCards[b.id]) prevCards[b.id] = benchPreviewCard($state.snapshot(b) as Bench);
+    }
+  });
+
+  const previewCardFor = (b: Bench): Card =>
+    prevCards[b.id] ?? benchPreviewCard($state.snapshot(b) as Bench);
 
   // Self-heal to a valid active bench before the first render (v1 rebuildRefs).
   activeBench();
@@ -111,6 +136,15 @@
     if (cell?.dataset.sid) ongripslot?.(cell.dataset.sid, e, cell);
   }
 
+  // ✕ and dustbin-drag now share one path: confirm, then delBench (keeps one fresh bench).
+  function removeBench(id: string) {
+    void confirm('Delete this container? (sealed products stay in Inventory. Undoable.)', 'Delete Container').then((ok) => {
+      if (!ok) return;
+      pushGestureSnapshot();
+      delBench(id);
+    });
+  }
+
   function renameBench(b: Bench, v: string) {
     const t = v.trim();
     if (t) b.name = t;
@@ -123,8 +157,14 @@
   }
 
   // Shared CardView props: notebook-specific callbacks are no-ops; slot edits write the bench.
-  function benchProps(b: Bench, editable: boolean) {
-    const card = editable ? benchPreviewCard(b) : benchPreviewCard($state.snapshot(b) as Bench);
+  // `live` (Preview) hands the study card a reactive, session-only copy; the collapsed thumbnail
+  // gets a frozen snapshot.
+  function benchProps(b: Bench, editable: boolean, live = false) {
+    const card = editable
+      ? benchPreviewCard(b)
+      : live
+        ? previewCardFor(b)
+        : benchPreviewCard($state.snapshot(b) as Bench);
     // Highlight the selected slot on the editable active bench; null on previews/collapsed cards.
     const face = factory.face === 'back' ? (b.back ?? []) : b.slots;
     const selectedSlotId = editable && factory.sel != null ? (face[factory.sel]?.id ?? null) : null;
@@ -133,11 +173,15 @@
       editable,
       selected: false,
       selectedSlotId,
-      state: {},
+      state: editable ? {} : (prevState[b.id] ?? {}),
       notes: [],
       notesOpen: false,
       onselect: noop,
-      onstate: noop,
+      onstate: editable
+        ? noop
+        : (slotId: string, next: Record<string, unknown>) => {
+            prevState[b.id] = { ...prevState[b.id], [slotId]: next };
+          },
       onmove: noop,
       ondelete: noop,
       onverb: editable ? (key: 'flip' | 'bare', on: boolean) => setBenchVerb(b, key, on) : noop,
@@ -167,7 +211,7 @@
     {#each factory.benches as b (b.id)}
       {#if factory.preview}
         <div class="benchprev" data-benchprev={b.id}>
-          <CardView {...benchProps(b, false)} forceMode="study" />
+          <CardView {...benchProps(b, false, true)} forceMode="study" />
           <div class="sm muted bench-caption">{b.name}</div>
         </div>
       {:else if b.id === factory.active}
@@ -196,7 +240,7 @@
               onclick={() => dupBench(b.id)}>⎘ Duplicate</button>
             <button class="btn sm" title="Seal a copy into the Inventory" onclick={() => onseal(b.id)}
               >🔒 Seal</button>
-            <button class="btn sm warn" title="Delete this container" onclick={() => delBench(b.id)}
+            <button class="btn sm warn" title="Delete this container" onclick={() => removeBench(b.id)}
               >✕</button>
           </div>
           <CeText
