@@ -1542,3 +1542,233 @@ body[data-theme] .room.edit .furn.bare {
   border-radius: 10px;
   min-height: 48px;
 }
+
+/* ---------- ported: v1 store lanes, products & product chips (styles.css .store-lane / .prod / .pchip / .prodchip) ---------- */
+.store-lane {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px;
+  margin: 8px 0;
+}
+.store-lane h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.store-lane.drop-on {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+.prod {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin: 8px 0;
+  background: var(--panel2);
+}
+.prod .pv {
+  pointer-events: none;
+  opacity: 0.95;
+  transform: scale(0.96);
+  transform-origin: top left;
+}
+.pchip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 9px;
+  margin: 5px 0;
+  cursor: grab;
+  font-size: 13px;
+  user-select: none;
+}
+.pchip:hover {
+  border-color: var(--accent);
+}
+.pchip.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.2);
+}
+.pchip span:first-child {
+  flex: 1;
+}
+.prodchip {
+  cursor: grab;
+  max-width: 100%;
+}
+.prodchip:active {
+  cursor: grabbing;
+}
+.chip.xs {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 7px;
+}
+
+/* ---------- ported: v1 factory grid, benches & swatches (styles.css .fac-grid / .faccard / .bench / .benchslot / .benchfuse / .swatch) ---------- */
+.fac-grid {
+  gap: 14px;
+}
+.faccard {
+  flex: 0 0 calc((var(--w, 6) / 12) * 100% - 13px);
+}
+.faccard.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.25);
+}
+.faccard .grip {
+  cursor: grab;
+  color: var(--muted);
+}
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  display: inline-block;
+  vertical-align: middle;
+}
+.swatch.on {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.bench-grid {
+  gap: 10px;
+  min-height: 40px;
+}
+.bench-grid.back {
+  border-left: 2px dashed var(--accent2);
+  margin-left: 6px;
+}
+.benchslot {
+  flex: 0 0 calc((var(--w, 6) / 12) * 100% - 11px);
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  position: relative;
+  min-height: 46px;
+  cursor: pointer;
+  transition: flex-basis 0.12s ease;
+}
+.benchslot.dragging {
+  transition: none;
+  opacity: 0.6;
+}
+.benchslot.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.25);
+}
+.benchslot .grip {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  cursor: grab;
+  color: var(--muted);
+  font-size: 12px;
+  user-select: none;
+}
+.benchslot .rz {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 11px;
+  height: 100%;
+  cursor: ew-resize;
+  border-radius: 0 10px 10px 0;
+}
+.benchslot:hover .rz {
+  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.3));
+}
+.benchslot .bs-head {
+  margin: 0 0 6px;
+  padding-left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.bench {
+  max-width: 780px;
+  margin: 0 auto;
+}
+.benchcard {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.benchfuse {
+  display: flex;
+  align-items: stretch;
+}
+.benchfuse .ff {
+  min-width: 0;
+  display: flex;
+}
+.benchfuse .benchslot {
+  flex: 1 !important;
+  margin: 0;
+  min-width: 0;
+}
+
+/* ---------- ported: v1 factory & seal card preview (styles.css .prev-wrap / .prev-stage / .prev-card) ---------- */
+.prev-wrap {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 6px;
+  background: var(--panel2);
+  overflow: hidden;
+}
+/* the preview shows NOTEBOOK geometry, miniaturized: the card lays out at a room's reference width and is scaled to the panel — never reflowed at panel width */
+.prev-stage {
+  width: 720px;
+  transform-origin: top left;
+}
+.prev-stage .furn {
+  width: 100%;
+  min-width: 0;
+  flex: none;
+}
+.prev-card {
+  cursor: grab;
+}
+
+/* ---------- ported: v1 seal modal key-value rows (styles.css .kv) — .modal-box (1861-1872) already present at app.css:859; .faceflag ported in P3 ---------- */
+.kv {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+}
+.kv label {
+  width: 74px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- v2 glue (not v1): factory renders CardView, not v1's .benchslot markup ---------- */
+/* v2 bench = a real CardView (.furn > .cardslot); give its slot cells the v1 .benchslot box look */
+.bench .cardslot {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+/* selected-slot outline: awaits factory.sel threaded onto the cell (CardView change — deferred to gate) */
+.bench .cardslot.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.25);
+}
+/* factory preview: single CardView (.furn) stacked over its caption */
+.benchprev {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 calc((var(--w, 6) / 12) * 100% - 13px);
+}
+.bench-caption {
+  margin-top: 4px;
+}
