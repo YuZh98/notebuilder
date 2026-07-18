@@ -46,10 +46,7 @@ export function makeFactoryDropCallbacks(deps: FactoryDropDeps): EngineCallbacks
 
   const dropBench = (src: DragSource, t: DropTarget): void => {
     if (t.kind === 'dust') {
-      if (factory.benches.length <= 1) {
-        toast('keep at least one container');
-        return;
-      }
+      // Confirm, then delBench — which keeps one bench by replacing the last with a fresh one.
       void deps.confirmDelete('Delete this container? (sealed products stay in Inventory. Undoable.)', 'Delete Container').then((ok) => {
         if (!ok) return;
         pushGestureSnapshot();

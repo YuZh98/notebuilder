@@ -683,7 +683,11 @@
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
   <div id="stage">
     {#if $place === 'factory'}
-      <Factory onseal={handleSeal} ongripbench={gripBench} ongripslot={gripSlot} />
+      <Factory
+        onseal={handleSeal}
+        ongripbench={gripBench}
+        ongripslot={gripSlot}
+        confirm={confirmDialog} />
     {:else}
       <Stage
         {notebook}

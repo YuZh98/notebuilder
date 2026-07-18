@@ -96,7 +96,7 @@ describe('bench drops', () => {
     void b;
   });
 
-  it('dustbin on the last bench only toasts keep-one (no confirm)', async () => {
+  it('dustbin on the last bench confirms, then replaces it with one fresh bench', async () => {
     const only = freshBench();
     factory.benches = [only];
     factory.active = only.id;
@@ -104,9 +104,10 @@ describe('bench drops', () => {
     const cb = makeFactoryDropCallbacks(deps);
     cb.onDrop({ kind: 'bench', id: only.id, srcEl: document.createElement('div') }, { kind: 'dust' });
     await flush();
-    expect(deps.confirmDelete).not.toHaveBeenCalled();
-    expect(toastState.message).toBe('keep at least one container');
-    expect(factory.benches.map((x) => x.id)).toEqual([only.id]);
+    expect(deps.confirmDelete).toHaveBeenCalledTimes(1);
+    expect(factory.benches).toHaveLength(1);
+    expect(factory.benches[0].id).not.toBe(only.id);
+    expect(factory.benches[0].name).toBe('New product');
   });
 
   it('a declined confirm keeps the bench', async () => {
