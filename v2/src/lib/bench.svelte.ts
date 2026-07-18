@@ -42,13 +42,26 @@ export function freshBench(): Bench {
   return { id: uid('bench'), name: 'New product', slots: [] };
 }
 
-/** The active bench, self-healing empty/dangling state (v1 rebuildRefs 30-state.js:174-177). */
+/**
+ * The active bench, self-healing empty/dangling state (v1 rebuildRefs 30-state.js:174-177).
+ * MUTATES: call it from an action/effect layer (hydrate, mutators, mount) — never from a
+ * derived or template expression. Pure readers must use `currentBench` instead.
+ */
 export function activeBench(): Bench {
   if (!factory.benches.length) factory.benches.push(freshBench());
   if (!factory.active || !factory.benches.some((b) => b.id === factory.active)) {
     factory.active = factory.benches[0].id;
   }
   return factory.benches.find((b) => b.id === factory.active)!;
+}
+
+/**
+ * Read-only variant of `activeBench`: the active bench (or the first, or null when empty)
+ * without any mutation, so it is safe inside deriveds and templates. Callers heal the state
+ * imperatively (mount/hydrate/mutators) and read through this.
+ */
+export function currentBench(): Bench | null {
+  return factory.benches.find((b) => b.id === factory.active) ?? factory.benches[0] ?? null;
 }
 
 /** Push a bench, activate it, and clear the slot selection. */

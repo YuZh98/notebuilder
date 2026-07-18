@@ -17,6 +17,7 @@
     card,
     editable,
     selected,
+    selectedSlotId,
     // `state` is the external prop name; aliased so it cannot shadow the $state rune.
     state: cardState,
     notes,
@@ -43,6 +44,8 @@
     card: Card;
     editable: boolean;
     selected: boolean;
+    /** Factory slot selection: the cell whose `data-sid` matches gets `.sel`. Undefined for notebook cards. */
+    selectedSlotId?: string | null;
     /** Override the global $mode gate (e.g. Factory Preview forces a live study card). */
     forceMode?: 'edit' | 'study';
     /** This card's reader state, keyed by slot id (CARD_STATE_KEY holds card-level flags). */
@@ -318,6 +321,7 @@
                   ></div>{/if}
                 <div
                   class="fusecell"
+                  class:sel={cell.slot.id === selectedSlotId}
                   data-sid={cell.slot.id}
                   style="flex:{liveFuse?.[cell.slot.id] ?? cell.slot.fuseW ?? 1}"
                 >
@@ -332,7 +336,12 @@
           </div>
         {/if}
       {:else}
-        <div class="cardslot" data-sid={group.cells[0].slot.id} style="--sw:{group.sumw}">
+        <div
+          class="cardslot"
+          class:sel={group.cells[0].slot.id === selectedSlotId}
+          data-sid={group.cells[0].slot.id}
+          style="--sw:{group.sumw}"
+        >
           {#if edit}
             {@render editBody(group.cells[0].slot)}
           {:else}

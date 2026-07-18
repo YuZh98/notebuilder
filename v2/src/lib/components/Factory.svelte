@@ -125,10 +125,14 @@
   // Shared CardView props: notebook-specific callbacks are no-ops; slot edits write the bench.
   function benchProps(b: Bench, editable: boolean) {
     const card = editable ? benchPreviewCard(b) : benchPreviewCard($state.snapshot(b) as Bench);
+    // Highlight the selected slot on the editable active bench; null on previews/collapsed cards.
+    const face = factory.face === 'back' ? (b.back ?? []) : b.slots;
+    const selectedSlotId = editable && factory.sel != null ? (face[factory.sel]?.id ?? null) : null;
     return {
       card,
       editable,
       selected: false,
+      selectedSlotId,
       state: {},
       notes: [],
       notesOpen: false,

@@ -49,6 +49,18 @@ describe('SideFactory', () => {
     expect(factory.sel).toBe(0);
   });
 
+  it('mounts on empty factory state without a state_unsafe_mutation throw, self-healing', () => {
+    // Reproduces the browser/dev bug: no hydrate ran, so benches is empty at first render.
+    factory.benches = [];
+    factory.active = null;
+    factory.sel = null;
+    factory.face = 'front';
+    factory.preview = false;
+    expect(() => render(SideFactory)).not.toThrow();
+    expect(factory.benches.length).toBe(1);
+    expect(factory.active).toBe(factory.benches[0].id);
+  });
+
   it('a card-mode chip toggles the container flip verb', async () => {
     const { container } = render(SideFactory);
     const flip = [...lanes(container)[1].querySelectorAll('.chip')].find((c) =>

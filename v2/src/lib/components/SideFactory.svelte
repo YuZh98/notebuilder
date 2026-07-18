@@ -5,6 +5,8 @@
   import {
     factory,
     activeBench,
+    currentBench,
+    freshBench,
     addBench,
     addBenchSlot,
     setBenchVerb,
@@ -51,7 +53,11 @@
     { key: 'emphasis', icon: '❝', label: 'Emphasis' },
   ] as const;
 
-  const b = $derived(activeBench());
+  // Self-heal to a valid active bench once at init (before deriveds read it), so the
+  // pure `currentBench` reader below never has to mutate during render (v1 rebuildRefs).
+  activeBench();
+
+  const b = $derived(currentBench() ?? freshBench());
   const faceSlots = $derived(factory.face === 'back' ? (b.back ?? []) : b.slots);
   const selSlot = $derived(factory.sel != null ? faceSlots[factory.sel] : undefined);
   const revKeys = $derived([

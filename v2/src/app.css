@@ -1758,8 +1758,9 @@ body[data-theme] .room.edit .furn.bare {
   border-radius: 10px;
   padding: 10px 12px;
 }
-/* selected-slot outline: awaits factory.sel threaded onto the cell (CardView change — deferred to gate) */
-.bench .cardslot.sel {
+/* selected-slot outline: CardView threads factory.sel onto the matching data-sid cell */
+.bench .cardslot.sel,
+.bench .fusecell.sel {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.25);
 }

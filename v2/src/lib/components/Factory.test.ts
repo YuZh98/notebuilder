@@ -144,6 +144,57 @@ function dt(map: Record<string, string>) {
   };
 }
 
+describe('Factory — empty state', () => {
+  it('mounts on empty factory state without throwing, self-healing to one bench', () => {
+    factory.benches = [];
+    factory.active = null;
+    factory.sel = null;
+    factory.face = 'front';
+    factory.preview = false;
+    expect(() => render(Factory, { props: props() })).not.toThrow();
+    expect(factory.benches.length).toBe(1);
+    expect(factory.active).toBe(factory.benches[0].id);
+  });
+});
+
+describe('Factory — selected slot visual', () => {
+  const cells = (container: HTMLElement, id: string) =>
+    container.querySelectorAll(`.faccard[data-bench="${id}"] .bench .cardslot[data-sid]`);
+
+  it('marks the active-face cell at factory.sel with .sel, and only that one', () => {
+    const { a } = seed();
+    addBenchSlot(a, 'slider');
+    factory.sel = 1;
+    const { container } = render(Factory, { props: props() });
+    const c = cells(container, a.id);
+    expect(c[0].classList.contains('sel')).toBe(false);
+    expect(c[1].classList.contains('sel')).toBe(true);
+    expect(container.querySelectorAll(`.faccard[data-bench="${a.id}"] .bench .sel`)).toHaveLength(1);
+  });
+
+  it('changing factory.sel moves the highlight', async () => {
+    const { a } = seed();
+    addBenchSlot(a, 'slider');
+    factory.sel = 0;
+    const { container } = render(Factory, { props: props() });
+    const sel = () =>
+      container.querySelector(`.faccard[data-bench="${a.id}"] .bench .cardslot.sel`);
+    expect(sel()?.getAttribute('data-sid')).toBe(a.slots[0].id);
+    factory.sel = 1;
+    await tick();
+    expect(sel()?.getAttribute('data-sid')).toBe(a.slots[1].id);
+  });
+
+  it('renders no .sel cell when factory.sel is null', () => {
+    const { a } = seed();
+    factory.sel = null;
+    const { container } = render(Factory, { props: props() });
+    expect(
+      container.querySelector(`.faccard[data-bench="${a.id}"] .bench .cardslot.sel`),
+    ).toBeNull();
+  });
+});
+
 describe('Factory — decorator drops', () => {
   it('nb-slot dropped on the bench grid adds a slot to the active face', async () => {
     const { a } = seed();

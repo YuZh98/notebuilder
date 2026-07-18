@@ -227,6 +227,48 @@ describe('CardView selection', () => {
   });
 });
 
+describe('CardView selectedSlotId (factory slot selection)', () => {
+  it('puts .sel on the .cardslot whose data-sid matches, and only that one', () => {
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf()), selectedSlotId: 'sl2' },
+    });
+    expect(container.querySelector('.cardslot[data-sid="sl1"]')?.classList.contains('sel')).toBe(false);
+    expect(container.querySelector('.cardslot[data-sid="sl2"]')?.classList.contains('sel')).toBe(true);
+    expect(container.querySelectorAll('.cardslot.sel')).toHaveLength(1);
+  });
+
+  it('moves .sel when selectedSlotId changes', async () => {
+    const props = baseProps(cardOf());
+    const { container, rerender } = render(CardView, { props: { ...props, selectedSlotId: 'sl1' } });
+    expect(container.querySelector('.cardslot.sel')?.getAttribute('data-sid')).toBe('sl1');
+    await rerender({ selectedSlotId: 'sl2' });
+    expect(container.querySelector('.cardslot.sel')?.getAttribute('data-sid')).toBe('sl2');
+  });
+
+  it('marks a fused sub-cell (.fusecell) when it carries the matching data-sid', () => {
+    const card = cardOf({ slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })] });
+    const { container } = render(CardView, {
+      props: { ...baseProps(card), selectedSlotId: 'b' },
+    });
+    expect(container.querySelector('.fusecell[data-sid="a"]')?.classList.contains('sel')).toBe(false);
+    expect(container.querySelector('.fusecell[data-sid="b"]')?.classList.contains('sel')).toBe(true);
+    // the fused group's outer .cardslot carries no data-sid and stays unselected
+    expect(container.querySelector('.fusewrap')?.closest('.cardslot')?.classList.contains('sel')).toBe(false);
+  });
+
+  it('renders no .sel when the prop is omitted (notebook cards unaffected)', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    expect(container.querySelector('.sel')).toBeNull();
+  });
+
+  it('renders no .sel when selectedSlotId is null', () => {
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf()), selectedSlotId: null },
+    });
+    expect(container.querySelector('.sel')).toBeNull();
+  });
+});
+
 describe('CardView card controls', () => {
   it('checking the flip checkbox fires onverb without mutating card', async () => {
     const card = cardOf();
