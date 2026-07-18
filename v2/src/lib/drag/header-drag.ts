@@ -1,4 +1,5 @@
 import { pushGestureSnapshot } from './gesture-history';
+import { isDragging } from './engine';
 
 // jsdom has no layout, so tests inject the hit-test probe (mirror engine.ts).
 const domElementFromPoint = (x: number, y: number): Element | null => document.elementFromPoint(x, y);
@@ -30,7 +31,7 @@ let _active = false;
  */
 export function startHeaderDrag(ev: PointerEvent, opts: HeaderDragOpts): void {
   if (ev.button != null && ev.button !== 0) return;
-  if (_active) return;
+  if (_active || isDragging()) return;
   const { axis, fromIndex, headerSel, container, onreorder } = opts;
   const horiz = axis === 'col';
   const sx = ev.clientX;
