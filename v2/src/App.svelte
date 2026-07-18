@@ -324,7 +324,11 @@
 
   // Factory-stage drops: fork/remap products, reorder or bin benches and bench slots (v1 90:71,84,89).
   const factoryDropCallbacks = makeFactoryDropCallbacks({
-    cardType: cardTypeById,
+    // Un-proxy before forking: factory-drop's structuredClone throws DataCloneError on a $state proxy.
+    cardType: (id) => {
+      const t = cardTypeById(id);
+      return t ? ($state.snapshot(t) as CardType) : undefined;
+    },
     setStore: (ct, store) => {
       ct.store = store ?? undefined;
       if (isTauri()) void saveCardType($state.snapshot(ct) as CardType);

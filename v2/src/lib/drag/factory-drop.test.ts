@@ -3,6 +3,7 @@ import { makeFactoryDropCallbacks, type FactoryDropDeps } from './factory-drop';
 import { factory, freshBench, activeBench, addBench, addBenchSlot, hydrateFactory } from '../bench.svelte';
 import { toastState, dismissToast } from '../toast.svelte';
 import type { CardType } from '../card-types';
+import { proxiedCardType, snapshotType } from './notebook-drop.proxy-fixture.svelte';
 
 const prodType: CardType = {
   id: 'ct_note',
@@ -63,6 +64,26 @@ describe('product drops', () => {
     expect(copy.src).toEqual({ id: 'ct_note', name: 'Note' });
     expect(factory.active).toBe(copy.id);
     expect(toastState.message).toContain('forked');
+  });
+
+  // Regression: a live $state CardType proxy reaches the fork's structuredClone and throws
+  // DataCloneError unless the injected cardType dep un-proxies first (App boundary snapshot).
+  it('forks a product resolved from a live $state proxy (no DataCloneError)', () => {
+    const proxied = proxiedCardType();
+    // Sanity: the raw proxy is genuinely un-cloneable, which is what broke drag-fork.
+    expect(() => structuredClone(proxied)).toThrow();
+
+    const cb = makeFactoryDropCallbacks(
+      depsOf({ cardType: (id) => (id === proxied.id ? snapshotType(proxied) : undefined) }),
+    );
+    const before = factory.benches.length;
+    const grid = document.createElement('div');
+    grid.className = 'bench-grid';
+    expect(() =>
+      cb.onDrop({ kind: 'product', id: proxied.id, srcEl: document.createElement('button') }, { kind: 'grid', grid, idx: 0 }),
+    ).not.toThrow();
+    expect(factory.benches.length).toBe(before + 1);
+    expect(factory.benches.at(-1)!.name).toBe('Proxy Lab');
   });
 });
 
