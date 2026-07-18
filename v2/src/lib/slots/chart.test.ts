@@ -3,8 +3,18 @@ import { chartSlot } from './chart';
 
 describe('chartSlot', () => {
   describe('create', () => {
-    it('returns identity fn over a default range', () => {
-      expect(chartSlot.create()).toEqual({ fn: 'x', x0: 0, x1: 10, label: '' });
+    it('returns identity fn over a default range with v1 axis defaults', () => {
+      expect(chartSlot.create()).toEqual({
+        fn: 'x',
+        x0: 0,
+        x1: 10,
+        y0: 0,
+        y1: 10,
+        xticks: 5,
+        yticks: 5,
+        hover: true,
+        label: '',
+      });
     });
   });
 

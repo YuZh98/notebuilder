@@ -9,6 +9,11 @@ export type ChartProps = {
   label?: string;
   x0?: number;
   x1?: number;
+  y0?: number;
+  y1?: number;
+  xticks?: number;
+  yticks?: number;
+  hover?: boolean;
 };
 
 const X_AXIS = new Set(['x']);
@@ -19,7 +24,7 @@ export const chartSlot: SlotType<ChartProps> = {
   completable: false,
 
   create(): ChartProps {
-    return { fn: 'x', x0: 0, x1: 10, label: '' };
+    return { fn: 'x', x0: 0, x1: 10, y0: 0, y1: 10, xticks: 5, yticks: 5, hover: true, label: '' };
   },
 
   variables(props: ChartProps): { reads: VarDeclaration[]; writes: VarDeclaration[] } {
