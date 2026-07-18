@@ -1,80 +1,158 @@
-import { isCardDone } from './card-done';
-import type { Card } from './types';
+import type { Card, Notebook } from './types';
+import type { CardType } from './card-types';
 
-export type MatrixAxis = 'tag' | 'slotType' | 'done';
+export type MatrixAxis = 'section' | 'product' | 'tag';
 
-/** A selected matrix cell, used to filter the visible cards */
-export type MatrixSelection = {
-  rowAxis: MatrixAxis;
-  rowVal: string;
-  colAxis: MatrixAxis;
-  colVal: string;
+/** Untagged/untyped sentinel — the ∅ bucket id on the tag and product axes. */
+export const UNTAG = '∅';
+
+const SEP = '␟';
+
+export type AxisValue = { id: string; label: string };
+
+export type AxisDim = {
+  key: MatrixAxis;
+  label: string;
+  values: AxisValue[];
+  reorderable: boolean;
 };
 
-export function axisValues(
-  card: Card,
-  axis: MatrixAxis,
-  states: Record<string, Record<string, Record<string, unknown>>>,
-): string[] {
-  if (axis === 'tag') return card.tags ?? [];
-  if (axis === 'slotType') return [...new Set(card.slots.map((s) => s.type))];
-  // done
-  const done = isCardDone(card, states[card.id] ?? {});
-  return [done ? 'done' : 'not done'];
+const AXIS_ORDER: MatrixAxis[] = ['section', 'product', 'tag'];
+
+/** Resolved product name for a card, or null when untyped or unknown-typed. */
+function productName(card: Card, types: CardType[]): string | null {
+  if (!card.typeId) return null;
+  return types.find((t) => t.id === card.typeId)?.name ?? null;
 }
 
-export function coverageMatrix(
-  cards: Card[],
-  rowAxis: MatrixAxis,
-  colAxis: MatrixAxis,
-  states: Record<string, Record<string, Record<string, unknown>>>,
-): { rows: string[]; cols: string[]; cell(row: string, col: string): string[] } {
-  const rowSet = new Set<string>();
-  const colSet = new Set<string>();
-
-  for (const card of cards) {
-    for (const r of axisValues(card, rowAxis, states)) rowSet.add(r);
-    for (const c of axisValues(card, colAxis, states)) colSet.add(c);
+function axisMatch(
+  card: Card,
+  sectionId: string,
+  axis: MatrixAxis,
+  valueId: string,
+  types: CardType[],
+): boolean {
+  if (axis === 'section') return sectionId === valueId;
+  if (axis === 'product') {
+    const name = productName(card, types);
+    return valueId === UNTAG ? name === null : name === valueId;
   }
+  return valueId === UNTAG ? !card.tags?.length : !!card.tags?.includes(valueId);
+}
 
-  const rows = [...rowSet].sort();
-  const cols = [...colSet].sort();
+/** v1 60-stage has() predicates — section by sectionId, product by type name, tag by membership. */
+export function cardHas(card: Card, axis: MatrixAxis, valueId: string, types: CardType[]): boolean {
+  return axisMatch(card, card.sectionId, axis, valueId, types);
+}
 
-  // Build cell map: "row\0col" → card ids
-  const map = new Map<string, string[]>();
-  for (const card of cards) {
-    const cardRows = axisValues(card, rowAxis, states);
-    const cardCols = axisValues(card, colAxis, states);
-    for (const r of cardRows) {
-      for (const c of cardCols) {
-        const key = `${r}\0${c}`;
-        const bucket = map.get(key);
-        if (bucket) bucket.push(card.id);
-        else map.set(key, [card.id]);
-      }
+export function cellKey(rowId: string, colId: string): string {
+  return `${rowId}${SEP}${colId}`;
+}
+
+function splitKey(key: string): [string, string] {
+  const i = key.indexOf(SEP);
+  return [key.slice(0, i), key.slice(i + 1)];
+}
+
+/** v1 mtxDims 60-stage:58-65 — section (reorderable), product (typeId→name), tag (nb-wide). */
+export function matrixDims(nb: Notebook, types: CardType[]): AxisDim[] {
+  const section: AxisValue[] = nb.sections
+    .filter((s) => s.kind !== 'divider')
+    .map((s) => ({ id: s.id, label: s.name }));
+
+  const productNames: string[] = [];
+  let hasUntyped = false;
+  const tags: string[] = [];
+  for (const s of nb.sections) {
+    for (const c of s.cards) {
+      const name = productName(c, types);
+      if (name === null) hasUntyped = true;
+      else if (!productNames.includes(name)) productNames.push(name);
+      for (const t of c.tags ?? []) if (!tags.includes(t)) tags.push(t);
     }
   }
 
-  return {
-    rows,
-    cols,
-    cell(row: string, col: string): string[] {
-      return map.get(`${row}\0${col}`) ?? [];
-    },
-  };
+  const product: AxisValue[] = productNames.map((n) => ({ id: n, label: n }));
+  if (hasUntyped) product.push({ id: UNTAG, label: 'untyped' });
+
+  const tag: AxisValue[] = tags.map((t) => ({ id: t, label: t }));
+  tag.push({ id: UNTAG, label: 'untagged' });
+
+  return [
+    { key: 'section', label: 'Sections', values: section, reorderable: true },
+    { key: 'product', label: 'Products', values: product, reorderable: false },
+    { key: 'tag', label: 'Tags', values: tag, reorderable: false },
+  ];
 }
 
-export function filterCards(
-  cards: Card[],
-  rowAxis: MatrixAxis,
-  rowVal: string,
-  colAxis: MatrixAxis,
-  colVal: string,
-  states: Record<string, Record<string, Record<string, unknown>>>,
-): Card[] {
-  return cards.filter(
-    (card) =>
-      axisValues(card, rowAxis, states).includes(rowVal) &&
-      axisValues(card, colAxis, states).includes(colVal),
-  );
+/** v1 mtxEffectiveAxes 60-stage:68-71 — pure fallback to the first two qualifying axes. */
+export function effectiveAxes(
+  dims: AxisDim[],
+  row: MatrixAxis | null,
+  col: MatrixAxis | null,
+): [AxisDim, AxisDim] {
+  const byKey = (k: MatrixAxis) => dims.find((d) => d.key === k)!;
+  const ok = (d: AxisDim) => d.values.length >= 2;
+  const qual = AXIS_ORDER.map(byKey).filter(ok);
+
+  let R = byKey(row ?? 'section');
+  let C = byKey(col ?? 'product');
+  if ((!ok(R) || !ok(C) || R.key === C.key) && qual.length >= 2) {
+    R = qual[0];
+    C = qual[1];
+  }
+  return [R, C];
+}
+
+/** v1 mtxCount 60-stage:77 — every card, archived included, matching both axis values. */
+export function mtxCount(
+  nb: Notebook,
+  types: CardType[],
+  R: AxisDim,
+  C: AxisDim,
+  rv: string,
+  cv: string,
+): number {
+  let n = 0;
+  for (const s of nb.sections) {
+    for (const c of s.cards) {
+      if (axisMatch(c, s.id, R.key, rv, types) && axisMatch(c, s.id, C.key, cv, types)) n++;
+    }
+  }
+  return n;
+}
+
+/** v1 toggleCells 60-stage:50-55 — all-or-nothing gesture, pure. */
+export function toggleCells(sel: string[], keys: string[]): string[] {
+  const allOn = keys.length > 0 && keys.every((k) => sel.includes(k));
+  if (allOn) return sel.filter((k) => !keys.includes(k));
+  const out = [...sel];
+  for (const k of keys) if (!out.includes(k)) out.push(k);
+  return out;
+}
+
+/** v1 pruneCells 60-stage:73-74 — drop keys whose parts are no longer live on R/C. */
+export function pruneCells(sel: string[], R: AxisDim, C: AxisDim): string[] {
+  const rows = new Set(R.values.map((v) => v.id));
+  const cols = new Set(C.values.map((v) => v.id));
+  return sel.filter((k) => {
+    const [rv, cv] = splitKey(k);
+    return rows.has(rv) && cols.has(cv);
+  });
+}
+
+/** v1 cardMatches 60-stage:75-76 — any selected cell matches both axes; empty = no filter. */
+export function cardMatchesFilter(
+  card: Card,
+  sectionId: string,
+  sel: string[],
+  R: AxisDim,
+  C: AxisDim,
+  types: CardType[],
+): boolean {
+  if (sel.length === 0) return true;
+  return sel.some((k) => {
+    const [rv, cv] = splitKey(k);
+    return axisMatch(card, sectionId, R.key, rv, types) && axisMatch(card, sectionId, C.key, cv, types);
+  });
 }

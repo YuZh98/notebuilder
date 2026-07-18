@@ -14,7 +14,7 @@
   import Dustbin from './lib/components/Dustbin.svelte';
   import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
-  import { filterCards, type MatrixSelection } from './lib/coverage-matrix';
+  // Task 6 rebuilds the matrix wiring against the new section/product/tag model.
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
   import {
     isTauri,
@@ -80,7 +80,6 @@
   let galleryFor: string | null = $state(null);
 
   let showMatrix = $state(false);
-  let matrixFilter: MatrixSelection | null = $state(null);
 
   let sideW = $state(312);
   let sideCollapsed = $state(false);
@@ -108,13 +107,8 @@
     if (isTauri()) void deleteAnnotation(id);
   }
 
-  const allCards = $derived(notebook.sections.flatMap((s) => s.cards));
-  // null = no filter (show everything)
-  const visibleCardIds = $derived.by(() => {
-    const f = matrixFilter;
-    if (f === null) return null;
-    return new Set(filterCards(allCards, f.rowAxis, f.rowVal, f.colAxis, f.colVal, readerState).map((c) => c.id));
-  });
+  // Interim stub — Task 6 recomputes visibility from the matrix filter. null = show everything.
+  const visibleCardIds: Set<string> | null = null;
 
   // Edit-mode selection (v1 sel/selKind): a section OR a card, never both; Escape clears.
   let selSection: string | null = $state(null);
@@ -647,12 +641,7 @@
       Matrix
     </button>
     {#if showMatrix}
-      <CoverageMatrix
-        cards={allCards}
-        states={readerState}
-        selection={matrixFilter}
-        onselect={(sel) => (matrixFilter = sel)}
-      />
+      <CoverageMatrix />
     {/if}
   {/if}
 {/snippet}
