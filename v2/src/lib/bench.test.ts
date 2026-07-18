@@ -8,6 +8,8 @@ import {
   delBench,
   benchToType,
   typeToBench,
+  moveBench,
+  moveBenchSlot,
   benchPreviewCard,
   setBenchVerb,
   addBenchSlot,
@@ -305,6 +307,66 @@ describe('bench slot mutators', () => {
     factory.sel = null;
     addBenchSlot(b, 'text', 'back');
     expect(factory.sel).toBe(null);
+  });
+});
+
+describe('moveBench', () => {
+  it('reorders the bench list, treating `to` as a post-removal index', () => {
+    const a = freshBench();
+    const bb = freshBench();
+    const c = freshBench();
+    factory.benches = [a, bb, c];
+    moveBench(0, 2); // drag a past c
+    expect(factory.benches.map((x) => x.id)).toEqual([bb.id, c.id, a.id]);
+  });
+
+  it('clamps an index past the end to append', () => {
+    const a = freshBench();
+    const bb = freshBench();
+    factory.benches = [a, bb];
+    moveBench(0, 9);
+    expect(factory.benches.map((x) => x.id)).toEqual([bb.id, a.id]);
+  });
+
+  it('ignores an out-of-range source', () => {
+    const a = freshBench();
+    factory.benches = [a];
+    moveBench(5, 0);
+    expect(factory.benches.map((x) => x.id)).toEqual([a.id]);
+  });
+});
+
+describe('moveBenchSlot', () => {
+  it('reorders within the front face, clears the moved fuse, and lands sel on it', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    addBenchSlot(b, 'slider');
+    addBenchSlot(b, 'choice');
+    b.slots[0].fuse = true;
+    moveBenchSlot(b, 0, 2); // text past choice
+    expect(b.slots.map((s) => s.type)).toEqual(['slider', 'choice', 'text']);
+    expect(b.slots[2].fuse).toBe(false);
+    expect(factory.sel).toBe(2);
+  });
+
+  it('reorders within the back face when it is the active face', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text', 'back');
+    addBenchSlot(b, 'slider', 'back');
+    factory.face = 'back';
+    moveBenchSlot(b, 1, 0);
+    expect(b.back!.map((s) => s.type)).toEqual(['slider', 'text']);
+    expect(factory.sel).toBe(0);
+  });
+
+  it('ignores an out-of-range source', () => {
+    const b = freshBench();
+    addBench(b);
+    addBenchSlot(b, 'text');
+    moveBenchSlot(b, 3, 0);
+    expect(b.slots.map((s) => s.type)).toEqual(['text']);
   });
 });
 

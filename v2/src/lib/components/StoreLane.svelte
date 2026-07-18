@@ -6,11 +6,13 @@
     types,
     foldedInit = false,
     onpick,
+    ongrip,
   }: {
     store: Store | null;
     types: CardType[];
     foldedInit?: boolean;
     onpick: (id: string) => void;
+    ongrip?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
   } = $props();
 
   let folded = $state(foldedInit);
@@ -45,6 +47,7 @@
             class="chip prodchip"
             data-prod={ct.id}
             title={ct.name}
+            onpointerdown={(e) => ongrip?.(ct.id, e, e.currentTarget)}
             onclick={() => onpick(ct.id)}>{prodIcon(ct)} {ct.name}</button>
         {/each}
       </div>

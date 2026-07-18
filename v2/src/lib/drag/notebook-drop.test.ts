@@ -4,6 +4,7 @@ import { startPointerDrag, isDragging, _setElementFromPoint } from './engine';
 import { dustState } from './dust.svelte';
 import { toastState, dismissToast } from '../toast.svelte';
 import type { Notebook, Section, Card } from '../types';
+import type { CardType } from '../card-types';
 
 function card(id: string, sectionId: string, w?: number): Card {
   return { id, sectionId, position: 0, slots: [], ...(w !== undefined ? { w } : {}) };
@@ -221,6 +222,74 @@ describe('onDrop — card onto the dustbin (v1 :82)', () => {
     const cb = makeNotebookDropCallbacks(deps);
     cb.onDrop({ kind: 'card', id: 'b', srcEl: furnOf(shell, 'b') }, { kind: 'dust' });
     expect(deps.clearSelection).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('onDrop — product onto a room grid (v1 :94)', () => {
+  const prodType: CardType = {
+    id: 'ct_note',
+    name: 'Note',
+    accent: '#111111',
+    slots: [{ type: 'text', props: { text: 'hi' } }],
+    varieties: [{ name: 'Blue', accent: '#2222ff' }, { name: 'Red', accent: '#ff2222' }],
+  };
+  const prodDeps = (nb: Notebook, over: Partial<NotebookDropDeps> = {}) =>
+    depsOf(nb, {
+      cardType: (id) => (id === prodType.id ? prodType : undefined),
+      variety: (ct) => ct.varieties?.[0] ?? null,
+      ...over,
+    });
+
+  it('stamps the product into the target section at the computed index', () => {
+    const { nb, shell } = fixture();
+    const cb = makeNotebookDropCallbacks(prodDeps(nb));
+    cb.onDrop(
+      { kind: 'product', id: 'ct_note', srcEl: document.createElement('button') },
+      { kind: 'grid', grid: gridOf(shell, 's1'), idx: 1 },
+    );
+    const s1 = nb.sections[0];
+    expect(s1.cards).toHaveLength(4);
+    expect(s1.cards[1].typeId).toBe('ct_note'); // inserted before the old b
+    expect([s1.cards[0].id, s1.cards[2].id, s1.cards[3].id]).toEqual(['a', 'b', 'c']);
+    expect(s1.cards.map((c) => c.position)).toEqual([0, 1, 2, 3]);
+    expect(toastState.message).toBe('placed "Note"');
+  });
+
+  it('applies the session-picked variety accent, defaulting to the first', () => {
+    const { nb, shell } = fixture();
+    const cb = makeNotebookDropCallbacks(
+      prodDeps(nb, { variety: (ct) => ct.varieties?.find((v) => v.name === 'Red') ?? null }),
+    );
+    cb.onDrop(
+      { kind: 'product', id: 'ct_note', srcEl: document.createElement('button') },
+      { kind: 'grid', grid: gridOf(shell, 's2'), idx: 9 },
+    );
+    const placed = nb.sections[1].cards.at(-1)!;
+    expect(placed.accent).toBe('#ff2222');
+  });
+
+  it('is a no-op for an unknown product or a lane target', () => {
+    const { nb, shell } = fixture();
+    const cb = makeNotebookDropCallbacks(prodDeps(nb));
+    cb.onDrop(
+      { kind: 'product', id: 'nope', srcEl: document.createElement('button') },
+      { kind: 'grid', grid: gridOf(shell, 's1'), idx: 0 },
+    );
+    cb.onDrop(
+      { kind: 'product', id: 'ct_note', srcEl: document.createElement('button') },
+      { kind: 'lane', el: document.createElement('div') },
+    );
+    expect(cardIds(nb, 's1')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('canDrop honours locked/divider sections for a product', () => {
+    const { nb, shell } = fixture();
+    const cb = makeNotebookDropCallbacks(prodDeps(nb));
+    const src = { kind: 'product' as const, id: 'ct_note', srcEl: document.createElement('button') };
+    expect(cb.canDrop(src, gridOf(shell, 's2'))).toBe(true);
+    expect(cb.canDrop(src, gridOf(shell, 's3'))).toBe(false); // locked
+    expect(cb.canDrag(src)).toBe(true);
+    expect(cb.phWidth(src)).toBe(8);
   });
 });
 

@@ -34,7 +34,7 @@
     setPreference,
   } from './lib/db';
   import { uid } from './lib/uid';
-  import { stampCard, placeType, cardToType, builtinCardTypes, type CardType, type Variety } from './lib/card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, serializeFactory, hydrateFactory } from './lib/bench.svelte';
   import { place, togglePlace } from './lib/stores/place';
@@ -57,6 +57,7 @@
   import { startEdgeResize } from './lib/drag/resize';
   import { startPointerDrag } from './lib/drag/engine';
   import { makeNotebookDropCallbacks } from './lib/drag/notebook-drop';
+  import { makeFactoryDropCallbacks } from './lib/drag/factory-drop';
   import { clampSideW, parseSideWidthPref } from './lib/shell';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
@@ -117,6 +118,8 @@
   let selCard: string | null = $state(null);
   // Store detail selection (v1 selProd): a product open in the house sidebar detail panel.
   let selProd: string | null = $state(null);
+  // Session-picked variety for the open product; drops stamp this (v1 90:94), else the default.
+  let selVariety: Variety | null = $state(null);
 
   function selectSection(id: string | null) {
     selSection = id;
@@ -300,6 +303,8 @@
 
   // ---- drag reorder / dust delete (Edit mode, pointer engine) ----
 
+  const cardTypeById = (id: string) => cardTypes.find((t) => t.id === id);
+
   const dropCallbacks = makeNotebookDropCallbacks({
     notebook: () => notebook,
     selectedCard: () => selCard,
@@ -309,6 +314,19 @@
       selSection = null;
     },
     confirmDelete: confirmDialog,
+    cardType: cardTypeById,
+    variety: (ct) => (ct.id === selProd ? selVariety : (ct.varieties?.[0] ?? null)),
+  });
+
+  // Factory-stage drops: fork/remap products, reorder or bin benches and bench slots (v1 90:71,84,89).
+  const factoryDropCallbacks = makeFactoryDropCallbacks({
+    cardType: cardTypeById,
+    setStore: (ct, store) => {
+      ct.store = store ?? undefined;
+      if (isTauri()) void saveCardType($state.snapshot(ct) as CardType);
+    },
+    storeName: (store) => STORES.find((s) => s.id === store)?.name ?? store ?? 'Workshop',
+    confirmDelete: confirmDialog,
   });
 
   function gripCard(card: Card, ev: PointerEvent, srcEl: HTMLElement) {
@@ -317,6 +335,20 @@
 
   function gripSection(section: Section, ev: PointerEvent, srcEl: HTMLElement) {
     startPointerDrag({ kind: 'section', id: section.id, srcEl }, ev, dropCallbacks);
+  }
+
+  // A store chip / product preview drags into the notebook to place; the chip never ghosts (v1 90:34).
+  function gripProductHouse(id: string, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'product', id, srcEl }, ev, dropCallbacks);
+  }
+  function gripProductFactory(id: string, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'product', id, srcEl }, ev, factoryDropCallbacks);
+  }
+  function gripBench(id: string, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'bench', id, srcEl }, ev, factoryDropCallbacks);
+  }
+  function gripSlot(id: string, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'slot', id, srcEl }, ev, factoryDropCallbacks);
   }
 
   // ---- gallery / factory ----
@@ -383,6 +415,7 @@
 
   function pickProduct(id: string) {
     selProd = id;
+    selVariety = cardTypeById(id)?.varieties?.[0] ?? null;
   }
 
   function placeProduct(variety: Variety | null, draft: Record<string, SlotProps>) {
@@ -623,7 +656,11 @@
 
 <div id="main" style="--sidew:{sideW}px">
   {#if $place === 'factory'}
-    <SideFactory {cardTypes} ondelprod={(ct) => void removeCardType(ct)} />
+    <SideFactory
+      {cardTypes}
+      ondelprod={(ct) => void removeCardType(ct)}
+      ongrip={gripProductFactory}
+    />
   {:else}
     <SideBar
       notebookName={notebook.name}
@@ -635,12 +672,14 @@
       onpickprod={pickProduct}
       onplaceprod={placeProduct}
       onclosedetail={() => (selProd = null)}
+      ongrip={gripProductHouse}
+      onvariety={(v) => (selVariety = v)}
     />
   {/if}
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
   <div id="stage">
     {#if $place === 'factory'}
-      <Factory onseal={handleSeal} />
+      <Factory onseal={handleSeal} ongripbench={gripBench} ongripslot={gripSlot} />
     {:else}
       <Stage
         {notebook}

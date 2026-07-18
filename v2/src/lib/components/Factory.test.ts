@@ -6,7 +6,13 @@ import Factory from './Factory.svelte';
 import App from '../../App.svelte';
 import { mode } from '../stores/mode';
 import { place } from '../stores/place';
-import { factory, freshBench, addBenchSlot, hydrateFactory } from '../bench.svelte';
+import { factory, freshBench, addBenchSlot, hydrateFactory, activeBench } from '../bench.svelte';
+import { startPointerDrag, _setElementFromPoint } from '../drag/engine';
+import { makeFactoryDropCallbacks } from '../drag/factory-drop';
+
+function pev(t: string, x: number, y = 0): PointerEvent {
+  return new MouseEvent(t, { clientX: x, clientY: y, bubbles: true, cancelable: true }) as PointerEvent;
+}
 
 function benchWithSlots(): ReturnType<typeof freshBench> {
   const b = freshBench();
@@ -232,6 +238,45 @@ describe('Factory — bench slot selection', () => {
     expect(cells).toHaveLength(2);
     await fireEvent.click(cells[1] as HTMLElement);
     expect(factory.sel).toBe(1);
+  });
+});
+
+describe('Factory — bench slot drag (pointer engine)', () => {
+  afterEach(() => {
+    document.dispatchEvent(pev('pointerup', 0, 0));
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    _setElementFromPoint(null);
+  });
+
+  it('dragging a bench slot to the row end reorders it within the active face', async () => {
+    const a = freshBench();
+    addBenchSlot(a, 'text');
+    addBenchSlot(a, 'slider');
+    addBenchSlot(a, 'choice');
+    factory.benches = [a];
+    factory.active = a.id;
+    factory.preview = false;
+    factory.sel = null;
+    factory.face = 'front';
+    const firstId = a.slots[0].id;
+    const cb = makeFactoryDropCallbacks({
+      cardType: () => undefined,
+      setStore: () => {},
+      storeName: () => '',
+      confirmDelete: () => Promise.resolve(true),
+    });
+    const ongripslot = (id: string, e: PointerEvent, el: HTMLElement) =>
+      startPointerDrag({ kind: 'slot', id, srcEl: el }, e, cb);
+    const { container } = render(Factory, { props: { onseal: vi.fn(), ongripslot } });
+    const row = container.querySelector(`.faccard[data-bench="${a.id}"] .cardrow`) as HTMLElement;
+    const cell = container.querySelector(
+      `.faccard[data-bench="${a.id}"] .cardslot[data-sid="${firstId}"]`,
+    ) as HTMLElement;
+    _setElementFromPoint(() => row); // hovering the row past every cell → append
+    await fireEvent(cell, pev('pointerdown', 0, 0));
+    document.dispatchEvent(pev('pointermove', 80, 80));
+    document.dispatchEvent(pev('pointerup', 80, 80));
+    expect(activeBench().slots.map((s) => s.type)).toEqual(['slider', 'choice', 'text']);
   });
 });
 

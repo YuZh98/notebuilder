@@ -20,9 +20,11 @@
   let {
     cardTypes = [],
     ondelprod = () => {},
+    ongrip,
   }: {
     cardTypes?: CardType[];
     ondelprod?: (ct: CardType) => void;
+    ongrip?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
   } = $props();
 
   // Workshop (store:null) first, then the three stores — mirrors v1 inventory order (50-render:239).
@@ -215,6 +217,7 @@
                       class="chip prodchip"
                       data-prod={ct.id}
                       title={`${ct.name} — click to fork a copy into a new container`}
+                      onpointerdown={(e) => ongrip?.(ct.id, e, e.currentTarget)}
                       onclick={() => fork(ct)}>{prodIcon(ct)} {ct.name}</button>
                     <button
                       class="chipx"

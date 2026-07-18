@@ -15,6 +15,8 @@
     onpickprod,
     onplaceprod,
     onclosedetail,
+    ongrip,
+    onvariety,
   }: {
     notebookName: string;
     canPersist: boolean;
@@ -25,6 +27,8 @@
     onpickprod: (id: string) => void;
     onplaceprod: (variety: Variety | null, draft: Record<string, SlotProps>) => void;
     onclosedetail: () => void;
+    ongrip?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
+    onvariety?: (v: Variety | null) => void;
   } = $props();
 
   const selType = $derived(selProd ? (cardTypes.find((t) => t.id === selProd) ?? null) : null);
@@ -48,15 +52,21 @@
     </div>
     {#if selType}
       {#key selType.id}
-        <ProductDetail type={selType} onplace={onplaceprod} onclose={onclosedetail} />
+        <ProductDetail
+          type={selType}
+          onplace={onplaceprod}
+          onclose={onclosedetail}
+          {ongrip}
+          {onvariety}
+        />
       {/key}
     {:else}
       <div class="sect">
         <h3 title="Click a product for detail, then place it in the current section.">🛒 Store</h3>
         {#each STORES as st (st.id)}
-          <StoreLane store={st} types={typesFor(st.id)} onpick={onpickprod} />
+          <StoreLane store={st} types={typesFor(st.id)} onpick={onpickprod} {ongrip} />
         {/each}
-        <StoreLane store={null} types={typesFor(null)} onpick={onpickprod} />
+        <StoreLane store={null} types={typesFor(null)} onpick={onpickprod} {ongrip} />
       </div>
     {/if}
   {/if}

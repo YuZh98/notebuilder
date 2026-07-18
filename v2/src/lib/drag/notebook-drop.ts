@@ -1,6 +1,7 @@
 import { toast } from '../toast.svelte';
 import { pushGestureSnapshot } from './gesture-history';
 import { deleteCard, deleteSection, findCard, moveCardBefore, moveSectionBefore } from '../notebook-ops';
+import { placeType, type CardType, type Variety } from '../card-types';
 import type { Notebook, Section } from '../types';
 import type { DragSource, DropTarget, EngineCallbacks } from './engine';
 
@@ -10,6 +11,9 @@ export type NotebookDropDeps = {
   selectedSection: () => string | null;
   clearSelection: () => void;
   confirmDelete: (message: string, title: string) => Promise<boolean>;
+  /** Store-chip drags resolve the dragged product and its session-picked variety (v1 90:94). */
+  cardType?: (id: string) => CardType | undefined;
+  variety?: (ct: CardType) => Variety | null;
 };
 
 function sectionOf(nb: Notebook, cardId: string): Section | undefined {
@@ -40,6 +44,7 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
       toast('card deleted (Undo to restore)');
       return;
     }
+    if (t.kind !== 'grid') return;
     const targetSectionId = (t.grid as HTMLElement).dataset.section;
     if (!targetSectionId) return;
     pushGestureSnapshot();
@@ -67,8 +72,26 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
       });
       return;
     }
+    if (t.kind !== 'grid') return;
     pushGestureSnapshot();
     moveSectionBefore(nb, src.id, idAt(t.grid, '.room', 'section', src.id, t.idx));
+  };
+
+  // Store chip → notebook: stamp the product into the target section at the computed index (v1 90:94).
+  const dropProduct = (src: DragSource, t: DropTarget): void => {
+    if (t.kind !== 'grid') return; // fac-grid forks and lanes remap happen in the factory, not here
+    const ct = deps.cardType?.(src.id);
+    if (!ct) return;
+    const sectionId = (t.grid as HTMLElement).dataset.section;
+    const section = deps.notebook().sections.find((s) => s.id === sectionId);
+    if (!section || section.kind === 'divider') return;
+    pushGestureSnapshot();
+    const beforeId = idAt(t.grid, '.furn', 'card', src.id, t.idx);
+    const at = beforeId ? section.cards.findIndex((c) => c.id === beforeId) : section.cards.length;
+    const card = placeType(ct, section.id, 0, deps.variety?.(ct) ?? undefined);
+    section.cards.splice(at < 0 ? section.cards.length : at, 0, card);
+    section.cards.forEach((c, i) => (c.position = i));
+    toast(`placed "${ct.name}"`);
   };
 
   return {
@@ -78,7 +101,7 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
       return from !== undefined && from.locked !== true;
     },
     canDrop: (src, grid) => {
-      if (src.kind !== 'card') return true;
+      if (src.kind !== 'card' && src.kind !== 'product') return true;
       const id = (grid as HTMLElement).dataset.section;
       const target = deps.notebook().sections.find((s) => s.id === id);
       return target !== undefined && target.kind !== 'divider' && target.locked !== true;
@@ -86,6 +109,7 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
     onDrop: (src, t) => {
       if (src.kind === 'card') dropCard(src, t);
       else if (src.kind === 'section') dropSection(src, t);
+      else if (src.kind === 'product') dropProduct(src, t);
     },
     phWidth: (src) => (src.kind === 'card' ? (findCard(deps.notebook(), src.id)?.w ?? 12) : 8),
   };

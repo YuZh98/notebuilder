@@ -17,7 +17,15 @@
   } from '../bench.svelte';
   import { toast } from '../toast.svelte';
 
-  let { onseal }: { onseal: (benchId: string) => void } = $props();
+  let {
+    onseal,
+    ongripbench,
+    ongripslot,
+  }: {
+    onseal: (benchId: string) => void;
+    ongripbench?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
+    ongripslot?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
+  } = $props();
 
   // Self-heal to a valid active bench before the first render (v1 rebuildRefs).
   activeBench();
@@ -88,6 +96,21 @@
     }
   }
 
+  // The bench-head grip drags the whole container to reorder it (v1 90:99).
+  function benchDown(e: PointerEvent, b: Bench) {
+    const card = (e.target as HTMLElement).closest('.faccard') as HTMLElement | null;
+    if (card) ongripbench?.(b.id, e, card);
+  }
+
+  // Press on a slot cell (not an inner control or the fuse-resize gutter) starts a slot reorder
+  // within the active face (v1 90:100).
+  function benchSlotDown(e: PointerEvent) {
+    const t = e.target as HTMLElement;
+    if (t.closest('button, input, textarea, select, [contenteditable], [data-fusegut]')) return;
+    const cell = t.closest?.('.cardslot') as HTMLElement | null;
+    if (cell?.dataset.sid) ongripslot?.(cell.dataset.sid, e, cell);
+  }
+
   function renameBench(b: Bench, v: string) {
     const t = v.trim();
     if (t) b.name = t;
@@ -153,7 +176,8 @@
           ondrop={(e) => faccardDrop(e, b)}
         >
           <div class="row bench-head">
-            <span class="grip">⋮⋮</span>
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <span class="grip" role="presentation" onpointerdown={(e) => benchDown(e, b)}>⋮⋮</span>
             <span class="bench-name-wrap">
               <CeText
                 value={b.name}
@@ -197,6 +221,7 @@
             ondragover={benchOver}
             ondrop={(e) => benchDrop(e, b)}
             onclickcapture={(e) => benchClick(e, b)}
+            onpointerdowncapture={benchSlotDown}
           >
             <CardView {...benchProps(b, true)} />
           </div>
@@ -210,6 +235,7 @@
           role="button"
           tabindex="0"
           title="Edit this container"
+          onpointerdown={(e) => ongripbench?.(b.id, e, e.currentTarget)}
           onclick={() => selectBench(b.id)}
           onkeydown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

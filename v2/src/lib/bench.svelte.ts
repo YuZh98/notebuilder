@@ -58,6 +58,25 @@ export function addBench(b: Bench = freshBench()): void {
   factory.sel = null;
 }
 
+/** Reorder a bench within the factory list; `to` is a post-removal index (v1 90-drag-engine:99). */
+export function moveBench(from: number, to: number): void {
+  const arr = factory.benches;
+  if (from < 0 || from >= arr.length) return;
+  const [x] = arr.splice(from, 1);
+  arr.splice(Math.max(0, Math.min(to, arr.length)), 0, x);
+}
+
+/** Reorder a slot within the active face; clears its fuse and keeps the selection on it (v1 90:100). */
+export function moveBenchSlot(b: Bench, from: number, to: number): void {
+  const arr = factory.face === 'back' ? (b.back ?? []) : b.slots;
+  if (from < 0 || from >= arr.length) return;
+  const [x] = arr.splice(from, 1);
+  x.fuse = false;
+  const idx = Math.max(0, Math.min(to, arr.length));
+  arr.splice(idx, 0, x);
+  factory.sel = idx;
+}
+
 /** Deep-clone a bench with fresh slot ids and a ' copy' name, then activate it. */
 export function dupBench(id: string): void {
   const src = factory.benches.find((b) => b.id === id);

@@ -3,7 +3,10 @@ import { passedThreshold, insertionIndex, pointInRect } from './geometry';
 import { dustState } from './dust.svelte';
 
 export type DragSource = { kind: DragKind; id: string; srcEl: Element; meta?: Record<string, unknown> };
-export type DropTarget = { kind: 'grid'; grid: Element; idx: number } | { kind: 'dust' };
+export type DropTarget =
+  | { kind: 'grid'; grid: Element; idx: number }
+  | { kind: 'lane'; el: Element }
+  | { kind: 'dust' };
 export type EngineCallbacks = {
   canDrag: (src: DragSource) => boolean;
   canDrop: (src: DragSource, grid: Element) => boolean;
@@ -88,8 +91,11 @@ export function startPointerDrag(src: DragSource, ev: PointerEvent, cb: EngineCa
     ph = document.createElement('div');
     ph.className = `${phClass(src.kind, itemSel)} drag-ph`;
     ph.style.setProperty('--w', String(cb.phWidth(src)));
-    refEl.parentElement?.insertBefore(ph, refEl);
-    refEl.style.display = 'none';
+    // v1 90:34 — a store chip stays put; its placeholder only ever appears in a valid target grid.
+    if (spec.ghostSource) {
+      refEl.parentElement?.insertBefore(ph, refEl);
+      refEl.style.display = 'none';
+    }
     if (spec.deletable) dustState.show = true; // D7
   };
 
@@ -117,6 +123,18 @@ export function startPointerDrag(src: DragSource, ev: PointerEvent, cb: EngineCa
     const below = elementFromPoint(mv.clientX, mv.clientY);
     if (fly) fly.style.display = '';
     clearHi();
+
+    // v1 90:48 — an inventory lane is a store-remap target, not a reorder grid: highlight it,
+    // keep the placeholder out (the chip never ghosts), and stop before grid resolution.
+    if (spec.laneSel) {
+      const lane = below?.closest(spec.laneSel);
+      if (lane) {
+        ph?.parentElement?.removeChild(ph);
+        lane.classList.add('drop-on');
+        target = { kind: 'lane', el: lane };
+        return;
+      }
+    }
 
     let grid: Element | null = null;
     for (const g of gridSels) {

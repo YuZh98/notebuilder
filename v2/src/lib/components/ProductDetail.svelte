@@ -7,10 +7,14 @@
     type,
     onplace,
     onclose,
+    ongrip,
+    onvariety,
   }: {
     type: CardType;
     onplace: (variety: Variety | null, draft: Record<string, SlotProps>) => void;
     onclose: () => void;
+    ongrip?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
+    onvariety?: (v: Variety | null) => void;
   } = $props();
 
   // v1 50-render:140 — structural keys the maker owns; only free-text content is user-editable.
@@ -34,6 +38,11 @@
   let draft = $state<Record<string, SlotProps>>({});
   let prevStudy = $state(false);
   let variety = $state<Variety | null>(ct.varieties?.[0] ?? null);
+
+  function pickVariety(v: Variety | null) {
+    variety = v;
+    onvariety?.(v);
+  }
 
   const editable = (props: SlotProps): string[] =>
     Object.keys(props).filter((k) => typeof props[k] === 'string' && !STRUCTURAL.has(k));
@@ -124,7 +133,8 @@
 
   <div class="prev-wrap">
     <div class="prev-stage">
-      <div class="prev-card">
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="prev-card" onpointerdown={(e) => ongrip?.(ct.id, e, e.currentTarget)}>
         <CardView {...previewProps} forceMode={prevStudy ? 'study' : 'edit'} />
       </div>
     </div>
@@ -141,7 +151,7 @@
             class:on={variety?.name === v.name}
             data-variety={v.name}
             style={v.accent ? `box-shadow:inset 3px 0 0 ${v.accent}` : ''}
-            onclick={() => (variety = v)}>{v.name}</button>
+            onclick={() => pickVariety(v)}>{v.name}</button>
         {/each}
       </span>
     </div>

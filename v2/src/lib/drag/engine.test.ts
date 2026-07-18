@@ -151,6 +151,25 @@ describe('startPointerDrag — begin()', () => {
     expect(document.documentElement.style.userSelect).toBe('none');
   });
 
+  it('does not ghost a product source: no source placeholder, chip stays visible, no dust (v1 :34)', () => {
+    const lane = document.createElement('div');
+    lane.className = 'store-lane';
+    const chip = document.createElement('button');
+    chip.className = 'chip prodchip';
+    chip.dataset.prod = 'p1';
+    lane.appendChild(chip);
+    document.body.appendChild(lane);
+    stubRect(chip, { width: 60 });
+    _setElementFromPoint(() => null); // hovering nothing droppable
+    startPointerDrag({ kind: 'product', id: 'p1', srcEl: chip }, pev('pointerdown', 0, 0), callbacks());
+    document.dispatchEvent(pev('pointermove', 50, 50));
+    expect(isDragging()).toBe(true);
+    expect(fly()).not.toBeNull(); // fly clone still tracks the cursor
+    expect(chip.style.display).toBe(''); // never hidden
+    expect(lane.querySelector('.drag-ph')).toBeNull(); // no source-lane placeholder
+    expect(dustState.show).toBe(false); // product is not deletable
+  });
+
   it('D7: a non-deletable kind never shows the dustbin', () => {
     const grid = document.createElement('div');
     grid.className = 'ce-choice';
@@ -224,6 +243,50 @@ describe('startPointerDrag — move', () => {
     expect(ph()).toBeNull(); // never attached to the document
     document.dispatchEvent(pev('pointerup', 120, 20));
     expect(cb.onDrop).not.toHaveBeenCalled();
+  });
+
+  it('a dragged product drops its .furn placeholder into a target room grid, chip still visible', () => {
+    const { grid, a, b } = cardSetup();
+    const chip = document.createElement('button');
+    chip.className = 'chip prodchip';
+    chip.dataset.prod = 'p1';
+    document.body.appendChild(chip);
+    stubRect(chip, { width: 60 });
+    _setElementFromPoint(() => b);
+    const cb = callbacks({ phWidth: vi.fn(() => 8) });
+    startPointerDrag({ kind: 'product', id: 'p1', srcEl: chip }, pev('pointerdown', 0, 0), cb);
+    document.dispatchEvent(pev('pointermove', 120, 20)); // over b, before its midpoint
+    expect(chip.style.display).toBe(''); // source chip stays put
+    expect(ph()?.className).toBe('furn drag-ph');
+    expect(ph()?.parentElement).toBe(grid); // placeholder lives in the TARGET grid
+    expect(ph()?.nextSibling).toBe(b);
+    void a;
+    document.dispatchEvent(pev('pointerup', 120, 20));
+    // product chip is not a grid child, so both furns count: before b → idx 1
+    expect(cb.onDrop).toHaveBeenCalledWith(
+      { kind: 'product', id: 'p1', srcEl: chip },
+      { kind: 'grid', grid, idx: 1 },
+    );
+  });
+
+  it('emits a lane drop target over an inventory lane and never a source placeholder (v1 :48,89)', () => {
+    const lane = document.createElement('div');
+    lane.className = 'store-lane';
+    lane.dataset.lane = 'write';
+    const chip = document.createElement('button');
+    chip.className = 'chip prodchip';
+    document.body.appendChild(chip);
+    document.body.appendChild(lane);
+    stubRect(chip, { width: 60 });
+    _setElementFromPoint(() => lane);
+    const cb = callbacks();
+    const src: DragSource = { kind: 'product', id: 'p1', srcEl: chip };
+    startPointerDrag(src, pev('pointerdown', 0, 0), cb);
+    document.dispatchEvent(pev('pointermove', 300, 300));
+    expect(lane.classList.contains('drop-on')).toBe(true);
+    expect(document.querySelector('.drag-ph')).toBeNull();
+    document.dispatchEvent(pev('pointerup', 300, 300));
+    expect(cb.onDrop).toHaveBeenCalledWith(src, { kind: 'lane', el: lane });
   });
 
   it('toggles dust hot via pointInRect and drops on the dustbin', () => {
