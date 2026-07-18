@@ -651,6 +651,13 @@
   function progressCards(section: Section, props: SlotProps): Card[] {
     return progressScopeCards(notebook, section, (props.scope as ProgressScope) ?? 'section');
   }
+
+  // Distinct tags across the notebook — offered to ProgressEdit's track picker.
+  const notebookTags = $derived.by(() => {
+    const seen = new Set<string>();
+    for (const s of notebook.sections) for (const c of s.cards) for (const t of c.tags ?? []) seen.add(t);
+    return [...seen];
+  });
 </script>
 
 <TopBar
@@ -718,7 +725,9 @@
     onupdateslot={(slotId, props) => updateSlotProps(card.id, slotId, props)}
     ondeleteslot={(slotId) => deleteSlot(notebook, card.id, slotId)}
     onaddslot={(type, face) => addSlot(notebook, card.id, type, face)}
-    progresscompletion={(props) => computeProgress(progressCards(section, props), readerState)}
+    progresscompletion={(props) =>
+      computeProgress(progressCards(section, props), readerState, props.track as string[] | undefined)}
+    alltags={notebookTags}
     ontogglenotes={() => (notesFor = notesFor === card.id ? null : card.id)}
     onaddnote={(body) => addNote(card.id, body)}
     ondeletenote={deleteNote}

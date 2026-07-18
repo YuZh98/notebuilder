@@ -81,6 +81,42 @@ describe('computeProgress', () => {
     const cards: Card[] = [{ ...makeCard('c1'), archived: true }];
     expect(computeProgress(cards, {})).toEqual({ done: 0, total: 0, pct: 0 });
   });
+
+  it('track filter counts only cards carrying a matching tag (ANY-match)', () => {
+    const cards: Card[] = [
+      { ...makeCard('c1'), tags: ['algebra'] },
+      { ...makeCard('c2'), tags: ['geometry'] },
+      { ...makeCard('c3'), tags: ['algebra', 'hard'] },
+    ];
+    const states: Record<string, Record<string, Record<string, unknown>>> = {
+      c1: { 'slot-c1': { value: 'a' } },
+      c2: { 'slot-c2': { value: 'b' } },
+      c3: {},
+    };
+    // track=['algebra'] → keeps c1 (done) and c3 (not done); c2 excluded.
+    expect(computeProgress(cards, states, ['algebra'])).toEqual({ done: 1, total: 2, pct: 50 });
+  });
+
+  it('empty track array counts every (non-archived) card', () => {
+    const cards: Card[] = [
+      { ...makeCard('c1'), tags: ['x'] },
+      makeCard('c2'),
+    ];
+    expect(computeProgress(cards, {}, []).total).toBe(2);
+  });
+
+  it('track filter drops untagged cards', () => {
+    const cards: Card[] = [{ ...makeCard('c1'), tags: ['x'] }, makeCard('c2')];
+    expect(computeProgress(cards, {}, ['x']).total).toBe(1);
+  });
+
+  it('track filter still excludes archived matches', () => {
+    const cards: Card[] = [
+      { ...makeCard('c1'), tags: ['x'], archived: true },
+      { ...makeCard('c2'), tags: ['x'] },
+    ];
+    expect(computeProgress(cards, {}, ['x']).total).toBe(1);
+  });
 });
 
 describe('progressScopeCards', () => {

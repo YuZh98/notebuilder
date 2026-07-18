@@ -6,6 +6,7 @@ import ProgressStudy from './ProgressStudy.svelte';
 export type ProgressProps = {
   scope: 'section' | 'chapter' | 'notebook';
   label?: string;
+  track?: string[];
   show?: {
     mn?: boolean;
     pct?: boolean;
@@ -22,7 +23,8 @@ export const progressSlot: SlotType<ProgressProps> = {
     return {
       scope: 'section',
       label: 'Progress',
-      show: { mn: true, pct: true, bar: true },
+      track: [],
+      show: { mn: true, pct: false, bar: true },
     };
   },
 

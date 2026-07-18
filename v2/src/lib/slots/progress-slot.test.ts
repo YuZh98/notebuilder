@@ -12,7 +12,8 @@ describe('progressSlot', () => {
     expect(progressSlot.create()).toEqual({
       scope: 'section',
       label: 'Progress',
-      show: { mn: true, pct: true, bar: true },
+      track: [],
+      show: { mn: true, pct: false, bar: true },
     });
   });
 

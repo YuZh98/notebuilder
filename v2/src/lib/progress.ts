@@ -14,8 +14,13 @@ export function progressScopeCards(nb: Notebook, section: Section, scope: Progre
 export function computeProgress(
   cards: Card[],
   statesByCardThenSlot: Record<string, Record<string, Record<string, unknown>>>,
+  track?: string[],
 ): { done: number; total: number; pct: number } {
-  const counted = cards.filter((c) => !c.archived);
+  const active = cards.filter((c) => !c.archived);
+  const counted =
+    track && track.length
+      ? active.filter((c) => (c.tags ?? []).some((t) => track.includes(t)))
+      : active;
   const total = counted.length;
   if (total === 0) return { done: 0, total: 0, pct: 0 };
 

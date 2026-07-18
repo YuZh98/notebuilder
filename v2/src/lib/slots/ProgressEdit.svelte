@@ -1,10 +1,21 @@
 <script lang="ts">
   import type { ProgressProps } from './progress';
 
-  let { props, onUpdate } = $props<{
+  // allTags is threaded by CardView outside the typed EditComponent contract
+  // (same type-erasure pattern ProgressStudy uses for `completion`): the distinct
+  // tags across the notebook, so the track picker can offer real chips.
+  let { props, onUpdate, allTags = [] } = $props<{
     props: ProgressProps;
     onUpdate: (props: ProgressProps) => void;
+    allTags?: string[];
   }>();
+
+  // v1 pgShow defaults: mn/bar true, pct false.
+  function flagOn(flag: 'mn' | 'pct' | 'bar'): boolean {
+    const sh = props.show;
+    if (flag === 'pct') return !!(sh && sh.pct);
+    return !sh || sh[flag] !== false;
+  }
 
   function handleScope(e: Event) {
     const target = e.target as HTMLSelectElement;
@@ -13,15 +24,20 @@
 
   function handleLabel(e: Event) {
     const target = e.target as HTMLInputElement;
-    onUpdate({ ...props, label: target.value || 'Progress' });
+    onUpdate({ ...props, label: target.value });
   }
 
-  function toggleFlag(flag: keyof NonNullable<ProgressProps['show']>) {
-    const show = props.show ?? {};
-    onUpdate({ ...props, show: { ...show, [flag]: !(show[flag] ?? true) } });
+  function toggleFlag(flag: 'mn' | 'pct' | 'bar') {
+    onUpdate({ ...props, show: { ...(props.show ?? {}), [flag]: !flagOn(flag) } });
   }
 
-  const show = $derived(props.show ?? {});
+  function toggleTrack(tag: string) {
+    const track = props.track ?? [];
+    const next = track.includes(tag) ? track.filter((t: string) => t !== tag) : [...track, tag];
+    onUpdate({ ...props, track: next });
+  }
+
+  const track = $derived(props.track ?? []);
 </script>
 
 <div class="progress-edit">
@@ -36,29 +52,40 @@
 
   <label class="field">
     <span>Label</span>
-    <input
-      type="text"
-      value={props.label ?? 'Progress'}
-      placeholder="Progress"
-      oninput={handleLabel}
-    />
+    <input type="text" value={props.label ?? ''} placeholder="Progress" oninput={handleLabel} />
   </label>
 
   <div class="toggles">
     <span class="toggle-label">Show</span>
     <label class="toggle">
-      <input type="checkbox" checked={show.mn ?? true} onchange={() => toggleFlag('mn')} />
+      <input type="checkbox" checked={flagOn('mn')} onchange={() => toggleFlag('mn')} />
       M/N
     </label>
     <label class="toggle">
-      <input type="checkbox" checked={show.pct ?? true} onchange={() => toggleFlag('pct')} />
+      <input type="checkbox" checked={flagOn('pct')} onchange={() => toggleFlag('pct')} />
       %
     </label>
     <label class="toggle">
-      <input type="checkbox" checked={show.bar ?? true} onchange={() => toggleFlag('bar')} />
+      <input type="checkbox" checked={flagOn('bar')} onchange={() => toggleFlag('bar')} />
       Bar
     </label>
   </div>
+
+  {#if allTags.length}
+    <div class="toggles">
+      <span class="toggle-label">Track</span>
+      <div class="tagchips">
+        {#each allTags as tag (tag)}
+          <button
+            type="button"
+            class="tagchip"
+            class:on={track.includes(tag)}
+            onclick={() => toggleTrack(tag)}
+          >{tag}</button>
+        {/each}
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -111,5 +138,27 @@
     align-items: center;
     gap: 4px;
     cursor: pointer;
+  }
+
+  .tagchips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tagchip {
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .tagchip.on {
+    background: var(--accent, #7c3aed);
+    border-color: var(--accent, #7c3aed);
+    color: #fff;
   }
 </style>

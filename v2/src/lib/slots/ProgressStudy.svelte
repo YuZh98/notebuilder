@@ -10,26 +10,32 @@
     completion?: { done: number; total: number; pct: number };
   }>();
 
-  const show = $derived(props.show ?? {});
-  const label = $derived(props.label ?? 'Progress');
+  // v1 pgShow semantics (60-stage.js:186): mn/bar default true, pct default false.
+  const show = $derived.by(() => {
+    const sh = props.show;
+    return {
+      mn: !sh || sh.mn !== false,
+      pct: !!(sh && sh.pct),
+      bar: !sh || sh.bar !== false,
+    };
+  });
+  const label = $derived(props.label ?? '');
   const pct = $derived(completion.pct);
 </script>
 
 <div class="progress-study">
-  <span class="label">{label}</span>
-  <div class="meter">
-    {#if show.mn ?? true}
-      <span class="mn">{completion.done}/{completion.total}</span>
-    {/if}
-    {#if show.pct ?? true}
-      <span class="pct">{pct}%</span>
-    {/if}
-    {#if show.bar ?? true}
-      <div class="bar-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div class="bar-fill" style="width: {pct}%"></div>
-      </div>
-    {/if}
-  </div>
+  {#if label || show.mn || show.pct}
+    <div class="row sm">
+      {#if label}<span class="muted">{label}</span>{/if}
+      {#if show.mn}<span class="pgbox">{completion.done} / {completion.total}</span>{/if}
+      {#if show.pct}<span class="pgbox">{pct}%</span>{/if}
+    </div>
+  {/if}
+  {#if show.bar}
+    <div class="bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <i style="width: {pct}%"></i>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -39,32 +45,30 @@
     gap: 6px;
   }
 
-  .label {
+  .row.sm {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 13px;
+  }
+
+  .muted {
     opacity: 0.7;
   }
 
-  .meter {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .mn,
-  .pct {
+  .pgbox {
     font-size: 13px;
-    min-width: 40px;
   }
 
-  .bar-track {
-    flex: 1;
+  .bar {
     height: 8px;
     background: var(--line);
     border-radius: 4px;
     overflow: hidden;
   }
 
-  .bar-fill {
+  .bar > i {
+    display: block;
     height: 100%;
     background: var(--accent, #7c3aed);
     border-radius: 4px;

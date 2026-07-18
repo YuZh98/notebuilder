@@ -10,6 +10,7 @@
   import { pushGestureSnapshot } from '../drag/gesture-history';
   import VerbWrapper from '../slots/VerbWrapper.svelte';
   import ProgressStudy from '../slots/ProgressStudy.svelte';
+  import ProgressEdit from '../slots/ProgressEdit.svelte';
   import CardNotes from './CardNotes.svelte';
   import type { ProgressProps } from '../slots/progress';
   import type { Annotation, Card, Slot, SlotProps } from '../types';
@@ -34,6 +35,7 @@
     ondeleteslot,
     onaddslot,
     progresscompletion,
+    alltags = [],
     ontogglenotes,
     onaddnote,
     ondeletenote,
@@ -69,6 +71,8 @@
     ondeleteslot: (slotId: string) => void;
     onaddslot: (type: string, face?: 'back') => void;
     progresscompletion: (props: SlotProps) => { done: number; total: number; pct: number };
+    /** Distinct tags across the notebook — threaded to ProgressEdit's track picker (type-erased). */
+    alltags?: string[];
     ontogglenotes: () => void;
     onaddnote: (body: string) => void;
     ondeletenote: (id: string) => void;
@@ -274,13 +278,21 @@
   {@const slotType = getSlot(slot.type)}
   {#if slotType}
     <div class="slot editing">
-      <slotType.renderEdit
-        props={slot.props}
-        {scope}
-        onUpdate={(p) => onupdateslot(slot.id, p)}
-        state={slotState(slot.id)}
-        onState={(next) => onstate(slot.id, next)}
-      />
+      {#if slot.type === 'progress'}
+        <ProgressEdit
+          props={slot.props as ProgressProps}
+          allTags={alltags}
+          onUpdate={(p) => onupdateslot(slot.id, p)}
+        />
+      {:else}
+        <slotType.renderEdit
+          props={slot.props}
+          {scope}
+          onUpdate={(p) => onupdateslot(slot.id, p)}
+          state={slotState(slot.id)}
+          onState={(next) => onstate(slot.id, next)}
+        />
+      {/if}
       <button class="slot-del" title="Remove slot" onclick={() => ondeleteslot(slot.id)}>✕</button>
     </div>
   {/if}
