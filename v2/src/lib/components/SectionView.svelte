@@ -59,8 +59,12 @@
   const showArch = $derived(session.showArch[section.id] === true);
 
   // Study grid = shuffle order ∩ archive/search filter ∩ matrix filter (v1 60-stage.js:159-160).
+  // Edit applies only the matrix filter — search/archive/shuffle are Study-only.
   const cards = $derived.by(() => {
-    if (!studying) return section.cards;
+    if (!studying) {
+      if (visibleCardIds === null) return section.cards;
+      return section.cards.filter((c) => visibleCardIds.has(c.id));
+    }
     const ids = new Set(visibleCards(section, showArch, q).map((c) => c.id));
     let list = studyOrder(section).filter((c) => ids.has(c.id));
     if (visibleCardIds !== null) list = list.filter((c) => visibleCardIds.has(c.id));

@@ -163,6 +163,18 @@ describe('Stage — Study mode', () => {
     expect(container.querySelector('[data-section="s2"]')).toBeNull();
   });
 
+  it('empty untitled section is hidden in Study but shown in Edit (v1 :124 study-only)', () => {
+    const nb = nbOf([sec('s1', { cards: [] }), sec('s2', { cards: [card('c1', 's2')] })]);
+    mode.set('study');
+    const study = render(Stage, { props: baseProps(nb) });
+    expect(study.container.querySelector('[data-section="s1"]')).toBeNull();
+    study.unmount();
+
+    mode.set('edit');
+    const edit = render(Stage, { props: baseProps(nb) });
+    expect(edit.container.querySelector('[data-section="s1"]')).toBeInTheDocument();
+  });
+
   it('renders the static house header with subtitle', () => {
     mode.set('study');
     const nb = nbOf([sec('s1', { cards: [card('c1', 's1')] })]);
@@ -172,6 +184,28 @@ describe('Stage — Study mode', () => {
     expect(container.querySelector('.house-title')?.textContent).toContain('🏠 My House');
     expect(container.querySelector('.house-sub b')?.textContent).toBe('bold');
     expect(container.querySelector('.ceview')).toBeNull();
+  });
+});
+
+describe('Stage — Edit-mode matrix filtering (regression)', () => {
+  it('filter active + no matching card → section hidden in Edit too (v1 :119)', () => {
+    const nb = nbOf([
+      sec('s1', { cards: [card('c1', 's1'), card('c2', 's1')] }),
+      sec('s2', { cards: [card('c3', 's2')] }),
+    ]);
+    // Edit mode (default), matrix filter matches only c1.
+    const { container } = render(Stage, {
+      props: { ...baseProps(nb), visibleCardIds: new Set(['c1']) },
+    });
+    expect(container.querySelector('[data-section="s1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-section="s2"]')).toBeNull();
+  });
+
+  it('null filter shows every section in Edit', () => {
+    const nb = nbOf([sec('s1', { cards: [card('c1', 's1')] }), sec('s2', { cards: [card('c2', 's2')] })]);
+    const { container } = render(Stage, { props: baseProps(nb) });
+    expect(container.querySelector('[data-section="s1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-section="s2"]')).toBeInTheDocument();
   });
 });
 

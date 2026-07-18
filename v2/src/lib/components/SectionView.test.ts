@@ -115,6 +115,24 @@ describe('SectionView — study card list composition', () => {
   });
 });
 
+describe('SectionView — Edit-mode matrix filter', () => {
+  it('filters the Edit grid by visibleCardIds (search/archive stay Study-only)', () => {
+    const section = sec({ cards: [card('c1'), card('c2'), card('c3')] });
+    const { container } = render(SectionView, {
+      props: { ...baseProps(section), visibleCardIds: new Set(['c1', 'c3']) },
+    });
+    expect(container.querySelector('[data-card="c1"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-card="c2"]')).toBeNull();
+    expect(container.querySelector('[data-card="c3"]')).toBeInTheDocument();
+  });
+
+  it('null filter shows all cards in Edit', () => {
+    const section = sec({ cards: [card('c1'), card('c2')] });
+    const { container } = render(SectionView, { props: baseProps(section) });
+    expect(container.querySelectorAll('[data-card]')).toHaveLength(2);
+  });
+});
+
 describe('SectionView — native service drop', () => {
   it('a text/nb-svc drop on the section body fires onsvcattach with the key', async () => {
     const section = sec();

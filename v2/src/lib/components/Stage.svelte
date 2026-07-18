@@ -57,9 +57,9 @@
     for (const s of notebook.sections) {
       const divider = s.kind === 'divider';
       if (!divider && chapFold) continue;
+      // Matrix filter hides sections with no matching card in BOTH modes (v1 60-stage:119).
       if (
         !divider &&
-        studying &&
         visibleCardIds !== null &&
         !s.cards.some((c) => visibleCardIds.has(c.id))
       ) {

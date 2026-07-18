@@ -14,7 +14,13 @@
   import Dustbin from './lib/components/Dustbin.svelte';
   import { toast } from './lib/toast.svelte';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from './lib/annotations';
-  // Task 6 rebuilds the matrix wiring against the new section/product/tag model.
+  import {
+    matrixDims,
+    effectiveAxes,
+    pruneCells,
+    cardMatchesFilter,
+    type MatrixAxis,
+  } from './lib/coverage-matrix';
   import type { Notebook, Card, Section, SlotProps } from './lib/types';
   import {
     isTauri,
@@ -79,7 +85,11 @@
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
   let galleryFor: string | null = $state(null);
 
-  let showMatrix = $state(false);
+  // Coverage-matrix session state (v1 view.mtxRow/mtxCol/cells/fold) — never undoable, not persisted.
+  let mtxRow: MatrixAxis | null = $state(null);
+  let mtxCol: MatrixAxis | null = $state(null);
+  let mtxCells: string[] = $state([]);
+  let mtxFold = $state(false);
 
   let sideW = $state(312);
   let sideCollapsed = $state(false);
@@ -107,8 +117,34 @@
     if (isTauri()) void deleteAnnotation(id);
   }
 
-  // Interim stub — Task 6 recomputes visibility from the matrix filter. null = show everything.
-  const visibleCardIds: Set<string> | null = null;
+  // Effective axes (pure fallback) + matrix visibility, rebuilt from the selection.
+  const matrixAxes = $derived(effectiveAxes(matrixDims(notebook, cardTypes), mtxRow, mtxCol));
+
+  // null = no filter (show everything); otherwise the set of cards matching a selected cell.
+  const visibleCardIds: Set<string> | null = $derived.by(() => {
+    if (mtxCells.length === 0) return null;
+    const [R, C] = matrixAxes;
+    const ids = new Set<string>();
+    for (const section of notebook.sections) {
+      for (const c of section.cards) {
+        if (cardMatchesFilter(c, section.id, mtxCells, R, C, cardTypes)) ids.add(c.id);
+      }
+    }
+    return ids;
+  });
+
+  // Drop selected cells whose row/col value no longer exists (deleted section/tag/last-of-type).
+  $effect(() => {
+    const [R, C] = effectiveAxes(matrixDims(notebook, cardTypes), mtxRow, mtxCol);
+    const live = pruneCells(mtxCells, R, C);
+    if (live.length !== mtxCells.length) mtxCells = live;
+  });
+
+  function setMatrixAxes(row: MatrixAxis | null, col: MatrixAxis | null) {
+    mtxRow = row;
+    mtxCol = col;
+    mtxCells = [];
+  }
 
   // Edit-mode selection (v1 sel/selKind): a section OR a card, never both; Escape clears.
   let selSection: string | null = $state(null);
@@ -636,14 +672,17 @@
 />
 
 {#snippet matrix()}
-  {#if $mode === 'study'}
-    <button class="matrix-toggle" class:on={showMatrix} onclick={() => (showMatrix = !showMatrix)}>
-      Matrix
-    </button>
-    {#if showMatrix}
-      <CoverageMatrix />
-    {/if}
-  {/if}
+  <CoverageMatrix
+    {notebook}
+    {cardTypes}
+    {mtxRow}
+    {mtxCol}
+    cells={mtxCells}
+    fold={mtxFold}
+    onaxis={setMatrixAxes}
+    oncells={(c) => (mtxCells = c)}
+    onfold={() => (mtxFold = !mtxFold)}
+  />
 {/snippet}
 
 {#snippet sectionTools(section: Section)}
@@ -799,19 +838,6 @@
 <Dustbin onsvcdrop={detachSectionService} />
 
 <style>
-  .matrix-toggle {
-    padding: 6px 12px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .matrix-toggle.on {
-    border-color: var(--accent, #7c3aed);
-    color: var(--accent, #7c3aed);
-  }
   .section-head {
     display: flex;
     align-items: center;
