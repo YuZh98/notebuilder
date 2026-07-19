@@ -60,7 +60,7 @@
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
-  import { session, shuffleSection, clearShuffle } from './lib/session.svelte';
+  import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
   import { SERVICE_FEATURES, SERVICE_ACTIONS, type ServiceKey } from './lib/services';
   import { debounce } from './lib/debounce';
@@ -218,6 +218,7 @@
     if (nb) {
       notebook = nb;
       notebookList = notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e));
+      resetSession();
     }
   }
 
@@ -225,6 +226,7 @@
     const nb = createNotebook(`Notebook ${notebookList.length + 1}`);
     notebook = nb;
     notebookList = [{ id: nb.id, name: nb.name }, ...notebookList];
+    resetSession();
   }
 
   function renameNotebook(name: string) {
