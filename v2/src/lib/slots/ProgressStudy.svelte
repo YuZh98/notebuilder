@@ -48,22 +48,5 @@
     opacity: 0.7;
   }
 
-  .pgbox {
-    font-size: 13px;
-  }
-
-  .bar {
-    height: 8px;
-    background: var(--line);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .bar > i {
-    display: block;
-    height: 100%;
-    background: var(--accent, #7c3aed);
-    border-radius: 4px;
-    transition: width 0.2s ease;
-  }
+  /* .pgbox / .bar / .bar > i intentionally unscoped — the ported v1 rules in app.css own them. */
 </style>
