@@ -9,6 +9,10 @@ export type SliderProps = {
   min?: number;
   max?: number;
   step?: number;
+  /** Display toggles (absent = true = shown), v1 20-registries:52. showSlider:false → free number entry. */
+  showName?: boolean;
+  showValue?: boolean;
+  showSlider?: boolean;
 };
 
 /** Clamp a value to the slot's finite bounds; empty bound = unbounded on that side. */

@@ -1,9 +1,12 @@
 <script lang="ts">
   import type { ChoiceProps } from './choice';
+  import { renderMarkdown } from '../markdown';
+  import type { Scope } from '../variable-graph';
 
-  let { props, state = {}, onState } = $props<{
+  let { props, state = {}, scope = {}, onState } = $props<{
     props: ChoiceProps;
     state?: Record<string, unknown>;
+    scope?: Scope;
     onState?: (next: Record<string, unknown>) => void;
   }>();
 
@@ -44,6 +47,9 @@
 </script>
 
 <div class="choice-study">
+  {#if props.q}
+    <div class="choice-q">{@html renderMarkdown(props.q, scope)}</div>
+  {/if}
   <ul>
     {#each props.options as option, idx (idx)}
       <li>
@@ -63,6 +69,9 @@
       Submit
     </button>
   {/if}
+  {#if submitted && props.explanation}
+    <div class="choice-explanation">{@html renderMarkdown(props.explanation, scope)}</div>
+  {/if}
 </div>
 
 <style>
@@ -70,6 +79,17 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .choice-q {
+    font-weight: 600;
+  }
+
+  .choice-explanation {
+    font-size: 13px;
+    opacity: 0.85;
+    border-left: 2px solid var(--line);
+    padding-left: 8px;
   }
 
   ul {

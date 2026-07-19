@@ -71,9 +71,25 @@
   function toggleMulti() {
     onUpdate({ ...props, multi: !(props.multi ?? false), answer: [] });
   }
+
+  function updateQ(value: string) {
+    onUpdate({ ...props, q: value });
+  }
+
+  function updateExplanation(value: string) {
+    onUpdate({ ...props, explanation: value });
+  }
 </script>
 
 <div class="choice-edit">
+  <input
+    class="choice-q-input"
+    type="text"
+    value={props.q ?? ''}
+    placeholder="question (optional · markdown + $math$)"
+    oninput={(e) => updateQ((e.target as HTMLInputElement).value)}
+  />
+
   <label class="multi-toggle">
     <input type="checkbox" checked={props.multi ?? false} onchange={toggleMulti} />
     Allow multiple correct answers
@@ -109,6 +125,14 @@
   </ul>
 
   <button class="add" onclick={addOption}>+ Add option</button>
+
+  <input
+    class="choice-exp-input"
+    type="text"
+    value={props.explanation ?? ''}
+    placeholder="explanation — shown after answering (optional)"
+    oninput={(e) => updateExplanation((e.target as HTMLInputElement).value)}
+  />
 </div>
 
 <style>
@@ -125,6 +149,17 @@
     font-size: 13px;
     opacity: 0.85;
     cursor: pointer;
+  }
+
+  .choice-q-input,
+  .choice-exp-input {
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 13px;
+    font-family: inherit;
   }
 
   ul {

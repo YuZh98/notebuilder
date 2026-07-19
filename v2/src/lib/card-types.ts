@@ -120,8 +120,7 @@ export const builtinCardTypes: CardType[] = [
     varieties: [{ name: 'Blue', accent: '#6ea8fe' }, { name: 'Mint', accent: '#54d6a0' }] },
   { id: 'ct_quiz', name: 'Quiz', store: 'practice',
     slots: [
-      { type: 'text', props: { text: 'Var of a fair coin flip (0/1)?' } },
-      { type: 'choice', props: { options: ['0.25', '0.5', '1'], answer: [0], multi: false } }] },
+      { type: 'choice', props: { q: 'Var of a fair coin flip (0/1)?', options: ['0.25', '0.5', '1'], answer: [0], multi: false, explanation: 'Var = p(1-p) = 0.25' } }] },
   { id: 'ct_note', name: 'Note', store: 'write', verbs: { bare: true },
     slots: [{ type: 'text', props: { text: '**Note.** Write anything — renders as bare script, no card frame. Math: P(A∩B)=P(A)P(B) when independent.' } }] },
   { id: 'ct_tracker', name: 'Tracker', store: 'practice',
@@ -152,13 +151,12 @@ export const builtinCardTypes: CardType[] = [
   { id: 'ct_compound', name: 'Compound Growth', store: 'live', accent: '#54d6a0', icon: '💰',
     slots: [
       { type: 'text', props: { text: '## $1000 at compound interest' } },
-      { type: 'slider', props: { key: 'rate', min: 0, max: 20, value: 5, step: 0.5 } },
-      { type: 'slider', props: { key: 'years', min: 0, max: 40, value: 10, step: 1 } },
+      { type: 'slider', props: { key: 'rate', min: 0, max: 20, value: 5, step: 0.5, showSlider: false, showName: true, showValue: true } },
+      { type: 'slider', props: { key: 'years', min: 0, max: 40, value: 10, step: 1, showSlider: false, showName: true, showValue: true } },
       { type: 'compute', props: { expr: 'round(1000*pow(1+rate/100, years))', out: 'fv', note: 'future value of $1000 =' } },
       { type: 'chart', props: { fn: '1000*pow(1 + rate/100, x)', x0: 0, x1: 40, label: '$1000 over the years' } }] },
   { id: 'ct_quizcard', name: 'Quiz Card', store: 'practice', verbs: { flip: true },
     slots: [{ type: 'text', props: { text: '**Q.** Var of a fair coin flip (0/1)?' } }],
     back: [
-      { type: 'text', props: { text: 'Pick the variance:' } },
-      { type: 'choice', props: { options: ['0.25', '0.5', '1'], answer: [0], multi: false } }] },
+      { type: 'choice', props: { q: 'Pick the variance:', options: ['0.25', '0.5', '1'], answer: [0], multi: false, explanation: 'Var = p(1−p) = **0.25**' } }] },
 ];

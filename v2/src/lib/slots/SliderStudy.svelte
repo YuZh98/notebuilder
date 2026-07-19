@@ -9,31 +9,45 @@
   const max = $derived(props.max ?? 100);
   const step = $derived(props.step ?? 1);
 
+  const showName = $derived(props.showName !== false);
+  const showValue = $derived(props.showValue !== false);
+  const showSlider = $derived(props.showSlider !== false);
+
+  // Free entry (showSlider:false) leaves the number box unbounded so any value can be typed.
+  const numMin = $derived(showSlider ? min : undefined);
+  const numMax = $derived(showSlider ? max : undefined);
+
   function set(raw: number) {
     props.value = clampSlider(props, Number.isFinite(raw) ? raw : props.value);
   }
 </script>
 
 <div class="slider-study">
-  <div class="row">
-    <span class="key">{props.key}</span>
+  {#if showName || showValue}
+    <div class="row">
+      {#if showName}<span class="key">{props.key}</span>{/if}
+      {#if showValue}
+        <input
+          type="number"
+          value={props.value}
+          min={numMin}
+          max={numMax}
+          {step}
+          oninput={(e) => set(+(e.target as HTMLInputElement).value)}
+        />
+      {/if}
+    </div>
+  {/if}
+  {#if showSlider}
     <input
-      type="number"
+      type="range"
       value={props.value}
       {min}
       {max}
       {step}
       oninput={(e) => set(+(e.target as HTMLInputElement).value)}
     />
-  </div>
-  <input
-    type="range"
-    value={props.value}
-    {min}
-    {max}
-    {step}
-    oninput={(e) => set(+(e.target as HTMLInputElement).value)}
-  />
+  {/if}
 </div>
 
 <style>

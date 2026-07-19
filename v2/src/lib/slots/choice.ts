@@ -7,6 +7,10 @@ export type ChoiceProps = {
   options: string[];
   answer?: number[];
   multi?: boolean;
+  /** Prompt rendered above the options (markdown-capable via the text pipeline). */
+  q?: string;
+  /** Revealed in Study once the reader has answered — right or wrong (v1 20-registries:43). */
+  explanation?: string;
 };
 
 export const choiceSlot: SlotType<ChoiceProps> = {

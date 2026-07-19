@@ -194,3 +194,37 @@ describe('builtinCardTypes', () => {
     }
   });
 });
+
+describe('D17 seed restore', () => {
+  const byId = (id: string) => builtinCardTypes.find((c) => c.id === id)!;
+
+  it('Quiz carries q + explanation inside a single choice slot, no separate text slot', () => {
+    const quiz = byId('ct_quiz');
+    expect(quiz.slots.map((s) => s.type)).toEqual(['choice']);
+    expect(quiz.slots[0].props).toMatchObject({
+      q: 'Var of a fair coin flip (0/1)?',
+      explanation: 'Var = p(1-p) = 0.25',
+      answer: [0],
+    });
+  });
+
+  it('Quiz Card back is a single choice slot with q + explanation (no text prompt)', () => {
+    const qc = byId('ct_quizcard');
+    expect(qc.back!.map((s) => s.type)).toEqual(['choice']);
+    expect(qc.back![0].props).toMatchObject({
+      q: 'Pick the variance:',
+      explanation: 'Var = p(1−p) = **0.25**',
+    });
+  });
+
+  it('Compound Growth sliders are free-entry (showSlider:false) but keep their real ranges', () => {
+    const cg = byId('ct_compound');
+    const sliders = cg.slots.filter((s) => s.type === 'slider');
+    expect(sliders).toHaveLength(2);
+    for (const s of sliders) {
+      expect(s.props).toMatchObject({ showSlider: false, showName: true, showValue: true });
+      expect(typeof (s.props as { min: number }).min).toBe('number');
+      expect(typeof (s.props as { max: number }).max).toBe('number');
+    }
+  });
+});

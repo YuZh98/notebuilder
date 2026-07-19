@@ -18,6 +18,9 @@
   <label>min <input type="number" value={props.min ?? ''} oninput={(e) => field('min', +(e.target as HTMLInputElement).value)} /></label>
   <label>max <input type="number" value={props.max ?? ''} oninput={(e) => field('max', +(e.target as HTMLInputElement).value)} /></label>
   <label>step <input type="number" value={props.step ?? ''} oninput={(e) => field('step', +(e.target as HTMLInputElement).value)} /></label>
+  <label class="flag"><input type="checkbox" checked={props.showName !== false} onchange={(e) => field('showName', (e.target as HTMLInputElement).checked)} /> name</label>
+  <label class="flag"><input type="checkbox" checked={props.showValue !== false} onchange={(e) => field('showValue', (e.target as HTMLInputElement).checked)} /> value</label>
+  <label class="flag"><input type="checkbox" checked={props.showSlider !== false} onchange={(e) => field('showSlider', (e.target as HTMLInputElement).checked)} /> slider</label>
 </div>
 
 <style>
@@ -40,5 +43,8 @@
     border: 1px solid var(--line);
     border-radius: 4px;
     padding: 2px 4px;
+  }
+  label.flag input {
+    width: auto;
   }
 </style>
