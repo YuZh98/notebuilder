@@ -1774,34 +1774,219 @@ body[data-theme] .room.edit .furn.bare {
   margin-top: 4px;
 }
 
-/* service bar (D5): horizontal chips; edit chips reorder by drag and resize from the right edge */
+/* ---------- ported: v1 coverage matrix (styles.css .mtx-wrap / .axset / .mtx-c / headers / cells / .on states / .mtxgrip / drop-lines) ---------- */
+.mtx-wrap {
+  margin: 2px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+}
+.mtx-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.axset {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+.axset .chip.xs[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.mtx {
+  display: grid;
+  gap: 3px;
+}
+.mtx-c {
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 5px 7px;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    transform 0.08s;
+}
+.mtx-c:hover {
+  border-color: var(--accent);
+}
+.mtx-c:active {
+  transform: scale(0.96);
+}
+.mtx-rowh,
+.mtx-colh {
+  font-weight: 600;
+  background: transparent;
+  color: var(--muted);
+}
+.mtx-rowh {
+  text-align: left;
+}
+.mtx-untag {
+  font-style: italic;
+  opacity: 0.8;
+}
+.mtx-corner {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+.mtx-cell {
+  font-variant-numeric: tabular-nums;
+}
+.mtx-cell.mtx-zero {
+  color: var(--muted);
+  opacity: 0.45;
+} /* a gap — no cards at this (room,tag) */
+.mtx-c.on {
+  background: var(--accent);
+  color: #06101f;
+  border-color: var(--accent);
+}
+.mtx-colh.on,
+.mtx-rowh.on,
+.mtx-corner.on {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--ink);
+  border-color: var(--accent);
+}
+.mtxgrip {
+  cursor: grab;
+  opacity: 0;
+  margin-right: 3px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+.mtx-c:hover .mtxgrip {
+  opacity: 0.5;
+}
+.mtxgrip:active {
+  cursor: grabbing;
+}
+.mtx-colh.dropbefore {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.mtx-colh.dropafter {
+  box-shadow: inset -3px 0 0 var(--accent);
+} /* vertical drop line */
+.mtx-rowh.dropbefore {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.mtx-rowh.dropafter {
+  box-shadow: inset 0 -3px 0 var(--accent);
+} /* horizontal drop line */
+
+/* ---------- ported: v1 service bar (styles.css .svcbar / .svc-item / .svcrz) ---------- */
 .svcbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 7px;
+  margin-bottom: 12px;
 }
 .svc-item {
   position: relative;
+  display: inline-flex;
+  align-items: center;
 }
+.svcrz {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 9px;
+  height: 100%;
+  cursor: ew-resize;
+  border-radius: 0 8px 8px 0;
+}
+.svc-item:hover .svcrz {
+  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.4));
+}
+
+/* ---------- ported: v1 progress bar & count box (styles.css .bar / .pgbox / .bar > i) ---------- */
+.bar {
+  height: 10px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pgbox {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px 8px;
+  background: var(--panel2);
+  font-weight: 600;
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--cardc, var(--accent)),
+    var(--accent2)
+  );
+}
+
+/* ---------- ported: v1 chart slot svg (styles.css .slot.chart svg / .chart-svg) ---------- */
+.slot.chart svg {
+  display: block;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+}
+.chart-svg {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* ---------- ported: v1 card pin/archive buttons (styles.css .furn .arch) ---------- */
+.furn .arch {
+  position: absolute;
+  top: 6px;
+  right: 9px;
+  opacity: 0;
+  z-index: 2;
+}
+.furn:hover .arch {
+  opacity: 0.8;
+}
+
+/* ---------- v2 glue (not v1): service-bar chrome the v1 rules do not cover ---------- */
 .edit .svcbar .svc-item {
   cursor: grab;
 }
 .svc-search {
   width: 100%;
 }
+/* pointer-drag resize needs it; v1 relied on mouse events */
 .svcrz {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 8px;
-  height: 100%;
-  cursor: ew-resize;
-  opacity: 0;
   touch-action: none;
 }
-.svc-item:hover .svcrz {
-  opacity: 1;
-  background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.25));
+/* v1 framed the chart via `.slot.chart svg`; ChartStudy wraps the svg in `.chart-study`, so restore the frame on `.chart-svg` */
+.chart-svg {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+}
+/* shift v2-only .done-badge below the ported .arch buttons (top:6/right:9) only when they are present */
+.furn:has(.arch) .done-badge {
+  top: 36px;
 }
