@@ -372,6 +372,99 @@ describe('Factory — bench slot drag (pointer engine)', () => {
   });
 });
 
+describe('Factory — fused bench-slot drag (carried fix a)', () => {
+  afterEach(() => {
+    document.dispatchEvent(pev('pointerup', 0, 0));
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+
+  it('pressing a fused sub-cell starts a drag for THAT slot, not the whole .cardslot', async () => {
+    const a = freshBench();
+    addBenchSlot(a, 'text');
+    addBenchSlot(a, 'slider');
+    a.slots[0].fuse = true; // fuse the pair → two .fusecell members in one .cardslot
+    factory.benches = [a];
+    factory.active = a.id;
+    factory.preview = false;
+    factory.sel = null;
+    factory.face = 'front';
+    const ongripslot = vi.fn();
+    const { container } = render(Factory, { props: { onseal: vi.fn(), ongripslot } });
+    const cells = container.querySelectorAll(
+      `.faccard[data-bench="${a.id}"] .bench .fusecell[data-sid]`,
+    );
+    expect(cells).toHaveLength(2);
+    await fireEvent(cells[1], pev('pointerdown', 0, 0));
+    expect(ongripslot).toHaveBeenCalledTimes(1);
+    expect(ongripslot.mock.calls[0][0]).toBe(a.slots[1].id);
+  });
+});
+
+describe('Factory — single-face Build (carried fix c)', () => {
+  function flipBench() {
+    const a = freshBench();
+    a.verbs = { flip: true };
+    addBenchSlot(a, 'text');
+    a.slots[0].props = { text: 'FRONT-FACE' };
+    a.back = [{ id: 'back_1', type: 'text', props: { text: 'BACK-FACE' }, w: 12 }];
+    factory.benches = [a];
+    factory.active = a.id;
+    factory.preview = false;
+    factory.sel = null;
+    factory.face = 'front';
+    return a;
+  }
+
+  it('Build renders only the active face — no dual-face .fc-edit', () => {
+    const a = flipBench();
+    const { container } = render(Factory, { props: props() });
+    const build = container.querySelector(`.faccard[data-bench="${a.id}"] .bench`) as HTMLElement;
+    expect(build.querySelector('.fc-edit')).toBeNull();
+    expect(build.querySelector('.cardslot[data-sid]')?.getAttribute('data-sid')).toBe(a.slots[0].id);
+    expect(build.textContent).toContain('FRONT-FACE');
+    expect(build.textContent).not.toContain('BACK-FACE');
+  });
+
+  it('switching the Back chip swaps the rendered face', async () => {
+    const a = flipBench();
+    const { container } = render(Factory, { props: props() });
+    const backChip = [...container.querySelectorAll('.bench-faces .chip')].find(
+      (c) => c.textContent?.includes('Back'),
+    ) as HTMLElement;
+    await fireEvent.click(backChip);
+    await tick();
+    const build = container.querySelector(`.faccard[data-bench="${a.id}"] .bench`) as HTMLElement;
+    expect(build.textContent).toContain('BACK-FACE');
+    expect(build.textContent).not.toContain('FRONT-FACE');
+    expect(build.querySelector('.cardslot[data-sid]')?.getAttribute('data-sid')).toBe(a.back![0].id);
+  });
+
+  it('edits through the single-face card mutate the bench; the adder targets the active face', async () => {
+    const a = flipBench();
+    const { container } = render(Factory, { props: props() });
+    const b = factory.benches[0]; // read through the reactive proxy, not the raw seed object
+    // Deleting the front slot via the rendered card's inline ✕ removes it from the bench (shared ref).
+    const del = container.querySelector(
+      `.faccard[data-bench="${a.id}"] .bench .slot-del`,
+    ) as HTMLElement;
+    await fireEvent.click(del);
+    expect(b.slots.length).toBe(0);
+
+    // Switch to Back via the chip, then the single "+ slot" adder appends to the BACK face.
+    const backChip = [...container.querySelectorAll('.bench-faces .chip')].find(
+      (c) => c.textContent?.includes('Back'),
+    ) as HTMLElement;
+    await fireEvent.click(backChip);
+    await tick();
+    const adder = [...container.querySelectorAll(`.faccard[data-bench="${a.id}"] .slot-adder button`)].find(
+      (btn) => btn.textContent?.includes('+ slot'),
+    ) as HTMLElement;
+    await fireEvent.click(adder);
+    expect(b.back!.length).toBe(2);
+    expect(b.slots.length).toBe(0);
+  });
+});
+
 describe('Factory — Preview stage', () => {
   it('renders every bench with no builder chrome', () => {
     seed();

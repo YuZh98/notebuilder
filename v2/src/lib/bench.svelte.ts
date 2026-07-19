@@ -163,6 +163,25 @@ export function benchPreviewCard(b: Bench): Card {
 }
 
 /**
+ * Build-mode card for a SINGLE face — the one the Front/Back chips select. Slots are the
+ * live face array (shared, so edits flow to the bench); no `back` and no `flip` verb, so
+ * CardView renders exactly one face. Preview keeps both faces via `benchPreviewCard`.
+ */
+export function benchFaceCard(b: Bench, back: boolean): Card {
+  const verbs = b.verbs ? { ...b.verbs } : undefined;
+  if (verbs) delete verbs.flip;
+  const kept = verbs && Object.keys(verbs).length ? verbs : undefined;
+  return {
+    id: b.id,
+    sectionId: '',
+    position: 0,
+    slots: back ? (b.back ?? []) : b.slots,
+    ...(kept && { verbs: kept }),
+    ...(b.accent && { accent: b.accent }),
+  };
+}
+
+/**
  * Toggle a bench container verb. Turning `flip` on with no back seeds it from a
  * fresh-id clone of the front slots (v1 70-events.js:133) and resets the edited face.
  */

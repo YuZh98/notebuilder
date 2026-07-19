@@ -152,4 +152,17 @@ describe('SealModal', () => {
     await fireEvent.click(byText(container, 'Cancel'));
     expect(oncancel).toHaveBeenCalled();
   });
+
+  // Carried fix (d): the preview is read-only (forceMode="study" + editable:false), so an
+  // empty text slot renders as static markdown, never a live inline editor.
+  it('an empty text slot in the preview never opens a live editor', () => {
+    const { container } = mount({
+      bench: bench({ slots: [{ id: 's_empty', type: 'text', props: { text: '' } }] }),
+    });
+    const prev = container.querySelector('.prev-wrap') as HTMLElement;
+    expect(prev.querySelector('.text-study')).toBeInTheDocument();
+    expect(
+      prev.querySelectorAll('[contenteditable="true"], textarea, input, .ce'),
+    ).toHaveLength(0);
+  });
 });

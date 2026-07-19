@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { createRawSnippet, tick } from 'svelte';
 import Stage from './Stage.svelte';
+import App from '../../App.svelte';
 import { mode } from '../stores/mode';
+import { place } from '../stores/place';
 import type { Notebook, Section, Card } from '../types';
 
 const cardView = createRawSnippet<[Section, Card, boolean]>((_section, card, editable) => ({
@@ -131,6 +133,50 @@ describe('Stage — locked sections', () => {
     expect(container.querySelector('.room-lock')).toHaveClass('on');
     expect(container.querySelector('.room-bar .ceview')).toBeNull();
     expect(container.querySelector('.room-meta')?.textContent).toContain('locked');
+  });
+});
+
+// Carried fix (b): the App sectionTools snippet (rename + ↑/↓/✕) must honor section.locked.
+describe('App sectionTools — locked section (carried fix b)', () => {
+  afterEach(() => {
+    place.set('house');
+    mode.set('edit');
+  });
+
+  function firstAuthoredHead(root: ParentNode): HTMLElement {
+    const rooms = [...root.querySelectorAll('.room:not(.divider)')];
+    const room = rooms.find((r) => r.querySelector('.section-head input.section-name')) as HTMLElement;
+    return room;
+  }
+
+  it('locking a section disables its rename input and hides its delete button', async () => {
+    place.set('house');
+    mode.set('edit');
+    const { container } = render(App);
+    await tick();
+
+    const room = firstAuthoredHead(container);
+    const nameInput = room.querySelector('.section-head input.section-name') as HTMLInputElement;
+    const delBefore = [...room.querySelectorAll('.section-head button')].find(
+      (b) => b.getAttribute('title') === 'Delete section',
+    );
+    expect(nameInput.disabled).toBe(false);
+    expect(delBefore).toBeTruthy();
+
+    await fireEvent.click(room.querySelector('.room-lock') as Element);
+    await tick();
+
+    const nameAfter = room.querySelector('.section-head input.section-name') as HTMLInputElement;
+    const delAfter = [...room.querySelectorAll('.section-head button')].find(
+      (b) => b.getAttribute('title') === 'Delete section',
+    );
+    expect(nameAfter.disabled).toBe(true);
+    expect(delAfter).toBeUndefined();
+    // reorder controls remain (v1 keeps locked rooms reorderable)
+    const moveUp = [...room.querySelectorAll('.section-head button')].find(
+      (b) => b.getAttribute('title') === 'Move section up',
+    );
+    expect(moveUp).toBeTruthy();
   });
 });
 

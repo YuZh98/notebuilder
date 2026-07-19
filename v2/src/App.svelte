@@ -699,11 +699,14 @@
     <input
       class="section-name"
       value={section.name}
+      disabled={section.locked}
       onchange={(e) => renameSection(notebook, section.id, e.currentTarget.value)}
     />
     <button title="Move section up" onclick={() => moveSection(notebook, section.id, -1)}>↑</button>
     <button title="Move section down" onclick={() => moveSection(notebook, section.id, 1)}>↓</button>
-    <button title="Delete section" onclick={() => void removeSection(section)}>✕</button>
+    {#if !section.locked}
+      <button title="Delete section" onclick={() => void removeSection(section)}>✕</button>
+    {/if}
   </div>
 {/snippet}
 

@@ -13,6 +13,7 @@
     deleteBenchSlot,
     updateBenchSlot,
     fuseBenchSlot,
+    benchFaceCard,
     type Bench,
   } from '../bench.svelte';
   import { toast } from '../toast.svelte';
@@ -132,7 +133,7 @@
   function benchSlotDown(e: PointerEvent) {
     const t = e.target as HTMLElement;
     if (t.closest('button, input, textarea, select, [contenteditable], [data-fusegut]')) return;
-    const cell = t.closest?.('.cardslot') as HTMLElement | null;
+    const cell = t.closest?.('[data-sid]') as HTMLElement | null;
     if (cell?.dataset.sid) ongripslot?.(cell.dataset.sid, e, cell);
   }
 
@@ -161,7 +162,7 @@
   // gets a frozen snapshot.
   function benchProps(b: Bench, editable: boolean, live = false) {
     const card = editable
-      ? benchPreviewCard(b)
+      ? benchFaceCard(b, factory.face === 'back')
       : live
         ? previewCardFor(b)
         : benchPreviewCard($state.snapshot(b) as Bench);
@@ -191,7 +192,9 @@
         ? (slotId: string, props: Record<string, unknown>) => updateBenchSlot(b, slotId, props)
         : noop,
       ondeleteslot: editable ? (slotId: string) => deleteBenchSlot(b, slotId) : noop,
-      onaddslot: editable ? (type: string, face?: 'back') => addBenchSlot(b, type, face) : noop,
+      onaddslot: editable
+        ? (type: string, face?: 'back') => addBenchSlot(b, type, face ?? (factory.face === 'back' ? 'back' : undefined))
+        : noop,
       progresscompletion: () => ({ done: 0, total: 0, pct: 0 }),
       ontogglenotes: noop,
       onaddnote: noop,
