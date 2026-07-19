@@ -1,4 +1,4 @@
-import { isCardDone } from './card-done';
+import { hasCompletableSlot, isCardDone } from './card-done';
 import { chapterOf } from './notebook-ops';
 import type { Card, Notebook, Section } from './types';
 
@@ -17,10 +17,12 @@ export function computeProgress(
   track?: string[],
 ): { done: number; total: number; pct: number } {
   const active = cards.filter((c) => !c.archived);
-  const counted =
+  const tracked =
     track && track.length
       ? active.filter((c) => (c.tags ?? []).some((t) => track.includes(t)))
       : active;
+  // v1 pgCount excludes cards with nothing to finish (cardDone === null).
+  const counted = tracked.filter((c) => hasCompletableSlot(c));
   const total = counted.length;
   if (total === 0) return { done: 0, total: 0, pct: 0 };
 

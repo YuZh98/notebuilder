@@ -23,6 +23,17 @@ export function isCardDone(
   return true;
 }
 
+/**
+ * True when the card carries at least one completable interaction: a completable
+ * slot, or a flip that must be seen. Mirrors v1 pgCount (60-stage.js:198-202),
+ * where a card whose cardDone is null (nothing to finish) is excluded from
+ * progress totals. Structural only — independent of reader state.
+ */
+export function hasCompletableSlot(card: Pick<Card, 'slots' | 'verbs'>): boolean {
+  if (card.verbs?.flip) return true;
+  return card.slots.some((slot) => getSlot(slot.type)?.completable === true);
+}
+
 function slotsDone(slots: Slot[], statesBySlotId: Record<string, Record<string, unknown>>): boolean {
   for (const slot of slots) {
     const type = getSlot(slot.type);

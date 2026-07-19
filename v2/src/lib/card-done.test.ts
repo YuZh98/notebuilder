@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isCardDone, CARD_STATE_KEY } from './card-done';
+import { isCardDone, hasCompletableSlot, CARD_STATE_KEY } from './card-done';
 import type { Slot } from './types';
 
 // Ensure text-input slot is registered before tests run
@@ -94,5 +94,28 @@ describe('isCardDone with flip', () => {
   it('back slots are ignored when the card does not flip', () => {
     const card = { slots: [textSlot('front')], back: [textInputSlot('ti1')] };
     expect(isCardDone(card, {})).toBe(true);
+  });
+});
+
+describe('hasCompletableSlot', () => {
+  it('is false for a card with no slots', () => {
+    expect(hasCompletableSlot({ slots: [] })).toBe(false);
+  });
+
+  it('is false for a card of only non-completable (text) slots', () => {
+    expect(hasCompletableSlot({ slots: [textSlot('s1'), textSlot('s2')] })).toBe(false);
+  });
+
+  it('is true when any slot is completable', () => {
+    expect(hasCompletableSlot({ slots: [textSlot('s1'), textInputSlot('ti1')] })).toBe(true);
+  });
+
+  it('is true for a flip card even with no completable slots', () => {
+    expect(hasCompletableSlot({ slots: [textSlot('front')], verbs: { flip: true } })).toBe(true);
+  });
+
+  it('ignores back slots when the card does not flip', () => {
+    // back is not part of the structural front-slot scan for non-flip cards
+    expect(hasCompletableSlot({ slots: [textSlot('front')] })).toBe(false);
   });
 });

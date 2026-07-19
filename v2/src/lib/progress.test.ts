@@ -53,11 +53,38 @@ describe('computeProgress', () => {
     expect(result.pct).toBe(67);
   });
 
-  it('cards with no completable slots (text only) count as done', () => {
+  it('cards with no completable slot (text only) are excluded from the total', () => {
     const cards: Card[] = [
       { id: 'c1', sectionId: 's1', position: 0, slots: [{ id: 'sl1', type: 'text', props: {} }] },
     ];
-    expect(computeProgress(cards, {})).toEqual({ done: 1, total: 1, pct: 100 });
+    expect(computeProgress(cards, {})).toEqual({ done: 0, total: 0, pct: 0 });
+  });
+
+  it('mixed section counts only cards that have a completable slot', () => {
+    const cards: Card[] = [
+      // text-only → excluded
+      { id: 'c1', sectionId: 's1', position: 0, slots: [{ id: 'a', type: 'text', props: {} }] },
+      // completable + filled → counted, done
+      { id: 'c2', sectionId: 's1', position: 1, slots: [{ id: 'b', type: 'text-input', props: {} }] },
+      // completable + empty → counted, not done
+      { id: 'c3', sectionId: 's1', position: 2, slots: [{ id: 'c', type: 'text-input', props: {} }] },
+    ];
+    const states: Record<string, Record<string, Record<string, unknown>>> = {
+      c2: { b: { value: 'answer' } },
+    };
+    expect(computeProgress(cards, states)).toEqual({ done: 1, total: 2, pct: 50 });
+  });
+
+  it('empty section → 0/0', () => {
+    expect(computeProgress([], {})).toEqual({ done: 0, total: 0, pct: 0 });
+  });
+
+  it('a section of only non-completable cards → 0/0', () => {
+    const cards: Card[] = [
+      { id: 'c1', sectionId: 's1', position: 0, slots: [{ id: 'a', type: 'text', props: {} }] },
+      { id: 'c2', sectionId: 's1', position: 1, slots: [{ id: 'b', type: 'image', props: {} }] },
+    ];
+    expect(computeProgress(cards, {})).toEqual({ done: 0, total: 0, pct: 0 });
   });
 
   it('missing card state defaults to {} (not done for completable)', () => {
