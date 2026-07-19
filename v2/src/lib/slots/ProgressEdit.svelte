@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ProgressProps } from './progress';
+  import { pgShow, type ProgressProps } from './progress';
 
   // allTags is threaded by CardView outside the typed EditComponent contract
   // (same type-erasure pattern ProgressStudy uses for `completion`): the distinct
@@ -10,11 +10,8 @@
     allTags?: string[];
   }>();
 
-  // v1 pgShow defaults: mn/bar true, pct false.
   function flagOn(flag: 'mn' | 'pct' | 'bar'): boolean {
-    const sh = props.show;
-    if (flag === 'pct') return !!(sh && sh.pct);
-    return !sh || sh[flag] !== false;
+    return pgShow(props.show)[flag];
   }
 
   function handleScope(e: Event) {

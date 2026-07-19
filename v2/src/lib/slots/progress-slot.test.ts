@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { progressSlot } from './progress';
+import { progressSlot, pgShow } from './progress';
 
 describe('progressSlot', () => {
   it('has correct metadata', () => {
@@ -33,6 +33,32 @@ describe('progressSlot', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const errors = progressSlot.validate!({ scope: 'bad' as any, label: 'x', show: {} });
     expect(errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe('pgShow', () => {
+  it('undefined → mn/bar on, pct off', () => {
+    expect(pgShow(undefined)).toEqual({ mn: true, pct: false, bar: true });
+  });
+
+  it('{} → mn/bar on, pct off (defaults)', () => {
+    expect(pgShow({})).toEqual({ mn: true, pct: false, bar: true });
+  });
+
+  it('{mn:false} → mn off, bar on, pct off', () => {
+    expect(pgShow({ mn: false })).toEqual({ mn: false, pct: false, bar: true });
+  });
+
+  it('{pct:true} → pct on, mn/bar on', () => {
+    expect(pgShow({ pct: true })).toEqual({ mn: true, pct: true, bar: true });
+  });
+
+  it('{bar:false} → bar off, mn on, pct off', () => {
+    expect(pgShow({ bar: false })).toEqual({ mn: true, pct: false, bar: false });
+  });
+
+  it('{mn:false,pct:true,bar:false} → mn off, pct on, bar off', () => {
+    expect(pgShow({ mn: false, pct: true, bar: false })).toEqual({ mn: false, pct: true, bar: false });
   });
 });
 

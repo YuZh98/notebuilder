@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ProgressProps } from './progress';
+  import { pgShow, type ProgressProps } from './progress';
 
   // completion is passed by App outside the typed StudyComponent contract.
   // ProgressStudy declares it as a local optional prop; the registry stores
@@ -10,15 +10,7 @@
     completion?: { done: number; total: number; pct: number };
   }>();
 
-  // v1 pgShow semantics (60-stage.js:186): mn/bar default true, pct default false.
-  const show = $derived.by(() => {
-    const sh = props.show;
-    return {
-      mn: !sh || sh.mn !== false,
-      pct: !!(sh && sh.pct),
-      bar: !sh || sh.bar !== false,
-    };
-  });
+  const show = $derived(pgShow(props.show));
   const label = $derived(props.label ?? '');
   const pct = $derived(completion.pct);
 </script>

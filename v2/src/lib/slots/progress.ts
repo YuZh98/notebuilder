@@ -14,6 +14,22 @@ export type ProgressProps = {
   };
 };
 
+/**
+ * v1 pgShow semantics (60-stage.js:186): the mn (M/N) and bar toggles default
+ * on, pct defaults off. Resolves a possibly-undefined show map to concrete flags.
+ */
+export function pgShow(sh?: { mn?: boolean; pct?: boolean; bar?: boolean }): {
+  mn: boolean;
+  pct: boolean;
+  bar: boolean;
+} {
+  return {
+    mn: !sh || sh.mn !== false,
+    pct: !!(sh && sh.pct),
+    bar: !sh || sh.bar !== false,
+  };
+}
+
 export const progressSlot: SlotType<ProgressProps> = {
   type: 'progress',
   kind: 'track',
