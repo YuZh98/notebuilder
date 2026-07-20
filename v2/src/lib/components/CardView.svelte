@@ -7,7 +7,7 @@
   import { shouldShow, isLocked } from '../verbs';
   import { startEdgeResize } from '../drag/resize';
   import { clampCardW, fuseSplit } from '../drag/geometry';
-  import { pushGestureSnapshot } from '../drag/gesture-history';
+  import { captureNow, pushSnapshot } from '../history.svelte';
   import VerbWrapper from '../slots/VerbWrapper.svelte';
   import ProgressStudy from '../slots/ProgressStudy.svelte';
   import ProgressEdit from '../slots/ProgressEdit.svelte';
@@ -129,7 +129,7 @@
     const startW = card.w ?? 12;
     let w = startW;
     resizing = true;
-    pushGestureSnapshot();
+    const snap = captureNow();
     startEdgeResize(
       ev,
       (dx) => {
@@ -139,7 +139,10 @@
       (mv) => {
         resizing = false;
         liveW = null;
-        if (mv !== null) onresize(w);
+        if (mv !== null) {
+          pushSnapshot(snap);
+          onresize(w);
+        }
       },
     );
   }
@@ -164,7 +167,7 @@
     if (span <= 0) return;
     let lw = left.fuseW ?? 1;
     let rw = right.fuseW ?? 1;
-    pushGestureSnapshot();
+    const snap = captureNow();
     startEdgeResize(
       ev,
       (_dx, _dy, mv) => {
@@ -173,7 +176,10 @@
       },
       (mv) => {
         liveFuse = null;
-        if (mv !== null) onfusew(leftId, rightId, lw, rw);
+        if (mv !== null) {
+          pushSnapshot(snap);
+          onfusew(leftId, rightId, lw, rw);
+        }
       },
     );
   }

@@ -5,7 +5,7 @@
   import { sectionsOfChapter } from '../notebook-ops';
   import { startEdgeResize } from '../drag/resize';
   import { clampRoomW } from '../drag/geometry';
-  import { pushGestureSnapshot } from '../drag/gesture-history';
+  import { captureNow, pushSnapshot } from '../history.svelte';
   import { session, studyOrder } from '../session.svelte';
   import { visibleCards, archivedCount } from '../service-ops';
   import { svcBarItems, reorderSvc, flipAllApplicable, type ServiceKey } from '../services';
@@ -134,7 +134,7 @@
     const startW = roomEl.getBoundingClientRect().width;
     const maxW = shell.getBoundingClientRect().width;
     let w: number | null = null;
-    pushGestureSnapshot();
+    const snap = captureNow();
     startEdgeResize(
       ev,
       (dx) => {
@@ -143,7 +143,10 @@
       },
       (mv) => {
         liveW = null;
-        if (mv !== null && w !== null) onpatch({ width: w });
+        if (mv !== null && w !== null) {
+          pushSnapshot(snap);
+          onpatch({ width: w });
+        }
       },
     );
   }

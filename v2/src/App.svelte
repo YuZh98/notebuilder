@@ -42,7 +42,14 @@
   import { uid } from './lib/uid';
   import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
-  import { factory, addBench, serializeFactory, hydrateFactory } from './lib/bench.svelte';
+  import { factory, addBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
+  import {
+    registerHistory,
+    clearHistory,
+    undo as histUndo,
+    redo as histRedo,
+    type HistSnapshot,
+  } from './lib/history.svelte';
   import { place, togglePlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
@@ -219,6 +226,7 @@
       notebook = nb;
       notebookList = notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e));
       resetSession();
+      clearHistory();
     }
   }
 
@@ -227,6 +235,28 @@
     notebook = nb;
     notebookList = [{ id: nb.id, name: nb.name }, ...notebookList];
     resetSession();
+    clearHistory();
+  }
+
+  // Undo/redo capture author state only (notebook + card types + factory benches); reader
+  // progress, session and matrix are excluded (D2). Restore clears selection (D25).
+  function captureHistory(): HistSnapshot {
+    return {
+      notebook: $state.snapshot(notebook) as Notebook,
+      cardTypes: $state.snapshot(cardTypes) as CardType[],
+      benches: $state.snapshot(factory.benches) as Bench[],
+      benchActive: factory.active,
+    };
+  }
+
+  function restoreHistory(s: HistSnapshot) {
+    notebook = s.notebook;
+    cardTypes = s.cardTypes;
+    factory.benches = s.benches;
+    factory.active = s.benchActive;
+    selCard = null;
+    selSection = null;
+    selProd = null;
   }
 
   function renameNotebook(name: string) {
@@ -565,6 +595,7 @@
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
   onMount(() => {
     const unlisteners: Array<() => void> = [];
+    registerHistory({ capture: captureHistory, restore: restoreHistory });
     delete document.documentElement.dataset.theme;
     if (isTauri()) {
       void (async () => {
@@ -608,6 +639,17 @@
         e.preventDefault();
         if (get(place) === 'factory') toggleFacMode();
         else toggleMode();
+      }
+      // Cmd/Ctrl+Z / +Shift+Z (or Ctrl+Y) — skipped while typing so fields keep native text undo.
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+        const el = e.target as HTMLElement | null;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+        e.preventDefault();
+        const wantRedo = e.key === 'y' || e.key === 'Y' || e.shiftKey;
+        if (wantRedo) {
+          if (histRedo()) toast('redone');
+        } else if (histUndo()) toast('undone');
+        return;
       }
       if (e.key === 'Escape') {
         // Close the store detail panel first; a second Escape then clears card/section selection.

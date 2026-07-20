@@ -1,2 +1,6 @@
-// P7: replace with an actual history stack push (undo/redo snapshot on gesture commit).
-export function pushGestureSnapshot(): void {}
+import { pushHistory } from '../history.svelte';
+
+/** Drag/drop commit: capture-at-call, since the engine pushes once, right before the mutation. */
+export function pushGestureSnapshot(): void {
+  pushHistory();
+}
