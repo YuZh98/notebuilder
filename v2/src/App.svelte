@@ -73,6 +73,7 @@
   import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
+  import { resetPresentation } from './lib/presentation';
   import { SERVICE_FEATURES, SERVICE_ACTIONS, type ServiceKey } from './lib/services';
   import { debounce } from './lib/debounce';
   import { startEdgeResize } from './lib/drag/resize';
@@ -507,6 +508,15 @@
     factory.preview = !factory.preview;
   }
 
+  // Edit→Study seal (v1 resetPresentation): only on the transition INTO study — wipe volatile
+  // flip state and section shuffle (search/showArch survive, per v1), THEN flip mode.
+  function enterStudy() {
+    if (get(mode) !== 'edit') return;
+    readerState = resetPresentation(readerState);
+    session.shuf = {};
+    toggleMode();
+  }
+
   let sealBenchId: string | null = $state(null);
   const sealBench = $derived(
     sealBenchId ? (factory.benches.find((b) => b.id === sealBenchId) ?? null) : null,
@@ -683,6 +693,7 @@
         case 'toggle-mode':
           if (inField) el?.blur();
           if (cur === 'factory') toggleFacMode();
+          else if (get(mode) === 'edit') enterStudy();
           else toggleMode();
           break;
         case 'toast-save':
@@ -783,6 +794,7 @@
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
   onplace={togglePlace}
+  onenterstudy={enterStudy}
   onfacmode={toggleFacMode}
   onaddbench={() => {
     pushHistory();

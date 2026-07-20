@@ -3,6 +3,7 @@ import type { Notebook, Annotation } from './types';
 import type { CardType } from './card-types';
 import { notebookToRows, rowsToNotebook } from './db-map';
 import type { NotebookRow, SectionRow, CardRow } from './db-map';
+import { stripPresentation } from './presentation';
 
 /** True only inside the Tauri webview; false in a plain browser, tests, or SSR — so callers can skip DB I/O. */
 export function isTauri(): boolean {
@@ -87,11 +88,13 @@ export type ReaderStateMap = Record<string, Record<string, Record<string, unknow
 
 export async function saveReaderState(map: ReaderStateMap): Promise<void> {
   const d = await db();
-  for (const cardId of Object.keys(map)) {
-    for (const slotId of Object.keys(map[cardId])) {
+  // Volatile flip state never persists (v1 stripVol); progress state (seenBack) survives.
+  const stripped = stripPresentation(map);
+  for (const cardId of Object.keys(stripped)) {
+    for (const slotId of Object.keys(stripped[cardId])) {
       await d.execute(
         'INSERT OR REPLACE INTO reader_state (card_id, slot_id, data) VALUES ($1, $2, $3)',
-        [cardId, slotId, JSON.stringify(map[cardId][slotId])],
+        [cardId, slotId, JSON.stringify(stripped[cardId][slotId])],
       );
     }
   }

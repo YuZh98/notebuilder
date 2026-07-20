@@ -20,6 +20,7 @@
     onexport,
     onimport,
     onplace,
+    onenterstudy,
     onfacmode,
     onaddbench,
   }: {
@@ -37,6 +38,7 @@
     onexport: () => void;
     onimport: () => void;
     onplace: () => void;
+    onenterstudy: () => void;
     onfacmode: () => void;
     onaddbench: () => void;
   } = $props();
@@ -82,7 +84,7 @@
   }
 
   function printPdf() {
-    if ($mode === 'edit') toggleMode();
+    if ($mode === 'edit') onenterstudy();
     setTimeout(() => window.print(), 150);
   }
 </script>
@@ -177,7 +179,7 @@
         class="btn sm"
         class:on={$mode === 'study'}
         onclick={() => {
-          if ($mode !== 'study') toggleMode();
+          if ($mode !== 'study') onenterstudy();
         }}
       >Study</button>
       {#if $mode === 'edit'}
