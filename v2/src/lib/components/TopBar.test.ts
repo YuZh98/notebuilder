@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import TopBar from './TopBar.svelte';
 import { mode } from '../stores/mode';
+import { toastState } from '../toast.svelte';
 import type { Place } from '../stores/place';
 
 function baseProps(over: Record<string, unknown> = {}) {
@@ -56,5 +57,41 @@ describe('TopBar share cluster', () => {
   it('hides the share cluster in the Factory', () => {
     const { container } = render(TopBar, { props: baseProps({ place: 'factory' }) });
     expect(container.querySelector('.share-btn')).toBeNull();
+  });
+});
+
+describe('TopBar print action', () => {
+  afterEach(() => vi.useRealTimers());
+
+  function clickPrint(container: HTMLElement) {
+    const print = [...container.querySelectorAll<HTMLButtonElement>('.util-grp .ghost')].find(
+      (b) => b.textContent?.includes('🖨'),
+    )!;
+    return fireEvent.click(print);
+  }
+
+  it('from Edit: enters study, toasts, then calls window.print after 150ms', async () => {
+    vi.useFakeTimers();
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+    const onenterstudy = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ onenterstudy }) });
+    await clickPrint(container);
+    expect(onenterstudy).toHaveBeenCalledOnce();
+    expect(toastState.message).toBe('print dialog → Save as PDF');
+    expect(printSpy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(150);
+    expect(printSpy).toHaveBeenCalledOnce();
+  });
+
+  it('from Study: prints directly without re-entering study', async () => {
+    vi.useFakeTimers();
+    mode.set('study');
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+    const onenterstudy = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ onenterstudy }) });
+    await clickPrint(container);
+    expect(onenterstudy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(150);
+    expect(printSpy).toHaveBeenCalledOnce();
   });
 });

@@ -531,6 +531,9 @@
     if (get(mode) !== 'edit') return;
     readerState = resetPresentation(readerState);
     session.shuf = {};
+    selCard = null;
+    selSection = null;
+    selProd = null;
     toggleMode();
   }
 

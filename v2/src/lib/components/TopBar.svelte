@@ -4,6 +4,7 @@
   import { THEMES, type ThemeId } from '../themes';
   import type { Place } from '../stores/place';
   import { getPreference, setPreference, isTauri } from '../db';
+  import { toast } from '../toast.svelte';
 
   let {
     notebooks,
@@ -87,6 +88,7 @@
 
   function printPdf() {
     if ($mode === 'edit') onenterstudy();
+    toast('print dialog → Save as PDF');
     setTimeout(() => window.print(), 150);
   }
 </script>

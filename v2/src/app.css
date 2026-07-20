@@ -1990,3 +1990,29 @@ body[data-theme] .room.edit .furn.bare {
 .furn:has(.arch) .done-badge {
   top: 36px;
 }
+
+/* ---------- ported: v1 print stylesheet (styles.css @media print 2160-2183) ---------- */
+@media print {
+  #top,
+  #side,
+  #resizer {
+    display: none !important;
+  }
+  #main {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  #stage {
+    overflow: visible;
+  }
+  .grip,
+  .rz,
+  .arch,
+  .svcbar {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
