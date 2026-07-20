@@ -207,7 +207,7 @@
   <span data-history="edit" style="display:contents">
     <CeText
       value={section.title ?? ''}
-      multiline={false}
+      multiline={true}
       placeholder="room title (optional · ## = heading · $math$)"
       viewClass="room-title"
       editClass="ce-title"

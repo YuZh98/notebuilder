@@ -689,10 +689,10 @@
           toast('everything autosaves — you’re always saved');
           break;
         case 'undo':
-          toast(histUndo() ? 'undone' : 'nothing to undo');
+          toast(histUndo() ? 'undo' : 'nothing to undo');
           break;
         case 'redo':
-          toast(histRedo() ? 'redone' : 'nothing to redo');
+          toast(histRedo() ? 'redo' : 'nothing to redo');
           break;
         case 'abort-or-blur':
           if (!histAbortEdit()) el?.blur();
