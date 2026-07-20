@@ -35,7 +35,7 @@
   } from '../history.svelte';
   import { handleAppKey, type KeyCtx } from '../keyboard';
   import { installEditCoalescing } from '../history-focus';
-  import { exportNotebook, importNotebook, validateNotebookJSON, type NotebookJSON } from '../json-io';
+  import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
   import { clampSideW } from '../shell';
   import {
     addSection,
@@ -269,7 +269,7 @@
       toast('File is not valid JSON', 4000);
       return;
     }
-    const errors = validateNotebookJSON(json);
+    const { errors, warnings } = validateNotebook(json);
     if (errors.length > 0) {
       toast(`Invalid notebook file:\n${errors.join('\n')}`, 4000);
       return;
@@ -277,7 +277,15 @@
     notebook = importNotebook(json as NotebookJSON);
     selCard = null;
     selSection = null;
-    toast(`Imported "${notebook.name}"`);
+    const n = warnings.length;
+    if (n > 0) {
+      toast(
+        `Imported "${notebook.name}" — ⚠ ${n} formula${n > 1 ? 's' : ''} reference variables outside their card — variables are card-scoped; fuse those slots into one card`,
+        6000,
+      );
+    } else {
+      toast(`Imported "${notebook.name}"`);
+    }
   }
 
   // D10 Remix: unlock authoring in memory. Edits never touch disk — a reload reopens the original.
@@ -416,12 +424,16 @@
   }
 
   function toggleSectionService(key: ServiceKey) {
-    if (!selectedSection) {
+    const target =
+      selectedSection ??
+      notebook.sections.find((s) => s.kind !== 'divider' && s.cards.some((c) => c.id === selCard)) ??
+      null;
+    if (!target) {
       toast('select a section first');
       return;
     }
     pushHistory();
-    setSectionService(selectedSection, key, !selectedSection.services?.[key]);
+    setSectionService(target, key, !target.services?.[key]);
   }
 
   function attachSectionService(section: Section, key: ServiceKey) {
