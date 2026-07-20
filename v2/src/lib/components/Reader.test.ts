@@ -151,6 +151,22 @@ describe('Reader — review fixes', () => {
     expect(toastState.message).toBe('undo');
   });
 
+  it('post-Remix text edits in a data-history region arm an undo step', async () => {
+    const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
+    await remixToEdit(container);
+
+    // A rendered author field (the section name) lives inside a data-history="edit" region.
+    const field = container.querySelector('[data-history="edit"]') as HTMLElement;
+    expect(field).not.toBeNull();
+    await fireEvent.input(field);
+    await tick();
+
+    // With installEditCoalescing wired into the Reader, the input armed history: Cmd+Z now undoes.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true }));
+    await tick();
+    expect(toastState.message).toBe('undo');
+  });
+
   it('applies an initialTheme at boot', async () => {
     render(Reader, { props: { notebook: nb(), shared: true, initialTheme: 'cyber' } });
     await tick();

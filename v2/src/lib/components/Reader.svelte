@@ -34,6 +34,7 @@
     type HistSnapshot,
   } from '../history.svelte';
   import { handleAppKey, type KeyCtx } from '../keyboard';
+  import { installEditCoalescing } from '../history-focus';
   import { exportNotebook, importNotebook, validateNotebookJSON, type NotebookJSON } from '../json-io';
   import { clampSideW } from '../shell';
   import {
@@ -132,9 +133,13 @@
     // A shared file always opens locked into Study; Remix later unlocks the mode toggle.
     mode.set('study');
     applyTheme(themeId);
+    // Arm in-place text edits for undo (v1 parity) — Remix unlocks editing but keeps this file's
+    // history; without it, post-Remix text-slot edits would silently escape the undo stack.
+    const uninstallEditCoalescing = installEditCoalescing();
     window.addEventListener('keydown', handleKey);
     return () => {
       window.removeEventListener('keydown', handleKey);
+      uninstallEditCoalescing();
       delete document.body.dataset.theme;
     };
   });
