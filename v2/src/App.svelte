@@ -423,14 +423,25 @@
     section.services = Object.keys(services).length ? services : undefined;
   }
 
-  // Sidebar chip click toggles the selected section's feature (v1 70-events.js:67).
+  // Sidebar chip click toggles the active section's feature (v1 70-events.js:67). v1 always had
+  // an active room; here a selected card stands in for its section so the chip is never a silent
+  // no-op — we only refuse when neither a section nor a card is selected.
   function toggleSectionService(key: ServiceKey) {
-    if (!selectedSection) {
+    const target = selectedSection ?? sectionOfCard(selCard);
+    if (!target) {
       toast('select a section first');
       return;
     }
     pushHistory();
-    setSectionService(selectedSection, key, !selectedSection.services?.[key]);
+    setSectionService(target, key, !target.services?.[key]);
+  }
+
+  function sectionOfCard(cardId: string | null): Section | null {
+    if (!cardId) return null;
+    return (
+      notebook.sections.find((s) => s.kind !== 'divider' && s.cards.some((c) => c.id === cardId)) ??
+      null
+    );
   }
 
   // Native chip dropped on a section body enables the service (v1 100-drag-furniture.js:12-15).
