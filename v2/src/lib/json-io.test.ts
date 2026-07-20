@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exportNotebook, importNotebook, validateNotebookJSON, adoptNotebookIdentity } from './json-io';
+import { exportNotebook, importNotebook, validateNotebookJSON, validateNotebook, adoptNotebookIdentity } from './json-io';
 import type { Notebook } from './types';
 
 const sampleNotebook: Notebook = {
@@ -353,19 +353,22 @@ describe('validateNotebookJSON graph checks', () => {
     return { version: 1, notebook: { name: 'N', sections: [{ name: 'S', cards: [{ slots }] }] } };
   }
 
-  it('flags a text read with no writer in the card', () => {
-    const errors = validateNotebookJSON(nb([{ type: 'text', props: { text: 'value: {{ghost}}' } }]));
-    expect(errors.some((e) => e.includes('ghost'))).toBe(true);
+  it('downgrades a cross-card read (no writer in the card) to a warning, not an error', () => {
+    const json = nb([{ type: 'text', props: { text: 'value: {{ghost}}' } }]);
+    expect(validateNotebookJSON(json)).toEqual([]);
+    const { errors, warnings } = validateNotebook(json);
+    expect(errors).toEqual([]);
+    expect(warnings.some((w) => w.includes('ghost'))).toBe(true);
   });
 
-  it('flags a compute cycle', () => {
-    const errors = validateNotebookJSON(
-      nb([
-        { type: 'compute', props: { expr: 'b + 1', out: 'a' } },
-        { type: 'compute', props: { expr: 'a + 1', out: 'b' } },
-      ]),
-    );
+  it('flags a compute cycle as a hard error', () => {
+    const json = nb([
+      { type: 'compute', props: { expr: 'b + 1', out: 'a' } },
+      { type: 'compute', props: { expr: 'a + 1', out: 'b' } },
+    ]);
+    const { errors } = validateNotebook(json);
     expect(errors.some((e) => /cycle/i.test(e))).toBe(true);
+    expect(validateNotebookJSON(json).some((e) => /cycle/i.test(e))).toBe(true);
   });
 
   it('accepts a healthy slider→compute→text card', () => {
@@ -377,6 +380,21 @@ describe('validateNotebookJSON graph checks', () => {
       ]),
     );
     expect(errors).toEqual([]);
+  });
+});
+
+describe('version guard', () => {
+  it('rejects a file from a newer schema version with a clear message', () => {
+    const json = exportNotebook(sampleNotebook);
+    json.version = 2;
+    const { errors } = validateNotebook(json);
+    expect(errors.some((e) => /newer version/i.test(e))).toBe(true);
+  });
+
+  it('passes the current schema version cleanly', () => {
+    const { errors, warnings } = validateNotebook(exportNotebook(sampleNotebook));
+    expect(errors).toEqual([]);
+    expect(warnings).toEqual([]);
   });
 });
 

@@ -93,6 +93,7 @@ function exportSlot(slot: Slot): SlotJSON {
 
 /** Import from JSON interchange format to a Notebook */
 export function importNotebook(json: NotebookJSON): Notebook {
+  // Older schemas would be migrated here before this check; none exist yet (SCHEMA_VERSION === 1).
   if (json.version !== SCHEMA_VERSION) {
     throw new Error(`Unsupported schema version: ${json.version}`);
   }
@@ -168,18 +169,32 @@ function importSlot(s: SlotJSON): Slot {
   };
 }
 
-/** Validate JSON before importing */
+export type ValidationResult = { errors: string[]; warnings: string[] };
+
+/** Validate JSON before importing, returning hard errors only (back-compat). */
 export function validateNotebookJSON(json: unknown): string[] {
+  return validateNotebook(json).errors;
+}
+
+/**
+ * Validate JSON before importing. `errors` reject the import; `warnings` are tolerated
+ * (D24): cross-card variable reads are scope smells, not corruption, so they only warn.
+ */
+export function validateNotebook(json: unknown): ValidationResult {
   const errors: string[] = [];
+  const warnings: string[] = [];
   if (!json || typeof json !== 'object') {
     errors.push('JSON must be an object');
-    return errors;
+    return { errors, warnings };
   }
   const obj = json as Record<string, unknown>;
   if (typeof obj.version !== 'number') errors.push('Missing or invalid "version" field');
+  else if (obj.version > SCHEMA_VERSION) {
+    errors.push('This file is from a newer version of the app — update the app, then import');
+  }
   if (!obj.notebook || typeof obj.notebook !== 'object') {
     errors.push('Missing "notebook" field');
-    return errors;
+    return { errors, warnings };
   }
   const nb = obj.notebook as Record<string, unknown>;
   if (typeof nb.name !== 'string') errors.push('notebook.name must be a string');
@@ -191,7 +206,7 @@ export function validateNotebookJSON(json: unknown): string[] {
   }
   if (!Array.isArray(nb.sections)) {
     errors.push('notebook.sections must be an array');
-    return errors;
+    return { errors, warnings };
   }
   nb.sections.forEach((s, si) => {
     if (!s || typeof s !== 'object') {
@@ -253,14 +268,17 @@ export function validateNotebookJSON(json: unknown): string[] {
       if (back !== undefined) validateSlotsField(errors, back, `${where}.back`);
       // Both faces of a flip card share one scope, so the graph check spans them.
       const allSlots = [...(Array.isArray(slots) ? slots : []), ...(Array.isArray(back) ? back : [])];
-      validateCardGraph(errors, allSlots, where);
+      validateCardGraph(errors, warnings, allSlots, where);
     });
   });
-  return errors;
+  return { errors, warnings };
 }
 
-/** Static variable-graph check per card: catches missing dependencies and cycles at import time. */
-function validateCardGraph(errors: string[], slots: unknown[], where: string): void {
+/**
+ * Static variable-graph check per card. Cycles are hard errors; missing dependencies
+ * (a read with no writer in the card — a cross-card read) are downgraded to warnings (D24).
+ */
+function validateCardGraph(errors: string[], warnings: string[], slots: unknown[], where: string): void {
   const decls: GraphDecl[] = [];
   slots.forEach((slot, sli) => {
     if (!slot || typeof slot !== 'object') return;
@@ -278,7 +296,10 @@ function validateCardGraph(errors: string[], slots: unknown[], where: string): v
       // invalid props already reported by slot validation; graph check skips them
     }
   });
-  for (const issue of findGraphIssues(decls)) errors.push(`${where}: ${issue}`);
+  for (const issue of findGraphIssues(decls)) {
+    if (issue.startsWith('missing dependency')) warnings.push(`${where}: ${issue}`);
+    else errors.push(`${where}: ${issue}`);
+  }
 }
 
 const isStringArray = (v: unknown): v is string[] =>
