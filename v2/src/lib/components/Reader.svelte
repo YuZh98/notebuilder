@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
   import { mode, toggleMode } from '../stores/mode';
-  import { THEMES, applyTheme, type ThemeId } from '../themes';
+  import { THEMES, applyTheme, normalizeThemeId, type ThemeId } from '../themes';
   import { toast } from '../toast.svelte';
   import SideBar from './SideBar.svelte';
   import Stage from './Stage.svelte';
@@ -22,16 +22,19 @@
   } from '../coverage-matrix';
   import type { Notebook, Card, Section, SlotProps } from '../types';
   import { uid } from '../uid';
-  import { stampCard, placeType, builtinCardTypes, type CardType, type Variety } from '../card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, type CardType, type Variety } from '../card-types';
   import {
     registerHistory,
     pushHistory,
     undo as histUndo,
     redo as histRedo,
+    abortEdit as histAbortEdit,
     canUndo,
     canRedo,
     type HistSnapshot,
   } from '../history.svelte';
+  import { handleAppKey, type KeyCtx } from '../keyboard';
+  import { exportNotebook, importNotebook, validateNotebookJSON, type NotebookJSON } from '../json-io';
   import { clampSideW } from '../shell';
   import {
     addSection,
@@ -54,7 +57,11 @@
   import { startPointerDrag } from '../drag/engine';
   import { makeNotebookDropCallbacks } from '../drag/notebook-drop';
 
-  let { notebook: initial, shared: sharedInit }: { notebook: Notebook; shared: boolean } = $props();
+  let {
+    notebook: initial,
+    shared: sharedInit,
+    initialTheme,
+  }: { notebook: Notebook; shared: boolean; initialTheme?: string } = $props();
 
   // The document lives entirely in memory here — no db, no localStorage. A reload reopens the file.
   let notebook: Notebook = $state(initial);
@@ -67,7 +74,7 @@
   let notesFor: string | null = $state(null);
   let galleryFor: string | null = $state(null);
 
-  let themeId: ThemeId = $state('');
+  let themeId: ThemeId = $state(normalizeThemeId(initialTheme ?? null));
   let openTheme = $state(false);
 
   let sideW = $state(312);
@@ -125,8 +132,83 @@
     // A shared file always opens locked into Study; Remix later unlocks the mode toggle.
     mode.set('study');
     applyTheme(themeId);
-    return () => delete document.body.dataset.theme;
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      delete document.body.dataset.theme;
+    };
   });
+
+  function sectionCardsOf(cardId: string | null): string[] {
+    if (!cardId) return [];
+    for (const s of notebook.sections) {
+      if (s.cards.some((c) => c.id === cardId)) return s.cards.map((c) => c.id);
+    }
+    return [];
+  }
+
+  // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
+  // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
+  function handleKey(e: KeyboardEvent) {
+    const el = e.target as HTMLElement | null;
+    const inField =
+      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const ctx: KeyCtx = {
+      inField,
+      singleLineField: false,
+      place: 'house',
+      mode: get(mode),
+      filterActive: mtxCells.length > 0,
+      selCard,
+      selSection,
+      selProd,
+      sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
+      cardIdsOfSelectedSection: sectionCardsOf(selCard),
+    };
+    const action = handleAppKey(e, ctx);
+    if (!action) return;
+    if (action.preventDefault) e.preventDefault();
+    switch (action.kind) {
+      case 'toggle-mode':
+        if (shared) break;
+        if (inField) el?.blur();
+        if (get(mode) === 'edit') enterStudy();
+        else toggleMode();
+        break;
+      case 'toast-save':
+        toast('everything autosaves — you’re always saved');
+        break;
+      case 'undo':
+        if (shared) break;
+        toast(histUndo() ? 'undo' : 'nothing to undo');
+        break;
+      case 'redo':
+        if (shared) break;
+        toast(histRedo() ? 'redo' : 'nothing to redo');
+        break;
+      case 'abort-or-blur':
+        if (!histAbortEdit()) el?.blur();
+        break;
+      case 'clear-filter':
+        mtxCells = [];
+        break;
+      case 'deselect':
+        selProd = null;
+        selCard = null;
+        selSection = null;
+        break;
+      case 'select-section':
+        selectSection(action.id);
+        document.querySelector(`[data-section="${action.id}"]`)?.scrollIntoView({ block: 'nearest' });
+        break;
+      case 'select-card':
+        selectCard(action.id);
+        break;
+      case 'blur-single-line':
+        el?.blur();
+        break;
+    }
+  }
 
   $effect(() => {
     document.body.classList.toggle('side-collapsed', sideCollapsed);
@@ -147,6 +229,50 @@
     selCard = null;
     selSection = null;
     selProd = null;
+  }
+
+  // Save-as-type mirrors App, minus persistence: the type lives only in this session's list.
+  function saveCardAsType(card: Card, name: string) {
+    const ct = cardToType($state.snapshot(card) as Card, name);
+    cardTypes = [...cardTypes, ct];
+    toast(`Saved card type "${name}"`);
+  }
+
+  // Post-Remix export: JSON blob download of the in-memory notebook (browser blob, no Tauri).
+  function exportJson() {
+    const data = JSON.stringify(exportNotebook($state.snapshot(notebook) as Notebook), null, 2);
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${notebook.name}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`Exported "${notebook.name}"`);
+  }
+
+  let fileInput: HTMLInputElement | null = $state(null);
+
+  async function importJson(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    let json: unknown;
+    try {
+      json = JSON.parse(await file.text());
+    } catch {
+      toast('File is not valid JSON', 4000);
+      return;
+    }
+    const errors = validateNotebookJSON(json);
+    if (errors.length > 0) {
+      toast(`Invalid notebook file:\n${errors.join('\n')}`, 4000);
+      return;
+    }
+    notebook = importNotebook(json as NotebookJSON);
+    selCard = null;
+    selSection = null;
+    toast(`Imported "${notebook.name}"`);
   }
 
   // D10 Remix: unlock authoring in memory. Edits never touch disk — a reload reopens the original.
@@ -461,6 +587,16 @@
       <span style="width:10px;display:inline-block"></span>
       <button class="btn sm" title="Undo" disabled={!undoable} onclick={() => toast(histUndo() ? 'undo' : 'nothing to undo')}>↶</button>
       <button class="btn sm" title="Redo" disabled={!redoable} onclick={() => toast(histRedo() ? 'redo' : 'nothing to redo')}>↷</button>
+      <span style="width:10px;display:inline-block"></span>
+      <button class="btn sm" title="Export notebook as JSON" data-act="export" onclick={exportJson}>⤓</button>
+      <button class="btn sm" title="Import a notebook JSON file" data-act="import" onclick={() => fileInput?.click()}>⤒</button>
+      <input
+        bind:this={fileInput}
+        type="file"
+        accept="application/json,.json"
+        style="display:none"
+        onchange={importJson}
+      />
       <!-- T6: re-Share the in-memory notebook via blob download (buildShareHtml lands in T6). -->
     {/if}
   </div>
@@ -512,7 +648,7 @@
     ondelete={() => removeCard(card.id)}
     onverb={(key, on) => setCardVerb(card, key, on)}
     ontags={(raw) => setCardTags(card, raw)}
-    onsavetype={() => {}}
+    onsavetype={(name) => saveCardAsType(card, name)}
     onupdateslot={(slotId, props) => updateSlotProps(card.id, slotId, props)}
     ondeleteslot={(slotId) => { pushHistory(); deleteSlot(notebook, card.id, slotId); }}
     onaddslot={(type, face) => { pushHistory(); addSlot(notebook, card.id, type, face); }}
@@ -567,6 +703,7 @@
     section={selectedSection}
     onrename={renameNotebook}
     ondelete={() => {}}
+    candelete={false}
     onpickprod={pickProduct}
     onplaceprod={placeProduct}
     onclosedetail={() => (selProd = null)}

@@ -4,10 +4,11 @@ export const PAYLOAD_ID = 'notebook-source';
 export const PAYLOAD_TYPE = 'application/notebuilder+json';
 
 /** Embedded share payload. T6's share.ts produces this; the Reader boots from it. */
-export type ReaderPayload = { shared: boolean; notebook: NotebookJSON };
+export type ReaderPayload = { shared: boolean; notebook: NotebookJSON; theme?: string };
 
 // Match the payload <script> by its id, tolerant of attribute order, capturing its inner text.
-const PAYLOAD_RE = /(<script\b[^>]*\bid="notebook-source"[^>]*>)([\s\S]*?)(<\/script>)/i;
+// The `\s` before `id=` guards against matching a longer attribute that merely ends in `id`.
+const PAYLOAD_RE = /(<script\b[^>]*\sid="notebook-source"[^>]*>)([\s\S]*?)(<\/script>)/i;
 
 /** Embed a JSON string as the payload script's content, escaping `</` so no tag closes early. */
 export function injectNotebook(template: string, json: string): string {

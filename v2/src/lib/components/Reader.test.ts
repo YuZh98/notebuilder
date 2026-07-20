@@ -24,7 +24,20 @@ function nb(): Notebook {
   };
 }
 
-afterEach(() => mode.set('edit'));
+afterEach(() => {
+  mode.set('edit');
+  delete document.body.dataset.theme;
+});
+
+async function remixToEdit(container: HTMLElement) {
+  await fireEvent.click(container.querySelector('[data-act="remix"]') as Element);
+  await tick();
+  const editBtn = [...container.querySelectorAll('#topright button')].find(
+    (b) => b.textContent?.trim() === 'Edit',
+  ) as HTMLElement;
+  await fireEvent.click(editBtn);
+  await tick();
+}
 
 describe('Reader — locked (shared) topbar', () => {
   it('shows the theme menu, brand chip, and a single Remix button; no author chrome', () => {
@@ -84,5 +97,72 @@ describe('Reader — Remix (D10)', () => {
 
     expect(container.querySelector('.room.edit')).not.toBeNull();
     expect(container.querySelector('.room-lock')).not.toBeNull();
+  });
+});
+
+describe('Reader — review fixes', () => {
+  it('save-as-type after Remix grows the local type list and toasts', async () => {
+    const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
+    await remixToEdit(container);
+
+    const typeBtn = container.querySelector(
+      '[title="Save this card as a reusable card type"]',
+    ) as HTMLElement;
+    expect(typeBtn).not.toBeNull();
+    await fireEvent.click(typeBtn);
+    await tick();
+
+    const input = container.querySelector('.type-name-input') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'My Type' } });
+    const saveBtn = [...container.querySelectorAll('.cardtools button')].find(
+      (b) => b.textContent?.trim() === 'save',
+    ) as HTMLElement;
+    await fireEvent.click(saveBtn);
+    await tick();
+
+    expect(toastState.message).toBe('Saved card type "My Type"');
+  });
+
+  it('the shared-Reader sidebar never offers the Delete-notebook button', async () => {
+    const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
+    await remixToEdit(container);
+    expect(container.querySelector('#side')?.textContent).not.toContain('Delete notebook');
+  });
+
+  it('post-Remix Cmd+Z triggers undo; pre-Remix it is inert', async () => {
+    const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
+
+    // pre-Remix (locked): the undo path is gated off entirely
+    toastState.message = 'sentinel';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true }));
+    await tick();
+    expect(toastState.message).toBe('sentinel');
+
+    await remixToEdit(container);
+    // make an undoable change (adds a section, pushing history)
+    const addSectionBtn = [...container.querySelectorAll('#topright button')].find((b) =>
+      b.textContent?.includes('section'),
+    ) as HTMLElement;
+    await fireEvent.click(addSectionBtn);
+    await tick();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true }));
+    await tick();
+    expect(toastState.message).toBe('undo');
+  });
+
+  it('applies an initialTheme at boot', async () => {
+    render(Reader, { props: { notebook: nb(), shared: true, initialTheme: 'cyber' } });
+    await tick();
+    expect(document.body.dataset.theme).toBe('cyber');
+  });
+
+  it('offers the JSON export button only after Remix', async () => {
+    const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
+    expect(container.querySelector('[data-act="export"]')).toBeNull();
+    await fireEvent.click(container.querySelector('[data-act="remix"]') as Element);
+    await tick();
+    expect(container.querySelector('[data-act="export"]')).not.toBeNull();
+    expect(container.querySelector('[data-act="import"]')).not.toBeNull();
   });
 });

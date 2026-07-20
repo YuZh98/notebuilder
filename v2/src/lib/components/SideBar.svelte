@@ -16,6 +16,7 @@
   let {
     notebookName,
     canPersist,
+    candelete = true,
     cardTypes,
     selProd,
     section,
@@ -30,6 +31,8 @@
   }: {
     notebookName: string;
     canPersist: boolean;
+    /** Whether the Delete-notebook control is offered (the shared Reader has no store to delete from). */
+    candelete?: boolean;
     cardTypes: CardType[];
     selProd: string | null;
     /** Currently selected (non-divider) section, or null — drives the Section ops panel. */
@@ -75,7 +78,9 @@
       <h3>📓 Notebook</h3>
       <div class="col">
         <input value={notebookName} placeholder="notebook name" data-history="edit" onchange={(e) => onrename(e.currentTarget.value)} />
-        <button class="btn warn" onclick={ondelete}>🗑 Delete notebook</button>
+        {#if candelete}
+          <button class="btn warn" onclick={ondelete}>🗑 Delete notebook</button>
+        {/if}
         {#if !canPersist}
           <p class="muted sm">Browser demo — changes are not saved.</p>
         {/if}
