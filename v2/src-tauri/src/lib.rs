@@ -102,6 +102,9 @@ pub fn run() {
             let export = MenuItemBuilder::with_id("export_json", "Export Notebook JSON…")
                 .accelerator("CmdOrCtrl+Shift+E")
                 .build(app)?;
+            let export_html = MenuItemBuilder::with_id("export_html", "Share as HTML…")
+                .accelerator("CmdOrCtrl+Shift+P")
+                .build(app)?;
 
             let menu = Menu::default(app.handle())?;
             let mut appended = false;
@@ -111,6 +114,7 @@ pub fn run() {
                         sub.append(&PredefinedMenuItem::separator(app)?)?;
                         sub.append(&import)?;
                         sub.append(&export)?;
+                        sub.append(&export_html)?;
                         appended = true;
                         break;
                     }
@@ -120,6 +124,7 @@ pub fn run() {
                 let file = SubmenuBuilder::new(app, "File")
                     .item(&import)
                     .item(&export)
+                    .item(&export_html)
                     .build()?;
                 menu.append(&file)?;
             }
@@ -133,6 +138,9 @@ pub fn run() {
                 }
                 "export_json" => {
                     let _ = app.emit("menu://export-json", ());
+                }
+                "export_html" => {
+                    let _ = app.emit("menu://export-html", ());
                 }
                 _ => {}
             }

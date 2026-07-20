@@ -17,6 +17,7 @@
     onsettheme,
     onaddsection,
     onaddchapter,
+    onshare,
     onexport,
     onimport,
     onplace,
@@ -35,6 +36,7 @@
     onsettheme: (id: ThemeId) => void;
     onaddsection: () => void;
     onaddchapter: () => void;
+    onshare: () => void;
     onexport: () => void;
     onimport: () => void;
     onplace: () => void;
@@ -192,7 +194,11 @@
     <button class="btn sm staged" disabled title="Redo">↷</button>
     {#if place !== 'factory'}
       <span style="width:8px;display:inline-block"></span>
-      <button class="btn primary share-btn staged" disabled title="One-file HTML share arrives in a later phase">Share</button>
+      <button
+        class="btn primary share-btn"
+        title="Save this notebook as one living HTML file — opens anywhere, fully interactive, no app needed"
+        onclick={onshare}
+      >Share</button>
       <span class="util-grp">
         <button class="btn sm ghost" title="Backup as JSON (data only)" onclick={onexport}>⤓</button>
         <button class="btn sm ghost" title="Import a notebook JSON" onclick={onimport}>⤒</button>

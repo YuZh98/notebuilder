@@ -70,7 +70,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
-  import { importNotebookFromFile, exportNotebookToFile } from './lib/share';
+  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
   import { resetPresentation } from './lib/presentation';
@@ -297,7 +297,15 @@
     } else if ('notebook' in result) {
       notebook = result.notebook;
       notebookList = [{ id: notebook.id, name: notebook.name }, ...notebookList];
-      toast(`Imported "${notebook.name}"`);
+      const n = result.warnings.length;
+      if (n > 0) {
+        toast(
+          `Imported "${notebook.name}" — ⚠ ${n} formula${n > 1 ? 's' : ''} reference variables outside their card — variables are card-scoped; fuse those slots into one card`,
+          6000,
+        );
+      } else {
+        toast(`Imported "${notebook.name}"`);
+      }
     }
   }
 
@@ -307,6 +315,15 @@
       toast(result.error, 4000);
     } else if ('path' in result) {
       toast(`Exported to ${result.path}`);
+    }
+  }
+
+  async function handleShare() {
+    const result = await shareNotebookToFile($state.snapshot(notebook), themeId);
+    if ('error' in result) {
+      toast(result.error, 4000);
+    } else if ('path' in result) {
+      toast('Shared — one file, opens anywhere, fully interactive');
     }
   }
 
@@ -660,6 +677,7 @@
       })();
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
+      void listen('menu://export-html', () => void handleShare()).then((un) => unlisteners.push(un));
     }
     function sectionCardsOf(cardId: string | null): string[] {
       if (!cardId) return [];
@@ -791,6 +809,7 @@
     pushHistory();
     addChapter(notebook);
   }}
+  onshare={() => void handleShare()}
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
   onplace={togglePlace}
