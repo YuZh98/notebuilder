@@ -49,8 +49,10 @@
     pushHistory,
     undo as histUndo,
     redo as histRedo,
+    abortEdit as histAbortEdit,
     type HistSnapshot,
   } from './lib/history.svelte';
+  import { handleAppKey, type KeyCtx } from './lib/keyboard';
   import { installEditCoalescing } from './lib/history-focus';
   import { place, togglePlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
@@ -649,31 +651,72 @@
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
     }
+    function sectionCardsOf(cardId: string | null): string[] {
+      if (!cardId) return [];
+      for (const s of notebook.sections) {
+        if (s.cards.some((c) => c.id === cardId)) return s.cards.map((c) => c.id);
+      }
+      return [];
+    }
     function handleKey(e: KeyboardEvent) {
-      if (e.metaKey && e.key === 'Enter') {
-        e.preventDefault();
-        if (get(place) === 'factory') toggleFacMode();
-        else toggleMode();
-      }
-      // Cmd/Ctrl+Z / +Shift+Z (or Ctrl+Y) — skipped while typing so fields keep native text undo.
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
-        const el = e.target as HTMLElement | null;
-        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-        e.preventDefault();
-        const wantRedo = e.key === 'y' || e.key === 'Y' || e.shiftKey;
-        if (wantRedo) {
-          if (histRedo()) toast('redone');
-        } else if (histUndo()) toast('undone');
-        return;
-      }
-      if (e.key === 'Escape') {
-        // Close the store detail panel first; a second Escape then clears card/section selection.
-        if (selProd) {
+      const el = e.target as HTMLElement | null;
+      const inField =
+        !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      const cur = get(place);
+      const ctx: KeyCtx = {
+        inField,
+        // CeText owns bare-Enter blur for single-line fields; the window handler never re-does it.
+        singleLineField: false,
+        place: cur,
+        mode: get(mode),
+        filterActive: mtxCells.length > 0,
+        selCard,
+        selSection,
+        selProd,
+        sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
+        cardIdsOfSelectedSection: sectionCardsOf(selCard),
+      };
+      const action = handleAppKey(e, ctx);
+      if (!action) return;
+      if (action.preventDefault) e.preventDefault();
+      switch (action.kind) {
+        case 'toggle-mode':
+          if (inField) el?.blur();
+          if (cur === 'factory') toggleFacMode();
+          else toggleMode();
+          break;
+        case 'toast-save':
+          toast('everything autosaves — you’re always saved');
+          break;
+        case 'undo':
+          toast(histUndo() ? 'undone' : 'nothing to undo');
+          break;
+        case 'redo':
+          toast(histRedo() ? 'redone' : 'nothing to redo');
+          break;
+        case 'abort-or-blur':
+          if (!histAbortEdit()) el?.blur();
+          break;
+        case 'clear-filter':
+          mtxCells = [];
+          break;
+        case 'deselect':
           selProd = null;
-          return;
-        }
-        selSection = null;
-        selCard = null;
+          selCard = null;
+          selSection = null;
+          break;
+        case 'select-section':
+          selectSection(action.id);
+          document
+            .querySelector(`[data-section="${action.id}"]`)
+            ?.scrollIntoView({ block: 'nearest' });
+          break;
+        case 'select-card':
+          selectCard(action.id);
+          break;
+        case 'blur-single-line':
+          el?.blur();
+          break;
       }
     }
     window.addEventListener('keydown', handleKey);
