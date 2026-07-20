@@ -28,8 +28,26 @@ export function buildShareHtml(notebook: Notebook, theme?: string): string {
   return injectNotebook(READER_TEMPLATE, JSON.stringify(payload));
 }
 
-/** File → Import: pick a JSON or shared-HTML file, validate, and return it as a new notebook. */
-export async function importNotebookFromFile(): Promise<ImportResult> {
+export type FilePicker = () => Promise<File | null>;
+
+/**
+ * File → Import: pick a JSON or shared-HTML file, validate, and return it as a new notebook.
+ * Inside Tauri this uses the native open dialog; in a plain browser it falls back to a hidden
+ * `<input type=file>` (injectable as `pick` for tests, mirroring shareNotebookToFile's branch).
+ */
+export async function importNotebookFromFile(pick: FilePicker = pickFileInBrowser): Promise<ImportResult> {
+  if (!isTauri()) {
+    const file = await pick();
+    if (!file) return { cancelled: true };
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (e) {
+      return { error: `Could not read file: ${message(e)}` };
+    }
+    return importFromText(text, file.name.toLowerCase().endsWith('.html'));
+  }
+
   const path = await open({ multiple: false, directory: false, filters: IMPORT_FILTER });
   if (typeof path !== 'string') return { cancelled: true };
 
@@ -39,10 +57,14 @@ export async function importNotebookFromFile(): Promise<ImportResult> {
   } catch (e) {
     return { error: `Could not read file: ${message(e)}` };
   }
+  return importFromText(text, path.toLowerCase().endsWith('.html'));
+}
 
+/** Parse (JSON or embedded-HTML payload), validate, and import notebook text. */
+function importFromText(text: string, isHtml: boolean): ImportResult {
   let json: unknown;
   try {
-    json = path.toLowerCase().endsWith('.html') ? payloadFromHtml(text) : JSON.parse(text);
+    json = isHtml ? payloadFromHtml(text) : JSON.parse(text);
   } catch (e) {
     return { error: `Could not read notebook: ${message(e)}` };
   }
@@ -55,6 +77,24 @@ export async function importNotebookFromFile(): Promise<ImportResult> {
   } catch (e) {
     return { error: `Import failed: ${message(e)}` };
   }
+}
+
+/** Browser file-open: a transient hidden input resolving to the chosen file (or null on cancel). */
+function pickFileInBrowser(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.html';
+    input.style.display = 'none';
+    const done = (file: File | null) => {
+      input.remove();
+      resolve(file);
+    };
+    input.addEventListener('change', () => done(input.files?.[0] ?? null), { once: true });
+    input.addEventListener('cancel', () => done(null), { once: true });
+    document.body.appendChild(input);
+    input.click();
+  });
 }
 
 /** A shared .html file embeds a ReaderPayload; the importable notebook is its `.notebook`. */
@@ -82,8 +122,8 @@ export async function shareNotebookToFile(notebook: Notebook, theme?: string): P
   }
 }
 
-function downloadInBrowser(html: string, name: string): void {
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+function downloadInBrowser(text: string, name: string, mime = 'text/html'): void {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
@@ -91,13 +131,22 @@ function downloadInBrowser(html: string, name: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
-/** File → Export: serialize the notebook (document layer only) and write it where the user picks. */
+/**
+ * File → Export: serialize the notebook (document layer only) and write it out. Inside Tauri
+ * this opens the native save dialog; in a plain browser it downloads via a blob anchor.
+ */
 export async function exportNotebookToFile(notebook: Notebook): Promise<ExportResult> {
-  const path = await save({ defaultPath: `${notebook.name}.json`, filters: JSON_FILTER });
+  const json = JSON.stringify(exportNotebook(notebook), null, 2);
+  const name = `${notebook.name}.json`;
+  if (!isTauri()) {
+    downloadInBrowser(json, name, 'application/json');
+    return { path: name };
+  }
+  const path = await save({ defaultPath: name, filters: JSON_FILTER });
   if (typeof path !== 'string') return { cancelled: true };
 
   try {
-    await writeTextFile(path, JSON.stringify(exportNotebook(notebook), null, 2));
+    await writeTextFile(path, json);
     return { path };
   } catch (e) {
     return { error: `Could not write file: ${message(e)}` };
