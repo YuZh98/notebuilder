@@ -7,15 +7,21 @@ import { beginEdit, endEdit } from './history.svelte';
  * Reader fields (search) and transient draft modals carry no attribute, so they never arm.
  */
 export function installEditCoalescing(root: Window = window): () => void {
-  const onInput = (e: Event) => {
+  const arm = (e: Event) => {
     const t = e.target;
     if (t instanceof Element && t.closest('[data-history="edit"]')) beginEdit();
   };
+  // Also arm on `change`: discrete controls (checkbox/select) in a webview that fires
+  // only `change` (no `input`) would otherwise mutate author state with zero undo steps.
+  // `change` fires before `focusout`, so a text field's commit lands in the open session;
+  // beginEdit is idempotent, so the input+change double-fire coalesces to one step.
   const onFocusOut = () => endEdit();
-  root.addEventListener('input', onInput, true);
+  root.addEventListener('input', arm, true);
+  root.addEventListener('change', arm, true);
   root.addEventListener('focusout', onFocusOut, true);
   return () => {
-    root.removeEventListener('input', onInput, true);
+    root.removeEventListener('input', arm, true);
+    root.removeEventListener('change', arm, true);
     root.removeEventListener('focusout', onFocusOut, true);
   };
 }
