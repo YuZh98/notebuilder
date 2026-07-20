@@ -90,7 +90,7 @@
         {#if hsub}<div class="house-sub">{@html renderMarkdown(hsub)}</div>{/if}
       </div>
     {:else}
-      <div class="hh-titles">
+      <div class="hh-titles" data-history="edit">
         <CeText
           value={notebook.name}
           multiline={false}

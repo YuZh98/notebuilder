@@ -16,6 +16,7 @@
     typeToBench,
   } from '../bench.svelte';
   import { VAR } from '../var-colors';
+  import { pushHistory } from '../history.svelte';
   import { STORES, prodIcon, type CardType } from '../card-types';
   import type { Slot } from '../types';
 
@@ -38,6 +39,7 @@
 
   function fork(ct: CardType) {
     // v1 loadprod (70-events:139): copy into a fresh bench and stay in the Factory.
+    pushHistory();
     addBench(typeToBench($state.snapshot(ct) as CardType));
     toast(`copied "${ct.name}" — edit freely, then seal`);
   }
@@ -69,6 +71,7 @@
   }
 
   function addSlot(type: string) {
+    pushHistory();
     addBenchSlot(b, type, factory.face === 'back' ? 'back' : undefined);
   }
 
@@ -77,10 +80,12 @@
       toast('select a slot first — click it on the bench');
       return;
     }
+    pushHistory();
     setSlotVerb(factory.sel, key, !selSlot?.verbs?.[key]);
   }
 
   function setColor(accent: string) {
+    pushHistory();
     b.accent = accent || undefined;
   }
 
@@ -102,6 +107,7 @@
 
   function delSlot() {
     if (!selSlot) return;
+    pushHistory();
     deleteBenchSlot(b, selSlot.id);
     factory.sel = null;
   }
@@ -131,7 +137,10 @@
           class:on={b.verbs?.[v.key]}
           draggable="true"
           ondragstart={(e) => drag(e, 'text/nb-verb', v.key)}
-          onclick={() => setBenchVerb(b, v.key, !b.verbs?.[v.key])}>{v.icon} {v.label}</button>
+          onclick={() => {
+            pushHistory();
+            setBenchVerb(b, v.key, !b.verbs?.[v.key]);
+          }}>{v.icon} {v.label}</button>
       {/each}
     </div>
   </div>

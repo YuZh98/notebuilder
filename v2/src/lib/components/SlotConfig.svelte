@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fuseSplit } from '../drag/geometry';
+  import { pushHistory } from '../history.svelte';
   import type { Slot, VerbConfig } from '../types';
 
   let {
@@ -54,7 +55,10 @@
               <button
                 class="chip xs"
                 class:on={reveal.key === k}
-                onclick={() => patchReveal({ key: k })}>{k}</button>
+                onclick={() => {
+                  pushHistory();
+                  patchReveal({ key: k });
+                }}>{k}</button>
             {/each}
           {:else}
             <span class="muted sm">add a slider/number/choice first</span>
@@ -65,11 +69,15 @@
             <button
               class="chip xs"
               class:on={reveal.op === o}
-              onclick={() => patchReveal({ op: o })}>{o}</button>
+              onclick={() => {
+                pushHistory();
+                patchReveal({ op: o });
+              }}>{o}</button>
           {/each}
         </span>
         <input
           style="width:64px"
+          data-history="edit"
           value={reveal.val ?? ''}
           placeholder="val"
           oninput={(e) => patchReveal({ val: coerce(e.currentTarget.value) })}
@@ -87,7 +95,10 @@
         class="chip"
         class:on={slot.fuse}
         title="put this slot on the same row as the next one"
-        onclick={() => onpatch({ fuse: !slot.fuse })}
+        onclick={() => {
+          pushHistory();
+          onpatch({ fuse: !slot.fuse });
+        }}
         >⛓ {slot.fuse ? 'fused with next' : 'fuse with next'}</button>
     </div>
     {#if slot.fuse}
@@ -98,6 +109,7 @@
           type="range"
           min="15"
           max="85"
+          data-history="edit"
           value={ratioPct}
           oninput={(e) => setRatio(Number(e.currentTarget.value))}
         />

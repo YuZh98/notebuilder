@@ -46,10 +46,12 @@
   import {
     registerHistory,
     clearHistory,
+    pushHistory,
     undo as histUndo,
     redo as histRedo,
     type HistSnapshot,
   } from './lib/history.svelte';
+  import { installEditCoalescing } from './lib/history-focus';
   import { place, togglePlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
@@ -331,15 +333,18 @@
     }
     if (selSection === section.id) selSection = null;
     if (section.cards.some((c) => c.id === selCard)) selCard = null;
+    pushHistory();
     deleteSection(notebook, section.id);
   }
 
   function removeCard(cardId: string) {
     if (selCard === cardId) selCard = null;
+    pushHistory();
     deleteCard(notebook, cardId);
   }
 
   function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
+    pushHistory();
     const verbs = { ...card.verbs, [key]: on || undefined };
     card.verbs = verbs.flip || verbs.bare ? verbs : undefined;
     if (key === 'flip' && on && !card.back) card.back = [];
@@ -404,12 +409,14 @@
       toast('select a section first');
       return;
     }
+    pushHistory();
     setSectionService(selectedSection, key, !selectedSection.services?.[key]);
   }
 
   // Native chip dropped on a section body enables the service (v1 100-drag-furniture.js:12-15).
   function attachSectionService(section: Section, key: ServiceKey) {
     if (section.kind === 'divider') return;
+    pushHistory();
     setSectionService(section, key, true);
     toast(`added “${svcLabel(key)}” to ${section.name}`);
   }
@@ -417,16 +424,19 @@
   // Native chip dropped on the dustbin disables it on the selected section (v1 130-boot.js:22).
   function detachSectionService(key: ServiceKey) {
     if (!selectedSection?.services?.[key]) return;
+    pushHistory();
     setSectionService(selectedSection, key, false);
     toast(`removed “${svcLabel(key)}” from ${selectedSection.name}`);
   }
 
   function togglePinCard(card: Card) {
+    pushHistory();
     togglePin(card);
   }
 
   function toggleArchiveCard(section: Section, card: Card) {
     const on = session.showArch[section.id] !== true;
+    pushHistory();
     setArchived(card, on);
     toast(on ? 'archived — see the Archive view' : 'restored');
   }
@@ -518,6 +528,7 @@
   }
 
   function confirmSeal(o: SealOutcome) {
+    pushHistory();
     const b = sealBench;
     if (b) {
       // Mirror the sealed metadata back onto the bench (v1 sealConfirm 80-actions:29,31).
@@ -545,6 +556,7 @@
   function stampFromGallery(sectionId: string, ct: CardType) {
     const section = notebook.sections.find((s) => s.id === sectionId);
     if (!section || section.kind === 'divider') return;
+    pushHistory();
     section.cards.push(stampCard($state.snapshot(ct) as CardType, sectionId, section.cards.length));
     galleryFor = null;
   }
@@ -566,6 +578,7 @@
       toast('add a section first');
       return;
     }
+    pushHistory();
     // Overlay the draft onto a pure copy of the type's slot templates (by index) before stamping.
     const snap = $state.snapshot(ct) as CardType;
     const drafted: CardType = {
@@ -588,6 +601,7 @@
   async function removeCardType(ct: CardType) {
     const ok = await confirmDialog(`Delete card type "${ct.name}"?`, 'Delete Card Type');
     if (!ok) return;
+    pushHistory();
     cardTypes = cardTypes.filter((t) => t.id !== ct.id);
     if (isTauri()) void deleteCardType(ct.id);
   }
@@ -596,6 +610,7 @@
   onMount(() => {
     const unlisteners: Array<() => void> = [];
     registerHistory({ capture: captureHistory, restore: restoreHistory });
+    unlisteners.push(installEditCoalescing());
     delete document.documentElement.dataset.theme;
     if (isTauri()) {
       void (async () => {
@@ -714,13 +729,22 @@
   onswitch={(id) => void switchNotebook(id)}
   oncreate={newNotebook}
   onsettheme={setTheme}
-  onaddsection={() => addSection(notebook)}
-  onaddchapter={() => addChapter(notebook)}
+  onaddsection={() => {
+    pushHistory();
+    addSection(notebook);
+  }}
+  onaddchapter={() => {
+    pushHistory();
+    addChapter(notebook);
+  }}
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
   onplace={togglePlace}
   onfacmode={toggleFacMode}
-  onaddbench={() => addBench()}
+  onaddbench={() => {
+    pushHistory();
+    addBench();
+  }}
 />
 
 {#snippet matrix()}
@@ -742,12 +766,23 @@
   <div class="section-head">
     <input
       class="section-name"
+      data-history="edit"
       value={section.name}
       disabled={section.locked}
       onchange={(e) => renameSection(notebook, section.id, e.currentTarget.value)}
     />
-    <button title="Move section up" onclick={() => moveSection(notebook, section.id, -1)}>↑</button>
-    <button title="Move section down" onclick={() => moveSection(notebook, section.id, 1)}>↓</button>
+    <button
+      title="Move section up"
+      onclick={() => {
+        pushHistory();
+        moveSection(notebook, section.id, -1);
+      }}>↑</button>
+    <button
+      title="Move section down"
+      onclick={() => {
+        pushHistory();
+        moveSection(notebook, section.id, 1);
+      }}>↓</button>
     {#if !section.locked}
       <button title="Delete section" onclick={() => void removeSection(section)}>✕</button>
     {/if}
@@ -764,14 +799,23 @@
     notesOpen={notesFor === card.id}
     onselect={() => selectCard(card.id)}
     onstate={(slotId, next) => onSlotState(card.id, slotId, next)}
-    onmove={(dir) => moveCard(notebook, card.id, dir)}
+    onmove={(dir) => {
+      pushHistory();
+      moveCard(notebook, card.id, dir);
+    }}
     ondelete={() => removeCard(card.id)}
     onverb={(key, on) => setCardVerb(card, key, on)}
     ontags={(raw) => setCardTags(card, raw)}
     onsavetype={(name) => saveCardAsType(card, name)}
     onupdateslot={(slotId, props) => updateSlotProps(card.id, slotId, props)}
-    ondeleteslot={(slotId) => deleteSlot(notebook, card.id, slotId)}
-    onaddslot={(type, face) => addSlot(notebook, card.id, type, face)}
+    ondeleteslot={(slotId) => {
+      pushHistory();
+      deleteSlot(notebook, card.id, slotId);
+    }}
+    onaddslot={(type, face) => {
+      pushHistory();
+      addSlot(notebook, card.id, type, face);
+    }}
     progresscompletion={(props) =>
       computeProgress(progressCards(section, props), readerState, props.track as string[] | undefined)}
     alltags={notebookTags}
@@ -791,7 +835,12 @@
 
 {#snippet sectionFooter(section: Section)}
   <div class="add-row">
-    <button class="add-card" onclick={() => addCard(notebook, section.id)}>+ blank card</button>
+    <button
+      class="add-card"
+      onclick={() => {
+        pushHistory();
+        addCard(notebook, section.id);
+      }}>+ blank card</button>
     <button
       class="add-card"
       onclick={() => (galleryFor = galleryFor === section.id ? null : section.id)}
@@ -816,7 +865,12 @@
 
 {#snippet stageFooter()}
   {#if $mode === 'edit'}
-    <button class="add-section" onclick={() => addSection(notebook)}>+ section</button>
+    <button
+      class="add-section"
+      onclick={() => {
+        pushHistory();
+        addSection(notebook);
+      }}>+ section</button>
   {/if}
 {/snippet}
 

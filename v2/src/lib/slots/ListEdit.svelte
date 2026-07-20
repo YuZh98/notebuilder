@@ -3,6 +3,7 @@
   import { startPointerDrag, type EngineCallbacks } from '../drag/engine';
   import { reorderItems, remapChecked } from '../drag/qopt-remap';
   import { pushGestureSnapshot } from '../drag/gesture-history';
+  import { pushHistory } from '../history.svelte';
 
   // `state` is the external prop name; aliased so it cannot shadow the $state rune.
   let { props, onUpdate, state: readerState = {}, onState } = $props<{
@@ -53,10 +54,12 @@
   }
 
   function addItem() {
+    pushHistory();
     onUpdate({ ...props, items: [...props.items, ''] });
   }
 
   function removeItem(index: number) {
+    pushHistory();
     const items = props.items.filter((_: string, i: number) => i !== index);
     onUpdate({ ...props, items: items.length > 0 ? items : [''] });
   }

@@ -74,7 +74,7 @@
     <div class="sect">
       <h3>📓 Notebook</h3>
       <div class="col">
-        <input value={notebookName} placeholder="notebook name" onchange={(e) => onrename(e.currentTarget.value)} />
+        <input value={notebookName} placeholder="notebook name" data-history="edit" onchange={(e) => onrename(e.currentTarget.value)} />
         <button class="btn warn" onclick={ondelete}>🗑 Delete notebook</button>
         {#if !canPersist}
           <p class="muted sm">Browser demo — changes are not saved.</p>

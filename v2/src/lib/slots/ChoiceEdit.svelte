@@ -3,6 +3,7 @@
   import { startPointerDrag, type EngineCallbacks } from '../drag/engine';
   import { reorderItems, remapAnswers } from '../drag/qopt-remap';
   import { pushGestureSnapshot } from '../drag/gesture-history';
+  import { pushHistory } from '../history.svelte';
 
   let { props, onUpdate } = $props<{
     props: ChoiceProps;
@@ -46,11 +47,13 @@
   }
 
   function addOption() {
+    pushHistory();
     onUpdate({ ...props, options: [...props.options, ''] });
   }
 
   function removeOption(idx: number) {
     if (props.options.length <= 2) return;
+    pushHistory();
     const options = props.options.filter((_: string, i: number) => i !== idx);
     const newAnswer = answer.filter((a: number) => a !== idx).map((a: number) => (a > idx ? a - 1 : a));
     onUpdate({ ...props, options, answer: newAnswer });

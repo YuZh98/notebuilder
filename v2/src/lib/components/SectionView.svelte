@@ -5,7 +5,7 @@
   import { sectionsOfChapter } from '../notebook-ops';
   import { startEdgeResize } from '../drag/resize';
   import { clampRoomW } from '../drag/geometry';
-  import { captureNow, pushSnapshot } from '../history.svelte';
+  import { captureNow, pushSnapshot, pushHistory } from '../history.svelte';
   import { session, studyOrder } from '../session.svelte';
   import { visibleCards, archivedCount } from '../service-ops';
   import { svcBarItems, reorderSvc, flipAllApplicable, type ServiceKey } from '../services';
@@ -90,6 +90,7 @@
   function removeSvc(key: ServiceKey) {
     const services = { ...(section.services ?? {}) };
     delete services[key];
+    pushHistory();
     onpatch({ services: Object.keys(services).length ? services : undefined });
   }
 
@@ -156,10 +157,12 @@
   }
 
   function toggleFold() {
+    pushHistory();
     onpatch({ folded: section.folded ? undefined : true });
   }
 
   function toggleLock() {
+    pushHistory();
     onpatch({ locked: section.locked ? undefined : true });
   }
 
@@ -201,21 +204,23 @@
 {/snippet}
 
 {#snippet editTitles()}
-  <CeText
-    value={section.title ?? ''}
-    multiline={false}
-    placeholder="room title (optional · ## = heading · $math$)"
-    viewClass="room-title"
-    editClass="ce-title"
-    onchange={setTitle}
-  />
-  <CeText
-    value={section.subtitle ?? ''}
-    placeholder="subtitle (optional)"
-    viewClass="room-sub"
-    editClass="ce-sub"
-    onchange={setSubtitle}
-  />
+  <span data-history="edit" style="display:contents">
+    <CeText
+      value={section.title ?? ''}
+      multiline={false}
+      placeholder="room title (optional · ## = heading · $math$)"
+      viewClass="room-title"
+      editClass="ce-title"
+      onchange={setTitle}
+    />
+    <CeText
+      value={section.subtitle ?? ''}
+      placeholder="subtitle (optional)"
+      viewClass="room-sub"
+      editClass="ce-sub"
+      onchange={setSubtitle}
+    />
+  </span>
 {/snippet}
 
 {#if section.kind === 'divider'}

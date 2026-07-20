@@ -18,6 +18,7 @@
   } from '../bench.svelte';
   import { toast } from '../toast.svelte';
   import { pushGestureSnapshot } from '../drag/gesture-history';
+  import { pushHistory } from '../history.svelte';
   import type { Card } from '../types';
 
   let {
@@ -73,10 +74,12 @@
     if (has(e, 'text/nb-verb')) {
       e.preventDefault();
       const verb = e.dataTransfer!.getData('text/nb-verb') as 'flip' | 'bare';
+      pushHistory();
       setBenchVerb(b, verb, true);
       toast(verb === 'flip' ? 'flip applied — back face created' : 'frameless applied');
     } else if (has(e, 'text/nb-col')) {
       e.preventDefault();
+      pushHistory();
       b.accent = e.dataTransfer!.getData('text/nb-col') || undefined;
       toast('look applied');
     }
@@ -99,12 +102,14 @@
         return;
       }
       const key = e.dataTransfer!.getData('text/nb-sverb') as 'reveal' | 'glow' | 'emphasis';
+      pushHistory();
       setSlotVerb(at, key, true);
       factory.sel = at;
       toast('effect applied');
     } else if (has(e, 'text/nb-slot')) {
       e.preventDefault();
       e.stopPropagation();
+      pushHistory();
       addBenchSlot(b, e.dataTransfer!.getData('text/nb-slot'), back ? 'back' : undefined, at >= 0 ? at : undefined);
     }
   }
@@ -185,15 +190,28 @@
           },
       onmove: noop,
       ondelete: noop,
-      onverb: editable ? (key: 'flip' | 'bare', on: boolean) => setBenchVerb(b, key, on) : noop,
+      onverb: editable
+        ? (key: 'flip' | 'bare', on: boolean) => {
+            pushHistory();
+            setBenchVerb(b, key, on);
+          }
+        : noop,
       ontags: noop,
       onsavetype: noop,
       onupdateslot: editable
         ? (slotId: string, props: Record<string, unknown>) => updateBenchSlot(b, slotId, props)
         : noop,
-      ondeleteslot: editable ? (slotId: string) => deleteBenchSlot(b, slotId) : noop,
+      ondeleteslot: editable
+        ? (slotId: string) => {
+            pushHistory();
+            deleteBenchSlot(b, slotId);
+          }
+        : noop,
       onaddslot: editable
-        ? (type: string, face?: 'back') => addBenchSlot(b, type, face ?? (factory.face === 'back' ? 'back' : undefined))
+        ? (type: string, face?: 'back') => {
+            pushHistory();
+            addBenchSlot(b, type, face ?? (factory.face === 'back' ? 'back' : undefined));
+          }
         : noop,
       progresscompletion: () => ({ done: 0, total: 0, pct: 0 }),
       ontogglenotes: noop,
@@ -229,7 +247,7 @@
           <div class="row bench-head">
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <span class="grip" role="presentation" onpointerdown={(e) => benchDown(e, b)}>⋮⋮</span>
-            <span class="bench-name-wrap">
+            <span class="bench-name-wrap" data-history="edit">
               <CeText
                 value={b.name}
                 onchange={(v) => renameBench(b, v)}
@@ -240,19 +258,24 @@
             <button
               class="btn sm"
               title="Duplicate this container (great for making a variety)"
-              onclick={() => dupBench(b.id)}>⎘ Duplicate</button>
+              onclick={() => {
+                pushHistory();
+                dupBench(b.id);
+              }}>⎘ Duplicate</button>
             <button class="btn sm" title="Seal a copy into the Inventory" onclick={() => onseal(b.id)}
               >🔒 Seal</button>
             <button class="btn sm warn" title="Delete this container" onclick={() => removeBench(b.id)}
               >✕</button>
           </div>
-          <CeText
-            value={b.note ?? ''}
-            onchange={(v) => setNote(b, v)}
-            placeholder="note — shipped with the product (optional · $math$)"
-            viewClass="ce-sub"
-            editClass="ce-sub"
-          />
+          <span data-history="edit" style="display:contents">
+            <CeText
+              value={b.note ?? ''}
+              onchange={(v) => setNote(b, v)}
+              placeholder="note — shipped with the product (optional · $math$)"
+              viewClass="ce-sub"
+              editClass="ce-sub"
+            />
+          </span>
           {#if b.verbs?.flip}
             <div class="palette bench-faces">
               <button

@@ -283,7 +283,7 @@
 {#snippet editBody(slot: Slot)}
   {@const slotType = getSlot(slot.type)}
   {#if slotType}
-    <div class="slot editing">
+    <div class="slot editing" data-history="edit">
       {#if slot.type === 'progress'}
         <ProgressEdit
           props={slot.props as ProgressProps}
@@ -442,6 +442,7 @@
           /> bare</label>
         <input
           class="tags-input"
+          data-history="edit"
           placeholder="tags, comma-separated"
           value={card.tags?.join(', ') ?? ''}
           onchange={(e) => ontags(e.currentTarget.value)}
@@ -450,6 +451,7 @@
         {#if namingType}
           <input
             class="type-name-input"
+            data-history="edit"
             placeholder="Card type name"
             bind:value={typeNameDraft}
             onkeydown={(e) => {
