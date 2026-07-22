@@ -191,4 +191,23 @@ describe('SideFactory', () => {
     const { container } = render(SideFactory, { props: { cardTypes: [type()] } });
     expect(inventory(container)).toBeUndefined();
   });
+
+  it('inventory lanes carry data-lane and documented titles for discoverability', () => {
+    factory.sel = null;
+    const { container } = render(SideFactory, { props: { cardTypes: [type()] } });
+    const inv = inventory(container);
+    expect(inv).toBeDefined();
+    // The h3 title documents the full interaction grammar
+    const h3 = inv.querySelector('h3')!;
+    expect(h3.getAttribute('title')).toContain('Drag a product to reorder');
+    expect(h3.getAttribute('title')).toContain('onto the bench to fork');
+    // Each lane has data-lane
+    const lane = inv.querySelector('[data-lane]') as HTMLElement;
+    expect(lane).not.toBeNull();
+    // Product chips have the per-chip hint
+    const chip = inv.querySelector('.prodchip') as HTMLElement;
+    expect(chip).not.toBeNull();
+    expect(chip.getAttribute('title')).toContain('click to copy into a new container');
+    expect(chip.getAttribute('title')).toContain('drag to reorder');
+  });
 });

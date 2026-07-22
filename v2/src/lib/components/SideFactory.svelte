@@ -199,7 +199,7 @@
 
   {#if factory.sel == null}
     <div class="sect">
-      <h3 title="Click a product to fork a copy into a new container, then edit and seal.">📦 Inventory</h3>
+      <h3 title="Drag a product to reorder · between lanes to move its store · onto the bench to fork a copy. Click to edit it.">📦 Inventory</h3>
       {#each invLanes as lane (invKey(lane.id))}
         {@const items = invItems(lane.id)}
         <div class="store-lane" data-lane={invKey(lane.id)}>
@@ -231,7 +231,7 @@
                     <button
                       class="chip prodchip"
                       data-prod={ct.id}
-                      title={`${ct.name} — click to fork a copy into a new container`}
+                      title={`${ct.name} — click to copy into a new container · drag to reorder/move`}
                       onpointerdown={(e) => ongrip?.(ct.id, e, e.currentTarget)}
                       onclick={() => fork(ct)}>{prodIcon(ct)} {ct.name}</button>
                     <button
