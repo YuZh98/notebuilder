@@ -25,6 +25,10 @@
     onenterstudy,
     onfacmode,
     onaddbench,
+    canUndo = false,
+    canRedo = false,
+    onundo,
+    onredo,
   }: {
     notebooks: { id: string; name: string }[];
     currentId: string;
@@ -44,6 +48,10 @@
     onenterstudy: () => void;
     onfacmode: () => void;
     onaddbench: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
+    onundo?: () => void;
+    onredo?: () => void;
   } = $props();
 
   let openMenu: 'theme' | 'nb' | null = $state(null);
@@ -192,8 +200,8 @@
       {/if}
     {/if}
     <span style="width:10px;display:inline-block"></span>
-    <button class="btn sm staged" disabled title="Undo">↶</button>
-    <button class="btn sm staged" disabled title="Redo">↷</button>
+    <button class="btn sm" title="Undo" disabled={!canUndo} onclick={() => onundo?.()}>↶</button>
+    <button class="btn sm" title="Redo" disabled={!canRedo} onclick={() => onredo?.()}>↷</button>
     {#if place !== 'factory'}
       <span style="width:8px;display:inline-block"></span>
       <button

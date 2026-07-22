@@ -25,6 +25,31 @@ const cardCount = (c: HTMLElement) => c.querySelectorAll('[data-card]').length;
 const sectionCount = (c: HTMLElement) => c.querySelectorAll('.room[data-section]').length;
 
 describe('undo coverage — discrete author mutations', () => {
+  it('toolbar undo and Cmd+Z produce identical state', async () => {
+    const { container } = render(App);
+    await tick();
+    const before = cardCount(container);
+    // Delete a card to create an undo step
+    const del = container.querySelector<HTMLButtonElement>('button[title="Delete card"]')!;
+    await fireEvent.click(del);
+    await tick();
+    expect(cardCount(container)).toBe(before - 1);
+    // Undo via toolbar button
+    const undoBtn = container.querySelector<HTMLButtonElement>('button[title="Undo"]')!;
+    expect(undoBtn.disabled).toBe(false);
+    await fireEvent.click(undoBtn);
+    await tick();
+    expect(cardCount(container)).toBe(before);
+    // Delete again, this time undo via Cmd+Z
+    const del2 = container.querySelector<HTMLButtonElement>('button[title="Delete card"]')!;
+    await fireEvent.click(del2);
+    await tick();
+    expect(cardCount(container)).toBe(before - 1);
+    await fireEvent.keyDown(container, { key: 'z', metaKey: true });
+    await tick();
+    expect(cardCount(container)).toBe(before);
+  });
+
   it('delete a card via the ✕ button, then undo restores it', async () => {
     const { container } = render(App);
     await tick();

@@ -60,6 +60,36 @@ describe('TopBar share cluster', () => {
   });
 });
 
+describe('TopBar undo/redo buttons', () => {
+  it('renders undo enabled and calls onundo when canUndo is true', async () => {
+    const onundo = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ canUndo: true, canRedo: false, onundo, onredo: vi.fn() }) });
+    const btn = container.querySelector<HTMLButtonElement>('button[title="Undo"]')!;
+    expect(btn).not.toBeNull();
+    expect(btn.disabled).toBe(false);
+    await fireEvent.click(btn);
+    expect(onundo).toHaveBeenCalledOnce();
+  });
+
+  it('renders redo enabled and calls onredo when canRedo is true', async () => {
+    const onredo = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ canUndo: false, canRedo: true, onundo: vi.fn(), onredo }) });
+    const btn = container.querySelector<HTMLButtonElement>('button[title="Redo"]')!;
+    expect(btn).not.toBeNull();
+    expect(btn.disabled).toBe(false);
+    await fireEvent.click(btn);
+    expect(onredo).toHaveBeenCalledOnce();
+  });
+
+  it('disables both when stacks are empty', () => {
+    const { container } = render(TopBar, { props: baseProps({ canUndo: false, canRedo: false, onundo: vi.fn(), onredo: vi.fn() }) });
+    const undo = container.querySelector<HTMLButtonElement>('button[title="Undo"]')!;
+    const redo = container.querySelector<HTMLButtonElement>('button[title="Redo"]')!;
+    expect(undo.disabled).toBe(true);
+    expect(redo.disabled).toBe(true);
+  });
+});
+
 describe('TopBar print action', () => {
   afterEach(() => vi.useRealTimers());
 

@@ -50,6 +50,8 @@
     undo as histUndo,
     redo as histRedo,
     abortEdit as histAbortEdit,
+    canUndo,
+    canRedo,
     type HistSnapshot,
   } from './lib/history.svelte';
   import { handleAppKey, type KeyCtx } from './lib/keyboard';
@@ -132,6 +134,10 @@
 
   // Effective axes (pure fallback) + matrix visibility, rebuilt from the selection.
   const matrixAxes = $derived(effectiveAxes(matrixDims(notebook, cardTypes), mtxRow, mtxCol));
+
+  // Undo/redo availability — drives the TopBar buttons.
+  const undoable = $derived(canUndo());
+  const redoable = $derived(canRedo());
 
   // null = no filter (show everything); otherwise the set of cards matching a selected cell.
   const visibleCardIds: Set<string> | null = $derived.by(() => {
@@ -833,6 +839,10 @@
     pushHistory();
     addBench();
   }}
+  canUndo={undoable}
+  canRedo={redoable}
+  onundo={() => { toast(histUndo() ? 'undo' : 'nothing to undo'); }}
+  onredo={() => { toast(histRedo() ? 'redo' : 'nothing to redo'); }}
 />
 
 {#snippet matrix()}
