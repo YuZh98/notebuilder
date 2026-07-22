@@ -56,7 +56,7 @@
   } from './lib/history.svelte';
   import { handleAppKey, type KeyCtx } from './lib/keyboard';
   import { installEditCoalescing } from './lib/history-focus';
-  import { place, togglePlace } from './lib/stores/place';
+  import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
     createNotebook,
@@ -832,7 +832,20 @@
   onshare={() => void handleShare()}
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
-  onplace={togglePlace}
+  onplacehouse={() => {
+    setPlace('house');
+    selCard = null;
+    selSection = null;
+    selProd = null;
+    factory.sel = null;
+  }}
+  onplacefactory={() => {
+    setPlace('factory');
+    selCard = null;
+    selSection = null;
+    selProd = null;
+    factory.sel = null;
+  }}
   onenterstudy={enterStudy}
   onfacmode={toggleFacMode}
   onaddbench={() => {

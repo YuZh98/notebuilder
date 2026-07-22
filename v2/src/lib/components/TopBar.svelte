@@ -21,7 +21,8 @@
     onshare,
     onexport,
     onimport,
-    onplace,
+    onplacehouse,
+    onplacefactory,
     onenterstudy,
     onfacmode,
     onaddbench,
@@ -44,7 +45,8 @@
     onshare: () => void;
     onexport: () => void;
     onimport: () => void;
-    onplace: () => void;
+    onplacehouse: () => void;
+    onplacefactory: () => void;
     onenterstudy: () => void;
     onfacmode: () => void;
     onaddbench: () => void;
@@ -135,7 +137,7 @@
       class="btn"
       class:on={place === 'factory'}
       title="Factory — build reusable product containers"
-      onclick={onplace}
+      onclick={onplacefactory}
     >🏭 Factory</button>
     <span class="nbwrap">
       <button
@@ -145,7 +147,10 @@
         title="switch notebook"
         aria-haspopup="menu"
         aria-expanded={openMenu === 'nb'}
-        onclick={() => (openMenu = openMenu === 'nb' ? null : nbMenuAvailable ? 'nb' : null)}
+        onclick={() => {
+          onplacehouse();
+          openMenu = openMenu === 'nb' ? null : nbMenuAvailable ? 'nb' : null;
+        }}
       >📓 {currentName} ▾</button>
       {#if openMenu === 'nb'}
         <div class="nbmenu" role="menu">

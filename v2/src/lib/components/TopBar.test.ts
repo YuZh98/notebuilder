@@ -21,7 +21,8 @@ function baseProps(over: Record<string, unknown> = {}) {
     onshare: vi.fn(),
     onexport: vi.fn(),
     onimport: vi.fn(),
-    onplace: vi.fn(),
+    onplacehouse: vi.fn(),
+    onplacefactory: vi.fn(),
     onenterstudy: vi.fn(),
     onfacmode: vi.fn(),
     onaddbench: vi.fn(),
@@ -57,6 +58,36 @@ describe('TopBar share cluster', () => {
   it('hides the share cluster in the Factory', () => {
     const { container } = render(TopBar, { props: baseProps({ place: 'factory' }) });
     expect(container.querySelector('.share-btn')).toBeNull();
+  });
+});
+
+describe('TopBar place buttons', () => {
+  it('clicking 📓 from factory calls onplacehouse', async () => {
+    const onplacehouse = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ place: 'factory', onplacehouse }) });
+    const btn = container.querySelector<HTMLButtonElement>('button[data-act="nbmenu"]')!;
+    await fireEvent.click(btn);
+    expect(onplacehouse).toHaveBeenCalledOnce();
+  });
+
+  it('clicking 📓 from factory with one notebook lands in house (no menu opens)', async () => {
+    const onplacehouse = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ place: 'factory', onplacehouse }) });
+    const btn = container.querySelector<HTMLButtonElement>('button[data-act="nbmenu"]')!;
+    await fireEvent.click(btn);
+    expect(onplacehouse).toHaveBeenCalledOnce();
+    // Menu should not open with one notebook (nbMenuAvailable = canSwitch && notebooks.length > 1 = false)
+    expect(container.querySelector('.nbmenu')).toBeNull();
+  });
+
+  it('clicking 🏭 calls onplacefactory', async () => {
+    const onplacefactory = vi.fn();
+    const { container } = render(TopBar, { props: baseProps({ onplacefactory }) });
+    const btn = [...container.querySelectorAll<HTMLButtonElement>('.btn')].find(
+      (b) => b.textContent?.includes('🏭'),
+    )!;
+    await fireEvent.click(btn);
+    expect(onplacefactory).toHaveBeenCalledOnce();
   });
 });
 
