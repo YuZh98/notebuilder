@@ -10,6 +10,9 @@ playwright-report/
 # local scratch / internal artifacts
 /scratch/
 *.local.*
+/.claude/
+/v2/.claude/
+/.superpowers/
 
 # v2 build output
 /v2/dist/
