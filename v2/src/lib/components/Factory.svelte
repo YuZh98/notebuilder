@@ -122,7 +122,7 @@
     const cell = (e.target as HTMLElement).closest?.('[data-sid]') as HTMLElement | null;
     if (cell?.dataset.sid) {
       factory.sel = arr.findIndex((s) => s.id === cell.dataset.sid);
-    } else if (e.target === e.currentTarget) {
+    } else {
       factory.sel = null;
     }
   }

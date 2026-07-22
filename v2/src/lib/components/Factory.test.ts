@@ -301,6 +301,17 @@ describe('Factory — bench slot selection', () => {
     expect(factory.sel).toBeNull();
   });
 
+  it('clicking the card frame (not a slot) clears the selection — single bench trap', async () => {
+    const { a } = seed();
+    factory.sel = 0;
+    const { container } = render(Factory, { props: props() });
+    // Click a non-slot element inside the bench (e.g. the card wrapper .furn)
+    const furn = container.querySelector(`.faccard[data-bench="${a.id}"] .bench .furn[data-card]`) as HTMLElement;
+    expect(furn).not.toBeNull();
+    await fireEvent.click(furn);
+    expect(factory.sel).toBeNull();
+  });
+
   it('clicking the inline slot delete ✕ keeps the selection on the same slot, not a shifted one', async () => {
     const { a } = seed();
     addBenchSlot(a, 'slider');
