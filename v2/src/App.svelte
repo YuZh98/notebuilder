@@ -833,18 +833,20 @@
   onexport={() => void handleExport()}
   onimport={() => void handleImport()}
   onplacehouse={() => {
-    setPlace('house');
-    selCard = null;
-    selSection = null;
-    selProd = null;
-    factory.sel = null;
+    if (setPlace('house')) {
+      selCard = null;
+      selSection = null;
+      selProd = null;
+      factory.sel = null;
+    }
   }}
   onplacefactory={() => {
-    setPlace('factory');
-    selCard = null;
-    selSection = null;
-    selProd = null;
-    factory.sel = null;
+    if (setPlace('factory')) {
+      selCard = null;
+      selSection = null;
+      selProd = null;
+      factory.sel = null;
+    }
   }}
   onenterstudy={enterStudy}
   onfacmode={toggleFacMode}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { place, setPlace, togglePlace } from './place';
+import { place, setPlace } from './place';
 import { get } from 'svelte/store';
 
 describe('place store', () => {
@@ -7,27 +7,21 @@ describe('place store', () => {
     expect(get(place)).toBe('house');
   });
 
-  it('setPlace sets to factory', () => {
+  it('setPlace to factory returns true and changes the value', () => {
     place.set('house');
-    setPlace('factory');
+    expect(setPlace('factory')).toBe(true);
     expect(get(place)).toBe('factory');
   });
 
-  it('setPlace sets to house', () => {
+  it('setPlace to house returns true and changes the value', () => {
     place.set('factory');
-    setPlace('house');
+    expect(setPlace('house')).toBe(true);
     expect(get(place)).toBe('house');
   });
 
-  it('toggles to factory', () => {
+  it('setPlace to the same value returns false and does not fire', () => {
     place.set('house');
-    togglePlace();
-    expect(get(place)).toBe('factory');
-  });
-
-  it('toggles back to house', () => {
-    place.set('factory');
-    togglePlace();
+    expect(setPlace('house')).toBe(false);
     expect(get(place)).toBe('house');
   });
 });

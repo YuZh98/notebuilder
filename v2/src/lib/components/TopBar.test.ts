@@ -26,6 +26,10 @@ function baseProps(over: Record<string, unknown> = {}) {
     onenterstudy: vi.fn(),
     onfacmode: vi.fn(),
     onaddbench: vi.fn(),
+    canUndo: false,
+    canRedo: false,
+    onundo: vi.fn(),
+    onredo: vi.fn(),
     ...over,
   };
 }
