@@ -25,7 +25,7 @@ function cardOf(over: Partial<Card> = {}): Card {
 function baseProps(card: Card) {
   return {
     card,
-    editable: true,
+    surface: 'notebook' as const,
     selected: false,
     state: {},
     notes: [],
@@ -125,7 +125,7 @@ describe('CardView chrome', () => {
 
   it('suppresses grip, rz, and cardtools when not editable (locked section)', () => {
     const { container } = render(CardView, {
-      props: { ...baseProps(cardOf()), editable: false },
+      props: { ...baseProps(cardOf()), surface: 'read' as const },
     });
     expect(container.querySelector('.grip')).toBeNull();
     expect(container.querySelector('.rz')).toBeNull();
@@ -220,7 +220,7 @@ describe('CardView selection', () => {
   });
 
   it('does not select when not editable', async () => {
-    const props = { ...baseProps(cardOf()), editable: false };
+    const props = { ...baseProps(cardOf()), surface: 'read' as const };
     const { container } = render(CardView, { props });
     const furn = container.querySelector('.furn');
     if (!furn) throw new Error('furn not found');
@@ -415,7 +415,7 @@ describe('CardView fuse chains', () => {
       ],
     });
     const { container } = render(CardView, {
-      props: { ...baseProps(card), editable: false },
+      props: { ...baseProps(card), surface: 'read' as const },
     });
 
     const cells = container.querySelectorAll('.fusecell');
@@ -463,7 +463,7 @@ describe('CardView fuse chains', () => {
     ];
     mode.set('study');
     const study = render(CardView, {
-      props: { ...baseProps(cardOf({ slots })), editable: false },
+      props: { ...baseProps(cardOf({ slots })), surface: 'read' as const },
     });
     expect(study.container.querySelector('.cardslot')).toBeNull();
     expect(study.container.querySelector('.fusegut')).toBeNull();
@@ -495,7 +495,7 @@ describe('CardView flip faces', () => {
 
   it('Study: renders the 3D stack with hint; clicking flips and records seenBack', async () => {
     mode.set('study');
-    const props = { ...baseProps(flipCard()), editable: false };
+    const props = { ...baseProps(flipCard()), surface: 'read' as const };
     const { container, rerender } = render(CardView, { props });
 
     const fc = container.querySelector('.fc');
@@ -524,7 +524,7 @@ describe('CardView flip faces', () => {
     mode.set('study');
     const props = {
       ...baseProps(flipCard()),
-      editable: false,
+      surface: 'read' as const,
       state: { [CARD_STATE_KEY]: { flipped: true, seenBack: true } },
     };
     const { container } = render(CardView, { props });
@@ -540,7 +540,7 @@ describe('CardView flip faces', () => {
   it('Study: clicking interactive slot content does not flip', async () => {
     mode.set('study');
     const card = flipCard({ slots: [slot('ti', { type: 'text-input', props: {} })] });
-    const props = { ...baseProps(card), editable: false };
+    const props = { ...baseProps(card), surface: 'read' as const };
     const { container } = render(CardView, { props });
     const input = container.querySelector('.fc input');
     if (!input) throw new Error('input not found');
@@ -550,7 +550,7 @@ describe('CardView flip faces', () => {
 
   it('Study: the card is done only after the back was seen', async () => {
     mode.set('study');
-    const props = { ...baseProps(flipCard()), editable: false };
+    const props = { ...baseProps(flipCard()), surface: 'read' as const };
     const { container, rerender } = render(CardView, { props });
     expect(container.querySelector('.done-badge')).toBeNull();
 
@@ -574,7 +574,7 @@ describe('CardView flip faces', () => {
   it('Study: an empty flip face shows the placeholder; a filled face does not', () => {
     mode.set('study');
     const { container } = render(CardView, {
-      props: { ...baseProps(cardOf({ verbs: { flip: true }, back: [] })), editable: false },
+      props: { ...baseProps(cardOf({ verbs: { flip: true }, back: [] })), surface: 'read' as const },
     });
     const faces = container.querySelectorAll('.fc-stack .fc-face');
     expect(faces[0].querySelector('.face-empty')).toBeNull();
@@ -592,7 +592,7 @@ describe('CardView flip faces', () => {
       slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })],
     });
     const { container } = render(CardView, {
-      props: { ...baseProps(card), editable: false },
+      props: { ...baseProps(card), surface: 'read' as const },
     });
     const front = container.querySelector('.fc-face:not(.back)');
     expect(front?.querySelector('.fusewrap')).toBeInTheDocument();
@@ -604,7 +604,7 @@ describe('CardView flip faces', () => {
     const card = flipCard({
       slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })],
     });
-    const props = { ...baseProps(card), editable: false };
+    const props = { ...baseProps(card), surface: 'read' as const };
     const { container } = render(CardView, { props });
     const gut = container.querySelector('.fc .fusegut');
     if (!gut) throw new Error('fuse seam not found');
@@ -621,7 +621,7 @@ describe('CardView forceMode override', () => {
   it('forceMode="study" renders the interactive flip while the global mode is Edit', () => {
     mode.set('edit');
     const { container } = render(CardView, {
-      props: { ...baseProps(flipCard()), editable: false, forceMode: 'study' as const },
+      props: { ...baseProps(flipCard()), surface: 'read' as const, forceMode: 'study' as const },
     });
     // interactive 3D stack, not the read-only fc-edit branch
     expect(container.querySelector('.fc')).toBeInTheDocument();
@@ -632,7 +632,7 @@ describe('CardView forceMode override', () => {
   it('without forceMode, the global mode still governs (unchanged): Edit shows fc-edit', () => {
     mode.set('edit');
     const { container } = render(CardView, {
-      props: { ...baseProps(flipCard()), editable: false },
+      props: { ...baseProps(flipCard()), surface: 'read' as const },
     });
     expect(container.querySelector('.fc-edit')).toBeInTheDocument();
     expect(container.querySelector('.fc')).toBeNull();

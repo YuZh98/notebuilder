@@ -37,7 +37,7 @@
 
   const previewProps = {
     card: benchPreviewCard(benchSnap),
-    editable: false,
+    surface: 'read' as const,
     selected: false,
     state: {},
     notes: [],

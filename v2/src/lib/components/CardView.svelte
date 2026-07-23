@@ -17,7 +17,7 @@
 
   let {
     card,
-    editable,
+    surface,
     selected,
     selectedSlotId,
     // `state` is the external prop name; aliased so it cannot shadow the $state rune.
@@ -50,7 +50,7 @@
     onarchive,
   }: {
     card: Card;
-    editable: boolean;
+    surface: 'bench' | 'notebook' | 'read';
     selected: boolean;
     /** Factory slot selection: the cell whose `data-sid` matches gets `.sel`. Undefined for notebook cards. */
     selectedSlotId?: string | null;
@@ -95,6 +95,8 @@
   let typeNameDraft = $state('');
 
   const studying = $derived((forceMode ?? $mode) === 'study');
+  /** Mechanical compat: editable = true when the surface supports editing and we're not studying. */
+  const editable = $derived(surface !== 'read' && !studying);
   const flipped = $derived(cardState[CARD_STATE_KEY]?.flipped === true);
   const done = $derived(studying && isCardDone(card, cardState));
 

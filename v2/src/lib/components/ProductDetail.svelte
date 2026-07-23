@@ -79,7 +79,7 @@
 
   const previewProps = $derived({
     card: previewCard,
-    editable: false,
+    surface: 'read' as const,
     selected: false,
     state: prevState,
     notes: [],

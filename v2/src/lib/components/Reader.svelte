@@ -654,7 +654,7 @@
 {#snippet cardView(section: Section, card: Card, editable: boolean)}
   <CardView
     {card}
-    {editable}
+    surface={editable ? 'notebook' : 'read'}
     selected={selCard === card.id}
     state={readerState[card.id] ?? {}}
     notes={annotationsFor(annotations, card.id)}

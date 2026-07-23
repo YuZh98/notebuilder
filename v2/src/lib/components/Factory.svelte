@@ -176,7 +176,7 @@
     const selectedSlotId = editable && factory.sel != null ? (face[factory.sel]?.id ?? null) : null;
     return {
       card,
-      editable,
+      surface: editable ? 'bench' as const : 'read' as const,
       selected: false,
       selectedSlotId,
       state: editable ? {} : (prevState[b.id] ?? {}),
