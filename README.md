@@ -1,71 +1,97 @@
 # NoteBuilder
 
-**Build interactive notebooks from cards. Study them. Share them as files.**
+[![CI](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-1202-brightgreen)](v2/)
+[![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](v2/package.json)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](v2/src-tauri/)
+[![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)](v2/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-NoteBuilder is a local-first macOS desktop app for making study material that *does something*:
-flashcards that flip, quizzes that check themselves, sliders that drive formulas and charts,
-checklists and progress meters that track what *you* have finished. There is no account, no cloud,
-and no backend. Your notebooks live in a local SQLite database, and sharing is a file you hand to
-someone.
+**Study material that does something. Build notebooks from reactive cards, drill them in Study mode, and hand them to anyone as a single offline file.**
 
-The app lives in [`v2/`](v2/) (Svelte 5 + TypeScript + Tauri 2).
+NoteBuilder is a local-first macOS desktop app. Your notebooks live in a local SQLite database. No account, no cloud, no backend.
 
-## Why it's different
+## Who is this for?
 
-- **Cards are built from slots.** A card is a small stack of primitives (text, slider, formula,
-  chart, choice, table, code, image, checklist, progress) arranged on a 12-column grid. A slider,
-  a compute slot, and a chart in the same card wire together and react live.
-- **Variables are card-scoped.** A card is a self-contained reactive unit; dependencies resolve by
-  topological sort, and cycles or missing writers are caught at import. Nothing leaks across cards.
-- **Edit and Study are hard-separated.** Edit shows structure and configuration; Study *is* the
-  rendered, interactive result. `Cmd+Enter` flips between them.
-- **The Factory stamps card types.** Design a slot arrangement once, seal it as a card type, stamp
-  independent copies into any notebook.
-- **Sharing is a file.** Export a notebook as JSON for another NoteBuilder, or as a
-  self-contained Reader `.html` that opens in any browser, offline. The recipient reads and
-  interacts, and their quiz answers and progress stay their own.
+Anyone who makes study material and wants it to be more than frozen text:
 
-Plus the comforts: full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags
-with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, and native print.
+- **Students and self-learners** who want flashcards that flip, quizzes that check themselves, and a progress meter that fills as *they* finish cards.
+- **Teachers and tutors** who want to send one file that works in any browser, offline, with nothing to install on the other end.
+- **Anyone explaining something quantitative.** A slider, a formula, and a chart in one card wire together and react live. Drag the slider, watch the curve move.
 
-## Run it
+## Why not a document?
 
-Prerequisites: [Node 20+](https://nodejs.org), [Rust](https://rustup.rs), and Xcode Command Line
-Tools (`xcode-select --install`).
+| Problem | Static notes | NoteBuilder |
+| --- | --- | --- |
+| Self-testing | Re-reading, highlighting | Flashcards flip, quizzes grade themselves, checklists tick |
+| Quantitative intuition | A pasted screenshot of a plot | Slider drives formula drives chart, live, per card |
+| Knowing where you stand | Gut feeling | Per-reader progress meters count what you have actually finished |
+| Sharing | Recipient needs your app or an account | One self-contained `.html`, opens offline in any browser |
+| Coverage | Scroll and hope | Tag every card, read the coverage matrix |
+
+## Quick start
+
+Prerequisites: [Node 20+](https://nodejs.org), [Rust](https://rustup.rs), and Xcode Command Line Tools (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/YuZh98/notebuilder.git
 cd notebuilder/v2
 npm install
-npm run tauri dev      # the desktop app (SQLite persistence, native print/dialogs)
+npm run tauri dev
 ```
 
-To produce an app bundle: `npm run tauri build`.
+That is the full desktop app, with SQLite persistence and native print. `npm run tauri build` produces an app bundle. For UI work without the native shell, `npm run dev` serves the app in a browser with a demo notebook (persistence no-ops there).
 
-For UI work without the native shell, `npm run dev` serves the app in a browser with a demo
-notebook (persistence and native calls no-op there).
+## How it works
 
-## Develop
+### Cards are built from slots
 
-Run inside `v2/`:
+A card is a small stack of primitives arranged on a 12-column grid: text, slider, formula, chart, choice, table, code, image, checklist, progress. Slots in the same card share variables and react to each other. Variables are strictly card-scoped; dependencies resolve by topological sort, and cycles or missing writers are caught at import. Nothing leaks across cards.
 
-| Command | Does |
-| --- | --- |
-| `npm test` | Vitest unit suite |
-| `npm run check` | svelte-check (TypeScript strict) |
-| `npm run build` | Vite production build |
-| `npm run build:reader` | Regenerate the embedded Reader template (commit the result) |
+### Edit and Study are hard-separated
 
-Orientation: [`docs/CODE-MAP.md`](docs/CODE-MAP.md) (architecture map),
-[`docs/spec/v2-spec.md`](docs/spec/v2-spec.md) (product spec),
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+Edit shows structure and configuration. Study *is* the rendered, interactive result. `Cmd+Enter` flips between them. There is no half-live preview to fight with; Study mode is the preview.
+
+### The Factory stamps card types
+
+Design a slot arrangement once, seal it as a card type, then stamp independent copies into any notebook. Stamped cards are copies, not references, so editing a notebook never mutates your library.
+
+### Sharing is a file
+
+Export a notebook as JSON for another NoteBuilder, or as a self-contained Reader `.html` that opens in any browser, offline. The recipient reads and interacts; their quiz answers and progress stay on their machine. A shared file carries only that notebook, never the rest of your library.
+
+### And the comforts
+
+Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, native print.
+
+## Built to last
+
+1202 tests across 87 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
+
+<details>
+<summary><strong>Engineering deep-dive</strong></summary>
+
+### Architecture
+
+```text
+v2/src/lib/slots/      slot primitives: one Edit + one Study component per slot, one contract
+v2/src/lib/drag/       a single pointer-based drag engine; no native HTML5 drag anywhere
+v2/src/lib/            variable graph, history, tags, import/export, themes, markdown
+v2/src-tauri/          Rust shell: SQLite (migrations in lib.rs), native print, dialogs
+```
+
+- **State layers.** Document state persists and exports; reader state (answers, ticks, progress) persists locally and never exports; session state is transient. The separation is what makes a shared file safe to open.
+- **Migrations always.** A persisted-shape change ships a SQLite migration; an interchange change bumps the JSON schema version and ships an import migration. Old files keep loading.
+- **Security posture.** No `eval` on user content; formulas run through a small own-keys-only expression evaluator. All user text is escaped before markdown or KaTeX markup is applied. Parameterized SQL throughout. See [SECURITY.md](SECURITY.md).
+- **Guard tests.** Source-level sweep tests lock invariants: no props mutation in Edit components, no native drag, Reader/App prop parity. Regressions fail loudly.
+
+Architecture map: [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Product spec: [`docs/spec/v2-spec.md`](docs/spec/v2-spec.md). Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+</details>
 
 ## The original prototype
 
-The repository root holds the first NoteBuilder: a single-file web app (vanilla JS, localStorage)
-that proved the slot/card model and pioneered the one-file sharing story. It still builds and its
-Playwright suite still gates CI (`npm install && npm test` at the root), but it is legacy. New
-work happens in `v2/`.
+The repository root holds the first NoteBuilder: a single-file web app (vanilla JS, localStorage, the whole product in one `index.html`) that proved the slot/card model and the one-file sharing story. Its Playwright suite still gates CI, but it is legacy. New work happens in [`v2/`](v2/).
 
 ## License
 
