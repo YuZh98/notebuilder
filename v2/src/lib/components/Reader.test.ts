@@ -101,28 +101,6 @@ describe('Reader — Remix (D10)', () => {
 });
 
 describe('Reader — review fixes', () => {
-  it('save-as-type after Remix grows the local type list and toasts', async () => {
-    const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
-    await remixToEdit(container);
-
-    const typeBtn = container.querySelector(
-      '[title="Save this card as a reusable card type"]',
-    ) as HTMLElement;
-    expect(typeBtn).not.toBeNull();
-    await fireEvent.click(typeBtn);
-    await tick();
-
-    const input = container.querySelector('.type-name-input') as HTMLInputElement;
-    await fireEvent.input(input, { target: { value: 'My Type' } });
-    const saveBtn = [...container.querySelectorAll('.cardtools button')].find(
-      (b) => b.textContent?.trim() === 'save',
-    ) as HTMLElement;
-    await fireEvent.click(saveBtn);
-    await tick();
-
-    expect(toastState.message).toBe('Saved card type "My Type"');
-  });
-
   it('the shared-Reader sidebar never offers the Delete-notebook button', async () => {
     const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
     await remixToEdit(container);

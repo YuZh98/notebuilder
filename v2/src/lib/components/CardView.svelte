@@ -301,7 +301,9 @@
           onState={(next) => onstate(slot.id, next)}
         />
       {/if}
-      <button class="slot-del" title="Remove slot" onclick={() => ondeleteslot(slot.id)}>✕</button>
+      {#if surface === 'bench'}
+        <button class="slot-del" title="Remove slot" onclick={() => ondeleteslot(slot.id)}>✕</button>
+      {/if}
     </div>
   {/if}
 {/snippet}
@@ -401,8 +403,10 @@
   onclick={handleClick}
 >
   {#if editable}
-    <span class="grip" role="presentation" onpointerdown={gripDown}>⋮⋮</span>
-    <span class="rz" role="presentation" onpointerdown={startCardResize}></span>
+    {#if surface === 'notebook'}
+      <span class="grip" role="presentation" onpointerdown={gripDown}>⋮⋮</span>
+      <span class="rz" role="presentation" onpointerdown={startCardResize}></span>
+    {/if}
   {/if}
   {#if pinEnabled}
     <button
@@ -428,49 +432,53 @@
     {/if}
     {#if editable}
       <div class="cardtools">
-        <button title="Move card up" onclick={() => onmove(-1)}>↑</button>
-        <button title="Move card down" onclick={() => onmove(1)}>↓</button>
-        <label>
+        {#if surface === 'notebook'}
+          <button title="Move card up" onclick={() => onmove(-1)}>↑</button>
+          <button title="Move card down" onclick={() => onmove(1)}>↓</button>
           <input
-            type="checkbox"
-            checked={card.verbs?.flip === true}
-            onchange={(e) => onverb('flip', e.currentTarget.checked)}
-          /> flip</label>
-        <label>
-          <input
-            type="checkbox"
-            checked={card.verbs?.bare === true}
-            onchange={(e) => onverb('bare', e.currentTarget.checked)}
-          /> bare</label>
-        <input
-          class="tags-input"
-          data-history="edit"
-          placeholder="tags, comma-separated"
-          value={card.tags?.join(', ') ?? ''}
-          onchange={(e) => ontags(e.currentTarget.value)}
-        />
-        <span class="spacer"></span>
-        {#if namingType}
-          <input
-            class="type-name-input"
+            class="tags-input"
             data-history="edit"
-            placeholder="Card type name"
-            bind:value={typeNameDraft}
-            onkeydown={(e) => {
-              if (e.key === 'Enter') saveType();
-              if (e.key === 'Escape') namingType = false;
-            }}
+            placeholder="tags, comma-separated"
+            value={card.tags?.join(', ') ?? ''}
+            onchange={(e) => ontags(e.currentTarget.value)}
           />
-          <button onclick={saveType}>save</button>
+          <span class="spacer"></span>
+          <button title="Delete card" onclick={ondelete}>✕</button>
         {:else}
-          <button
-            title="Save this card as a reusable card type"
-            onclick={() => {
-              namingType = true;
-              typeNameDraft = '';
-            }}>→ type</button>
+          <label>
+            <input
+              type="checkbox"
+              checked={card.verbs?.flip === true}
+              onchange={(e) => onverb('flip', e.currentTarget.checked)}
+            /> flip</label>
+          <label>
+            <input
+              type="checkbox"
+              checked={card.verbs?.bare === true}
+              onchange={(e) => onverb('bare', e.currentTarget.checked)}
+            /> bare</label>
+          <span class="spacer"></span>
+          {#if namingType}
+            <input
+              class="type-name-input"
+              data-history="edit"
+              placeholder="Card type name"
+              bind:value={typeNameDraft}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') saveType();
+                if (e.key === 'Escape') namingType = false;
+              }}
+            />
+            <button onclick={saveType}>save</button>
+          {:else}
+            <button
+              title="Save this card as a reusable card type"
+              onclick={() => {
+                namingType = true;
+                typeNameDraft = '';
+              }}>→ type</button>
+          {/if}
         {/if}
-        <button title="Delete card" onclick={ondelete}>✕</button>
       </div>
       {#if card.verbs?.flip}
         <div class="fc-edit">
@@ -486,17 +494,19 @@
       {:else}
         {@render faceRows(card.slots, true)}
       {/if}
-      <div class="slot-adder">
-        <select bind:value={newSlotType}>
-          {#each allSlots() as t (t.type)}
-            <option value={t.type}>{t.type}</option>
-          {/each}
-        </select>
-        <button onclick={() => onaddslot(newSlotType)}>+ slot</button>
-        {#if card.verbs?.flip}
-          <button onclick={() => onaddslot(newSlotType, 'back')}>+ slot (back)</button>
-        {/if}
-      </div>
+      {#if surface === 'bench'}
+        <div class="slot-adder">
+          <select bind:value={newSlotType}>
+            {#each allSlots() as t (t.type)}
+              <option value={t.type}>{t.type}</option>
+            {/each}
+          </select>
+          <button onclick={() => onaddslot(newSlotType)}>+ slot</button>
+          {#if card.verbs?.flip}
+            <button onclick={() => onaddslot(newSlotType, 'back')}>+ slot (back)</button>
+          {/if}
+        </div>
+      {/if}
     {:else}
       {#if card.verbs?.flip && studying}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

@@ -182,6 +182,67 @@ describe('CardView chrome', () => {
   });
 });
 
+describe('CardView surface boundaries', () => {
+  it('surface="notebook" renders NO slot adder', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    expect(container.querySelector('.slot-adder')).toBeNull();
+  });
+
+  it('surface="notebook" renders NO per-slot delete button', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    expect(container.querySelector('.slot-del')).toBeNull();
+  });
+
+  it('surface="notebook" renders NO flip/bare checkboxes', () => {
+    const { container } = render(CardView, {
+      props: baseProps(cardOf({ verbs: { flip: true, bare: true } })),
+    });
+    const labels = container.querySelectorAll('.cardtools label');
+    for (const l of labels) {
+      expect(l.textContent).not.toMatch(/flip|bare/);
+    }
+  });
+
+  it('surface="notebook" renders NO → type button', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    const btns = [...container.querySelectorAll('.cardtools button')];
+    expect(btns.find((b) => b.textContent?.includes('→ type'))).toBeUndefined();
+  });
+
+  it('surface="notebook" output contains no user-facing string "slot"', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    const text = container.textContent ?? '';
+    expect(text.toLowerCase()).not.toContain('slot');
+  });
+
+  it('surface="bench" renders NO card resize handle (.rz)', () => {
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf()), surface: 'bench' as const },
+    });
+    expect(container.querySelector('.rz')).toBeNull();
+  });
+
+  it('surface="bench" keeps the slot adder', () => {
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf()), surface: 'bench' as const },
+    });
+    expect(container.querySelector('.slot-adder')).toBeInTheDocument();
+  });
+
+  it('surface="bench" keeps per-slot delete', () => {
+    const { container } = render(CardView, {
+      props: { ...baseProps(cardOf()), surface: 'bench' as const },
+    });
+    expect(container.querySelector('.slot-del')).toBeInTheDocument();
+  });
+
+  it('surface="notebook" keeps grip and card resize', () => {
+    const { container } = render(CardView, { props: baseProps(cardOf()) });
+    expect(container.querySelector('.grip')).toBeInTheDocument();
+    expect(container.querySelector('.rz')).toBeInTheDocument();
+  });
+});
+
 describe('CardView selection', () => {
   it('toggles .sel with the selected prop in Edit mode', async () => {
     const props = baseProps(cardOf());
@@ -275,7 +336,7 @@ describe('CardView card controls', () => {
   it('checking the flip checkbox fires onverb without mutating card', async () => {
     const card = cardOf();
     const snapshot = JSON.parse(JSON.stringify(card));
-    const props = baseProps(card);
+    const props = { ...baseProps(card), surface: 'bench' as const };
     const { container } = render(CardView, { props });
     const boxes = container.querySelectorAll('.cardtools input[type="checkbox"]');
     const flipBox = boxes[0];
@@ -288,7 +349,7 @@ describe('CardView card controls', () => {
   it('checking the bare checkbox fires onverb without mutating card', async () => {
     const card = cardOf();
     const snapshot = JSON.parse(JSON.stringify(card));
-    const props = baseProps(card);
+    const props = { ...baseProps(card), surface: 'bench' as const };
     const { container } = render(CardView, { props });
     const boxes = container.querySelectorAll('.cardtools input[type="checkbox"]');
     const bareBox = boxes[1];
