@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { SliderProps } from './slider';
 
-  let { props = $bindable(), onUpdate }: {
+  let { props, onUpdate }: {
     props: SliderProps;
     onUpdate: (props: SliderProps) => void;
   } = $props();
 
   function field<K extends keyof SliderProps>(k: K, v: SliderProps[K]) {
-    props[k] = v;
-    onUpdate(props);
+    const next = { ...props };
+    next[k] = v;
+    onUpdate(next);
   }
 </script>
 

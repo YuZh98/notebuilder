@@ -1,19 +1,17 @@
 <script lang="ts">
-  let { props = $bindable(), onUpdate } = $props<{
+  let { props, onUpdate } = $props<{
     props: { code: string; lang?: string };
     onUpdate?: (props: { code: string; lang?: string }) => void;
   }>();
 
   function handleCode(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    props.code = target.value;
-    onUpdate?.(props);
+    onUpdate?.({ ...props, code: target.value });
   }
 
   function handleLang(e: Event) {
     const target = e.target as HTMLInputElement;
-    props.lang = target.value;
-    onUpdate?.(props);
+    onUpdate?.({ ...props, lang: target.value });
   }
 </script>
 

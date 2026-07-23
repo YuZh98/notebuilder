@@ -2,15 +2,14 @@
   import CeText from '../components/CeText.svelte';
   import type { Scope } from '../variable-graph';
 
-  let { props = $bindable(), onUpdate, scope = {} } = $props<{
+  let { props, onUpdate, scope = {} } = $props<{
     props: { text: string };
     onUpdate?: (props: { text: string }) => void;
     scope?: Scope;
   }>();
 
   function handleChange(value: string) {
-    props.text = value;
-    onUpdate?.(props);
+    onUpdate?.({ ...props, text: value });
   }
 </script>
 

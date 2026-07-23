@@ -1,19 +1,17 @@
 <script lang="ts">
-  let { props = $bindable(), onUpdate }: {
+  let { props, onUpdate }: {
     props: { src: string; alt?: string };
     onUpdate?: (props: { src: string; alt?: string }) => void;
   } = $props();
 
   function handleSrc(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    props.src = target.value;
-    onUpdate?.(props);
+    onUpdate?.({ ...props, src: target.value });
   }
 
   function handleAlt(e: Event) {
     const target = e.target as HTMLInputElement;
-    props.alt = target.value;
-    onUpdate?.(props);
+    onUpdate?.({ ...props, alt: target.value });
   }
 </script>
 

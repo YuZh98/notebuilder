@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { props = $bindable(), onUpdate } = $props<{
+  let { props, onUpdate } = $props<{
     props: { rows: string[][] };
     onUpdate?: (props: { rows: string[][] }) => void;
   }>();
@@ -7,19 +7,16 @@
   function setCell(r: number, c: number, value: string) {
     const rows = props.rows.map((row: string[]) => row.slice());
     rows[r][c] = value;
-    props.rows = rows;
-    onUpdate?.(props);
+    onUpdate?.({ ...props, rows });
   }
 
   function addRow() {
     const cols = props.rows[0]?.length ?? 1;
-    props.rows = [...props.rows, Array.from({ length: cols }, () => '')];
-    onUpdate?.(props);
+    onUpdate?.({ ...props, rows: [...props.rows, Array.from({ length: cols }, () => '')] });
   }
 
   function addColumn() {
-    props.rows = props.rows.map((row: string[]) => [...row, '']);
-    onUpdate?.(props);
+    onUpdate?.({ ...props, rows: props.rows.map((row: string[]) => [...row, '']) });
   }
 </script>
 

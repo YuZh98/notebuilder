@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { ComputeProps } from './compute';
 
-  let { props = $bindable(), onUpdate }: {
+  let { props, onUpdate }: {
     props: ComputeProps;
     onUpdate: (props: ComputeProps) => void;
   } = $props();
 
   function field<K extends keyof ComputeProps>(k: K, v: ComputeProps[K]) {
-    props[k] = v;
-    onUpdate(props);
+    const next = { ...props };
+    next[k] = v;
+    onUpdate(next);
   }
 </script>
 

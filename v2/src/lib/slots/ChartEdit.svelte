@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { ChartProps } from './chart';
 
-  let { props = $bindable(), onUpdate }: {
+  let { props, onUpdate }: {
     props: ChartProps;
     onUpdate: (props: ChartProps) => void;
   } = $props();
 
   function field<K extends keyof ChartProps>(k: K, v: ChartProps[K]) {
-    props[k] = v;
-    onUpdate(props);
+    const next = { ...props };
+    next[k] = v;
+    onUpdate(next);
   }
 </script>
 

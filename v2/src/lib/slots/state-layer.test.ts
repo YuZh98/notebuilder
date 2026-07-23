@@ -28,6 +28,29 @@ describe('slot state layers', () => {
   });
 });
 
+// Edit components own no state either: every change flows through onUpdate with a fresh
+// object, or Svelte's ownership validation fires on the parent-owned $state proxy.
+describe('no Edit component can mutate its props', () => {
+  const edits = import.meta.glob('./*Edit.svelte', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }) as Record<string, string>;
+
+  it('the sweep found the Edit components (extraction proof)', () => {
+    expect(Object.keys(edits).length).toBeGreaterThan(8);
+  });
+
+  it('no *Edit.svelte declares $bindable or assigns into props', () => {
+    for (const [file, src] of Object.entries(edits)) {
+      expect(src, `${file} declares $bindable`).not.toMatch(/\$bindable/);
+      expect(src, `${file} assigns into props`).not.toMatch(
+        /props(\.[a-zA-Z_$][\w$]*|\[[^\]]+\])\s*=(?![=>])/,
+      );
+    }
+  });
+});
+
 // Source-level sweep: props are the DOCUMENT. A Study component that takes them $bindable
 // writes runtime state into the saved notebook — the exact defect this layer split removes.
 describe('no Study component can mutate its props', () => {
