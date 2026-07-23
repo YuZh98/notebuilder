@@ -621,7 +621,7 @@
     padding: 4px 0 0;
     transition: opacity 0.12s ease;
   }
-  :global(.furn:hover) .notes-toggle,
+  .furn:hover .notes-toggle,
   .notes-toggle:focus-visible,
   .notes-toggle.has-notes {
     opacity: 0.8;
