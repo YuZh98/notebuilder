@@ -59,13 +59,18 @@ describe('Reader drift guard', () => {
     }
   });
 
-  it('removing a prop from Reader turns the suite red (sanity)', () => {
-    // Both lists have substantial overlap
-    expect(appProps.length).toBeGreaterThan(10);
-    expect(readerProps.length).toBeGreaterThan(10);
-    // They should be equal (minus allowed diffs)
-    const effectiveApp = appProps.filter((p) => !APP_ONLY_ALLOW.includes(p));
-    const effectiveReader = readerProps.filter((p) => !READER_ONLY_ALLOW.includes(p));
-    expect(effectiveApp).toEqual(effectiveReader);
+  // A partial parse would shrink BOTH lists symmetrically and still compare equal, so the guard
+  // above must not be trusted without proof that extraction actually found the prop set.
+  it('extraction finds a real prop set in both files', () => {
+    for (const [name, props] of [
+      ['App', appProps],
+      ['Reader', readerProps],
+    ] as const) {
+      expect(props.length, `${name}: too few props — extraction likely truncated`).toBeGreaterThan(10);
+      expect(props, `${name}: missing a known prop — extraction likely truncated`).toContain('card');
+      expect(props, `${name}: missing a known prop — extraction likely truncated`).toContain(
+        'onupdateslot',
+      );
+    }
   });
 });
