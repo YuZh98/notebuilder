@@ -549,7 +549,12 @@
         {@render faceRows(card.slots, false)}
       {/if}
       {#if studying && notesEnabled}
-        <button class="notes-toggle" class:has-notes={notes.length > 0} onclick={ontogglenotes}>
+        <button
+          class="notes-toggle"
+          class:has-notes={notes.length > 0}
+          class:open={notesOpen}
+          onclick={ontogglenotes}
+        >
           ✎ {notes.length > 0 ? `notes (${notes.length})` : 'note'}
         </button>
         {#if notesOpen}
@@ -609,22 +614,33 @@
     color: #dc2626;
     margin-bottom: 8px;
   }
-  /* Quiet like v1's other manipulation affordances (D9): hidden until the card is hovered or the
-     control is keyboard-focused. A card that already carries notes keeps the marker visible. */
+  /* Out of flow like the ported pin/archive buttons (app.css .furn .arch), so a card with the
+     notes service on reserves no blank line for it. Quiet until hover or keyboard focus (D9);
+     a card that already carries notes keeps the marker visible. */
   .notes-toggle {
+    position: absolute;
+    right: 9px;
+    bottom: 6px;
+    z-index: 2;
     background: none;
     border: none;
     color: inherit;
     cursor: pointer;
     font-size: 11px;
     opacity: 0;
-    padding: 4px 0 0;
+    padding: 2px 4px;
     transition: opacity 0.12s ease;
   }
   .furn:hover .notes-toggle,
   .notes-toggle:focus-visible,
   .notes-toggle.has-notes {
     opacity: 0.8;
+  }
+  /* With the panel open it rejoins the flow, so it cannot sit on top of the composer. */
+  .notes-toggle.open {
+    position: static;
+    opacity: 0.8;
+    padding: 4px 0 0;
   }
   .notes-toggle.has-notes {
     color: var(--accent, #7c3aed);

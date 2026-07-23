@@ -131,6 +131,18 @@ describe('Card notes are opt-in per section', () => {
     expect(added).toEqual(['remember this']);
   });
 
+  it('the closed marker is out of flow, and rejoins it only when the panel is open', async () => {
+    const closed = render(CardView, { props: { ...noteProps, notesEnabled: true } });
+    await tick();
+    expect(closed.container.querySelector('.notes-toggle')!.classList.contains('open')).toBe(false);
+
+    const open = render(CardView, {
+      props: { ...noteProps, notesEnabled: true, notesOpen: true },
+    });
+    await tick();
+    expect(open.container.querySelector('.notes-toggle')!.classList.contains('open')).toBe(true);
+  });
+
   it('the delete control is reachable and calls back with the note id', async () => {
     const { container } = render(CardView, {
       props: {
