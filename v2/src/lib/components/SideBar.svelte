@@ -4,7 +4,6 @@
   import ProductDetail from './ProductDetail.svelte';
   import CardPanel from './CardPanel.svelte';
   import TagsPanel from './TagsPanel.svelte';
-  import { dustState } from '../drag/dust.svelte';
   import {
     SERVICE_ORDER,
     SERVICE_FEATURES,
@@ -47,6 +46,7 @@
     ongrip,
     onvariety,
     onsvctoggle,
+    onsvcgrip,
   }: {
     notebookName: string;
     canPersist: boolean;
@@ -82,6 +82,8 @@
     ongrip?: (id: string, ev: PointerEvent, srcEl: HTMLElement) => void;
     onvariety?: (v: Variety | null) => void;
     onsvctoggle?: (key: ServiceKey) => void;
+    /** Chip pointerdown → the owner starts the svcattach engine drag (section attach / dust detach). */
+    onsvcgrip?: (key: ServiceKey, ev: PointerEvent, srcEl: HTMLElement) => void;
   } = $props();
 
   const selType = $derived(selProd ? (cardTypes.find((t) => t.id === selProd) ?? null) : null);
@@ -96,14 +98,10 @@
   // flipAll can only be enabled on a section that has a flip-capable card (v1 50-render.js:102).
   const svcCap = (key: ServiceKey) => key !== 'flipAll' || !section || flipAllApplicable(section);
 
-  // The dustbin is pointer-engine driven; reveal it for the native chip drag so a drop-to-disable lands.
-  function svcDragStart(e: DragEvent, key: ServiceKey) {
-    e.dataTransfer?.setData('text/nb-svc', key);
-    dustState.show = true;
-  }
-  function svcDragEnd() {
-    dustState.show = false;
-    dustState.hot = false;
+  // WKWebView drops custom dataTransfer types, so the chip drag rides the pointer engine (D5).
+  function svcGrip(e: PointerEvent, key: ServiceKey) {
+    if (!svcCap(key)) return;
+    onsvcgrip?.(key, e, e.currentTarget as HTMLElement);
   }
 </script>
 
@@ -174,11 +172,9 @@
               class="chip"
               class:on={section?.services?.[key]}
               data-svc={key}
-              draggable={cap}
               disabled={!cap}
               title={cap ? 'click to toggle, or drag onto the section' : 'needs a flip card'}
-              ondragstart={(e) => svcDragStart(e, key)}
-              ondragend={svcDragEnd}
+              onpointerdown={(e) => svcGrip(e, key)}
               onclick={() => onsvctoggle?.(key)}>{SVC_DEFS[key].icon} {SVC_DEFS[key].label}</button>
           {/each}
         </div>

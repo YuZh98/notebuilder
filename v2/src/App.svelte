@@ -416,6 +416,10 @@
     startPointerDrag({ kind: 'tag', id: tag, srcEl }, ev, dropCallbacks);
   }
 
+  function gripSvc(key: ServiceKey, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'svcattach', id: key, srcEl }, ev, dropCallbacks);
+  }
+
   function duplicateSelectedCard() {
     if (!selCard) return;
     pushHistory();
@@ -513,7 +517,7 @@
     );
   }
 
-  // Native chip dropped on a section body enables the service (v1 100-drag-furniture.js:12-15).
+  // Chip dropped on a section body (svcattach engine drag) enables the service.
   function attachSectionService(section: Section, key: ServiceKey) {
     if (section.kind === 'divider') return;
     pushHistory();
@@ -521,7 +525,7 @@
     toast(`added “${svcLabel(key)}” to ${section.name}`);
   }
 
-  // Native chip dropped on the dustbin disables it on the selected section (v1 130-boot.js:22).
+  // Chip dropped on the dustbin disables it on the selected section (v1 130-boot.js:22).
   function detachSectionService(key: ServiceKey) {
     if (!selectedSection?.services?.[key]) return;
     pushHistory();
@@ -554,6 +558,11 @@
       selSection = null;
     },
     confirmDelete: confirmDialog,
+    attachService: (sectionId, key) => {
+      const section = notebook.sections.find((s) => s.id === sectionId);
+      if (section) attachSectionService(section, key as ServiceKey);
+    },
+    detachService: (key) => detachSectionService(key as ServiceKey),
     // Un-proxy before stamping: card-types' structuredClone throws DataCloneError on a $state proxy.
     cardType: (id) => {
       const t = cardTypeById(id);
@@ -1089,6 +1098,7 @@
       ontagdelete={deleteTagEverywhere}
       ontagadd={addTagToSelected}
       ontaggrip={gripTag}
+      onsvcgrip={gripSvc}
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
       onpickprod={pickProduct}
@@ -1118,7 +1128,6 @@
         onpatchsection={patchSection}
         onsectiongrip={gripSection}
         onsvcrun={runService}
-        onsvcattach={attachSectionService}
         {cardView}
         {matrix}
         {sectionTools}
@@ -1148,7 +1157,7 @@
 
 <MdBar />
 <Toast />
-<Dustbin onsvcdrop={detachSectionService} />
+<Dustbin />
 
 <style>
   .section-head {

@@ -15,6 +15,9 @@ export type NotebookDropDeps = {
   /** Store-chip drags resolve the dragged product and its session-picked variety (v1 90:94). */
   cardType?: (id: string) => CardType | undefined;
   variety?: (ct: CardType) => Variety | null;
+  /** Section-ops chip → section / dustbin (svcattach kind). The owner guards dividers and pushes history. */
+  attachService?: (sectionId: string, key: string) => void;
+  detachService?: (key: string) => void;
 };
 
 function sectionOf(nb: Notebook, cardId: string): Section | undefined {
@@ -95,6 +98,17 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
     toast(`placed "${ct.name}"`);
   };
 
+  // Section-ops chip → a room (the svcattach kind's laneSel) attaches; the dustbin detaches.
+  const dropSvcAttach = (src: DragSource, t: DropTarget): void => {
+    if (t.kind === 'dust') {
+      deps.detachService?.(src.id);
+      return;
+    }
+    if (t.kind !== 'lane') return;
+    const sectionId = (t.el as HTMLElement).dataset.section;
+    if (sectionId) deps.attachService?.(sectionId, src.id);
+  };
+
   // Tag chip → a card (the tag kind's laneSel): apply, don't reorder (v1 data-tagdrag).
   const dropTag = (src: DragSource, t: DropTarget): void => {
     if (t.kind !== 'lane') return;
@@ -122,6 +136,7 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
       else if (src.kind === 'section') dropSection(src, t);
       else if (src.kind === 'product') dropProduct(src, t);
       else if (src.kind === 'tag') dropTag(src, t);
+      else if (src.kind === 'svcattach') dropSvcAttach(src, t);
     },
     phWidth: (src) => (src.kind === 'card' ? (findCard(deps.notebook(), src.id)?.w ?? 12) : 8),
   };

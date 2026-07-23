@@ -435,6 +435,10 @@
     startPointerDrag({ kind: 'tag', id: tag, srcEl }, ev, dropCallbacks);
   }
 
+  function gripSvc(key: ServiceKey, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'svcattach', id: key, srcEl }, ev, dropCallbacks);
+  }
+
   function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
     pushHistory();
     const verbs = { ...card.verbs, [key]: on || undefined };
@@ -528,6 +532,11 @@
       selSection = null;
     },
     confirmDelete: (msg) => Promise.resolve(window.confirm(msg)),
+    attachService: (sectionId, key) => {
+      const section = notebook.sections.find((s) => s.id === sectionId);
+      if (section) attachSectionService(section, key as ServiceKey);
+    },
+    detachService: (key) => detachSectionService(key as ServiceKey),
     cardType: (id) => {
       const t = cardTypeById(id);
       return t ? ($state.snapshot(t) as CardType) : undefined;
@@ -794,6 +803,7 @@
     ontagdelete={deleteTagEverywhere}
     ontagadd={addTagToSelected}
     ontaggrip={gripTag}
+    onsvcgrip={gripSvc}
     onrename={renameNotebook}
     ondelete={() => {}}
     candelete={false}
@@ -816,7 +826,6 @@
       onpatchsection={patchSection}
       onsectiongrip={gripSection}
       onsvcrun={runService}
-      onsvcattach={attachSectionService}
       {cardView}
       {matrix}
       {sectionTools}
@@ -835,7 +844,7 @@
 
 <MdBar />
 <Toast />
-<Dustbin onsvcdrop={detachSectionService} />
+<Dustbin />
 
 <style>
   .brand-nb {

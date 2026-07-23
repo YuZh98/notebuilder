@@ -36,10 +36,6 @@ function baseProps(section: Section) {
   };
 }
 
-function dt(map: Record<string, string>) {
-  return { types: Object.keys(map), getData: (k: string) => map[k] ?? '', setData: () => {}, dropEffect: 'none' };
-}
-
 beforeEach(() => resetSession());
 afterEach(() => {
   resetSession();
@@ -130,26 +126,6 @@ describe('SectionView — Edit-mode matrix filter', () => {
     const section = sec({ cards: [card('c1'), card('c2')] });
     const { container } = render(SectionView, { props: baseProps(section) });
     expect(container.querySelectorAll('[data-card]')).toHaveLength(2);
-  });
-});
-
-describe('SectionView — native service drop', () => {
-  it('a text/nb-svc drop on the section body fires onsvcattach with the key', async () => {
-    const section = sec();
-    const onsvcattach = vi.fn();
-    const { container } = render(SectionView, { props: { ...baseProps(section), onsvcattach } });
-    const room = container.querySelector('[data-section="s1"]') as HTMLElement;
-    await fireEvent.drop(room, { dataTransfer: dt({ 'text/nb-svc': 'shuffle' }) });
-    expect(onsvcattach).toHaveBeenCalledWith('shuffle');
-  });
-
-  it('ignores a drop that carries no service payload', async () => {
-    const section = sec();
-    const onsvcattach = vi.fn();
-    const { container } = render(SectionView, { props: { ...baseProps(section), onsvcattach } });
-    const room = container.querySelector('[data-section="s1"]') as HTMLElement;
-    await fireEvent.drop(room, { dataTransfer: dt({ 'text/nb-slot': 'text' }) });
-    expect(onsvcattach).not.toHaveBeenCalled();
   });
 });
 

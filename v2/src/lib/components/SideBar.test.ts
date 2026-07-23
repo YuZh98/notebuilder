@@ -74,14 +74,32 @@ describe('SideBar — Section ops panel', () => {
     expect(withFlip.container.querySelector('[data-svc="flipAll"]')).not.toBeDisabled();
   });
 
-  it('dragstart sets the text/nb-svc payload and reveals the dustbin', () => {
-    const { container } = render(SideBar, { props: baseProps({ section: sec() }) });
+  it('a service chip grips the pointer engine and carries no native draggable', () => {
+    const onsvcgrip = vi.fn();
+    const { container } = render(SideBar, { props: baseProps({ section: sec(), onsvcgrip }) });
     const chip = container.querySelector('[data-svc="pin"]') as HTMLElement;
-    let payload = '';
-    const dataTransfer = { setData: (_k: string, v: string) => (payload = v), types: [] as string[] };
-    fireEvent.dragStart(chip, { dataTransfer });
-    expect(payload).toBe('pin');
-    expect(dustState.show).toBe(true);
+    expect(chip.getAttribute('draggable')).not.toBe('true');
+    fireEvent(
+      chip,
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true }) as PointerEvent,
+    );
+    expect(onsvcgrip).toHaveBeenCalledWith('pin', expect.anything(), expect.any(HTMLElement));
+  });
+
+  it('a capability-blocked chip (flipAll, no flip card) never grips', () => {
+    const onsvcgrip = vi.fn();
+    const { container } = render(SideBar, {
+      props: baseProps({
+        section: sec({ cards: [{ id: 'c', sectionId: 's1', position: 0, slots: [] }] }),
+        onsvcgrip,
+      }),
+    });
+    const chip = container.querySelector('[data-svc="flipAll"]') as HTMLElement;
+    fireEvent(
+      chip,
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true }) as PointerEvent,
+    );
+    expect(onsvcgrip).not.toHaveBeenCalled();
   });
 });
 

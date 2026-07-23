@@ -1,4 +1,13 @@
-export type DragKind = 'card' | 'section' | 'qopt' | 'product' | 'slot' | 'bench' | 'tag' | 'svc';
+export type DragKind =
+  | 'card'
+  | 'section'
+  | 'qopt'
+  | 'product'
+  | 'slot'
+  | 'bench'
+  | 'tag'
+  | 'svc'
+  | 'svcattach';
 
 export type KindSpec = {
   itemSel: string;
@@ -62,4 +71,14 @@ export const DRAG_KINDS: Record<DragKind, KindSpec> = {
   },
   // Service-bar chip: reorder inside the horizontal bar; dust disables the service (v1 130-boot:17-24).
   svc: { itemSel: '.svc-item', gridSels: ['.svcbar'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
+  // Sidebar Section-ops chip → a section attaches the service; dust detaches it. Distinct from
+  // `svc` (bar reorder) so reorder drags never light rooms up. The chip stays put, like `product`.
+  svcattach: {
+    itemSel: '.chip',
+    gridSels: [],
+    horiz: alwaysHoriz,
+    deletable: true,
+    ghostSource: false,
+    laneSel: '.room[data-section]',
+  },
 };

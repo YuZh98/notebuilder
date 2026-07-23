@@ -24,7 +24,6 @@
     ontogglecollapse,
     ongrip,
     onsvcrun,
-    onsvcattach,
     cardView,
     sectionTools,
     sectionFooter,
@@ -43,8 +42,6 @@
     ongrip?: (ev: PointerEvent, roomEl: HTMLElement) => void;
     /** Study action (shuffle/flipAll/reset) — App owns notebook + readerState. */
     onsvcrun?: (key: ServiceKey) => void;
-    /** Native `text/nb-svc` chip dropped on the section body enables that service. */
-    onsvcattach?: (key: ServiceKey) => void;
     cardView: Snippet<[Section, Card, boolean]>;
     sectionTools?: Snippet<[Section]>;
     sectionFooter?: Snippet<[Section]>;
@@ -94,16 +91,6 @@
     onpatch({ services: Object.keys(services).length ? services : undefined });
   }
 
-  function svcDragOver(e: DragEvent) {
-    if ((e.dataTransfer?.types ?? []).includes('text/nb-svc')) e.preventDefault();
-  }
-
-  function svcDrop(e: DragEvent) {
-    const key = e.dataTransfer?.getData('text/nb-svc');
-    if (!key) return;
-    e.preventDefault();
-    onsvcattach?.(key as ServiceKey);
-  }
   const chapterCount = $derived(
     section.kind === 'divider' ? sectionsOfChapter(notebook, section.id).length : 0,
   );
@@ -266,8 +253,6 @@
     data-section={section.id}
     style={widthStyle}
     onclick={select}
-    ondragover={svcDragOver}
-    ondrop={svcDrop}
   >
     {@render roomGrip()}
     {#if !studying && sectionTools}{@render sectionTools(section)}{/if}
