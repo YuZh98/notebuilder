@@ -239,9 +239,10 @@
   function restoreHistory(s: HistSnapshot) {
     notebook = s.notebook;
     cardTypes = s.cardTypes;
-    selCard = null;
-    selSection = null;
-    selProd = null;
+    // D25 revised (BL4): keep a selection the restored state still contains; clear only dangling ones.
+    if (selCard && !findCard(notebook, selCard)) selCard = null;
+    if (selSection && !notebook.sections.some((x) => x.id === selSection)) selSection = null;
+    if (selProd && !cardTypes.some((t) => t.id === selProd)) selProd = null;
   }
 
   // Save-as-type mirrors App, minus persistence: the type lives only in this session's list.

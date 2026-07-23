@@ -271,9 +271,11 @@
     cardTypes = s.cardTypes;
     factory.benches = s.benches;
     factory.active = s.benchActive;
-    selCard = null;
-    selSection = null;
-    selProd = null;
+    // D25 revised (BL4): a selection the restored state still contains survives the undo;
+    // only a dangling one clears — otherwise Cmd+Z slams the inspector shut mid-edit.
+    if (selCard && !findCard(notebook, selCard)) selCard = null;
+    if (selSection && !notebook.sections.some((x) => x.id === selSection)) selSection = null;
+    if (selProd && !cardTypes.some((t) => t.id === selProd)) selProd = null;
   }
 
   function renameNotebook(name: string) {

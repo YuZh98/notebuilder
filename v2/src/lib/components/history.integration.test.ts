@@ -125,6 +125,67 @@ describe('undo coverage — discrete author mutations', () => {
   });
 });
 
+describe('undo keeps a still-valid selection (BL4 — D25 revised)', () => {
+  it('a panel edit undone keeps the inspector open on the same card', async () => {
+    const { container } = render(App);
+    await tick();
+    const furn = [...container.querySelectorAll<HTMLElement>('.furn')].find((f) =>
+      f.querySelector('.text-input-edit'),
+    )!;
+    const cardId = furn.getAttribute('data-card');
+    await fireEvent.click(furn);
+    await tick();
+    const input = container.querySelector<HTMLInputElement>(
+      '#side .card-panel .text-input-edit input',
+    )!;
+    clearHistory();
+    input.value = 'edited';
+    await fireEvent.input(input);
+    await fireEvent.focusOut(input);
+    await tick();
+    undo();
+    await tick();
+    expect(container.querySelector('#side .card-panel'), 'inspector must survive the undo').not.toBeNull();
+    expect(container.querySelector(`.furn.sel[data-card="${cardId}"]`)).not.toBeNull();
+  });
+
+  it('a section stays selected across an undo of a service toggle', async () => {
+    const { container } = render(App);
+    await tick();
+    const room = container.querySelector<HTMLElement>('.room[data-section]')!;
+    await fireEvent.click(room);
+    await tick();
+    expect(container.querySelector('.room.sel')).not.toBeNull();
+    clearHistory();
+    await fireEvent.click(container.querySelector('#side [data-svc="pin"]')!);
+    await tick();
+    undo();
+    await tick();
+    expect(container.querySelector('.room.sel'), 'section selection must survive the undo').not.toBeNull();
+  });
+
+  it('redo of a removal clears the now-dangling card selection', async () => {
+    const { container } = render(App);
+    await tick();
+    const furn = container.querySelector<HTMLElement>('.furn[data-card]')!;
+    const cardId = furn.getAttribute('data-card')!;
+    await fireEvent.click(furn);
+    await tick();
+    clearHistory();
+    await fireEvent.click(container.querySelector('.card-panel button[title="Remove card"]')!);
+    await tick();
+    undo();
+    await tick();
+    await fireEvent.click(container.querySelector(`.furn[data-card="${cardId}"]`)!);
+    await tick();
+    expect(container.querySelector('#side .card-panel')).not.toBeNull();
+    await fireEvent.keyDown(container, { key: 'z', metaKey: true, shiftKey: true });
+    await tick();
+    expect(container.querySelector(`.furn[data-card="${cardId}"]`)).toBeNull();
+    expect(container.querySelector('#side .card-panel'), 'a dangling selection must clear').toBeNull();
+  });
+});
+
 describe('tags panel — one undo step per operation (D)', () => {
   async function selectFirstCard(container: HTMLElement) {
     const furn = container.querySelector<HTMLElement>('.furn')!;
