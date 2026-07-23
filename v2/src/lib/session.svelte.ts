@@ -1,18 +1,22 @@
 import type { Section, Card } from './types';
+import type { Scope } from './variable-graph';
 
 /**
- * D19 session study state, keyed by section id. This is view-only, per-session scratch state —
- * shuffle order, search query, and archive-view toggle — and is NEVER persisted or exported
- * (no App.svelte effect reads it). Mode and notebook switches wipe it via `resetSession`.
+ * D19 session study state, keyed by section id (`live` by card id). This is view-only,
+ * per-session scratch state — shuffle order, search query, archive-view toggle, and the
+ * session-layer slot values (v1 LIVE) — and is NEVER persisted or exported (no App.svelte
+ * effect reads it). Mode and notebook switches wipe it via `resetSession`.
  */
 export const session: {
   shuf: Record<string, string[]>;
   search: Record<string, string>;
   showArch: Record<string, boolean>;
+  live: Record<string, Scope>;
 } = $state({
   shuf: {},
   search: {},
   showArch: {},
+  live: {},
 });
 
 /** Fisher-Yates a section's card ids into a view-only order (v1 80-actions.js:3). */
@@ -42,4 +46,5 @@ export function resetSession(): void {
   session.shuf = {};
   session.search = {};
   session.showArch = {};
+  session.live = {};
 }

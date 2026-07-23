@@ -822,3 +822,47 @@ describe('CardView fuse ratio resize', () => {
     expect(card).toEqual(snapshot);
   });
 });
+
+describe('CardView — session-layer slots read the live scope, not readerState', () => {
+  function sliderCard(): Card {
+    return cardOf({
+      slots: [
+        slot('sl1', { type: 'slider', props: { key: 'a', value: 50, min: 0, max: 100, step: 1 } }),
+        slot('sl2', { type: 'compute', props: { expr: 'a', out: 'echo', note: 'echo =' } }),
+      ],
+    });
+  }
+
+  it('a live value overrides the authored default in the slider and a dependent compute', () => {
+    mode.set('study');
+    const { container } = render(CardView, {
+      props: { ...baseProps(sliderCard()), surface: 'read' as const, live: { a: 80 } },
+    });
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(range.value).toBe('80');
+    expect(container.querySelector('.compute-study .val')?.textContent).toBe('80');
+  });
+
+  it('without live state both show the authored value', () => {
+    mode.set('study');
+    const { container } = render(CardView, {
+      props: { ...baseProps(sliderCard()), surface: 'read' as const },
+    });
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(range.value).toBe('50');
+    expect(container.querySelector('.compute-study .val')?.textContent).toBe('50');
+  });
+
+  it('dragging emits onstate with the slot id and a var-keyed payload; the document stays authored', async () => {
+    mode.set('study');
+    const card = sliderCard();
+    const props = { ...baseProps(card), surface: 'read' as const };
+    const { container } = render(CardView, { props });
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement;
+    range.value = '80';
+    await fireEvent.input(range);
+    await tick();
+    expect(props.onstate).toHaveBeenCalledWith('sl1', { a: 80 });
+    expect((card.slots[0].props as { value: number }).value).toBe(50);
+  });
+});

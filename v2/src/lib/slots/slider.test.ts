@@ -58,6 +58,12 @@ describe('sliderSlot', () => {
   });
 });
 
+describe('sliderSlot state layer', () => {
+  it('declares its runtime writes as session-layer, never document or progress', () => {
+    expect(sliderSlot.stateLayer).toBe('session');
+  });
+});
+
 describe('sliderSlot write declaration', () => {
   it('carries the current value as the write default (seeds card scope)', () => {
     const result = sliderSlot.variables({ key: 'rate', value: 7 });

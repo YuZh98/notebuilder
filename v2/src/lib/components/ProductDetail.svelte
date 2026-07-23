@@ -1,7 +1,9 @@
 <script lang="ts">
   import CardView from './CardView.svelte';
   import { typePreviewCard, type CardType, type Variety } from '../card-types';
+  import { stateLayerFor } from '../slots/registry';
   import type { Card, SlotProps } from '../types';
+  import type { Scope } from '../variable-graph';
 
   let {
     type,
@@ -39,6 +41,8 @@
   // Session-only reader state for the live preview (keyed by slot id); reset on product switch
   // via the {#key} remount in SideBar.
   let prevState = $state<Record<string, Record<string, unknown>>>({});
+  // Session-layer scope bucket for the preview (slider), keyed by variable name.
+  let prevLive = $state<Scope>({});
   let prevStudy = $state(false);
   let variety = $state<Variety | null>(ct.varieties?.[0] ?? null);
 
@@ -52,7 +56,7 @@
 
   const varietyAccent = $derived(variety?.accent || ct.accent || undefined);
 
-  // Reactive, session-only study card the live preview mutates in place (slider/compute react).
+  // Reactive, session-only study card for the live preview; draft edits patch it in place.
   const previewCard = $state<Card>(structuredClone(base));
 
   // Keep the variety accent in sync without rebuilding the card (which would reset slider drags).
@@ -82,11 +86,16 @@
     surface: 'read' as const,
     selected: false,
     state: prevState,
+    live: prevLive,
     notes: [],
     notesOpen: false,
     onselect: noop,
     onstate: (slotId: string, next: Record<string, unknown>) => {
-      prevState[slotId] = next;
+      if (stateLayerFor(previewCard, slotId) === 'session') {
+        prevLive = { ...prevLive, ...(next as Scope) };
+      } else {
+        prevState[slotId] = next;
+      }
     },
     onmove: noop,
     ondelete: noop,

@@ -3,7 +3,22 @@
   import { clampSlider } from './slider';
   import type { Scope } from '../variable-graph';
 
-  let { props = $bindable() }: { props: SliderProps; scope?: Scope } = $props();
+  let {
+    props,
+    state = {},
+    onState,
+  }: {
+    props: SliderProps;
+    scope?: Scope;
+    state?: Record<string, unknown>;
+    onState?: (next: Record<string, unknown>) => void;
+  } = $props();
+
+  // Session-layer slot: `state` is the card's live scope keyed by variable name, wiped on
+  // Study entry. `props.value` is the authored document default and is never written here.
+  const value = $derived(
+    typeof state[props.key] === 'number' ? (state[props.key] as number) : props.value,
+  );
 
   const min = $derived(props.min ?? 0);
   const max = $derived(props.max ?? 100);
@@ -18,7 +33,7 @@
   const numMax = $derived(showSlider ? max : undefined);
 
   function set(raw: number) {
-    props.value = clampSlider(props, Number.isFinite(raw) ? raw : props.value);
+    onState?.({ [props.key]: clampSlider(props, Number.isFinite(raw) ? raw : value) });
   }
 </script>
 
@@ -29,7 +44,7 @@
       {#if showValue}
         <input
           type="number"
-          value={props.value}
+          {value}
           min={numMin}
           max={numMax}
           {step}
@@ -41,7 +56,7 @@
   {#if showSlider}
     <input
       type="range"
-      value={props.value}
+      {value}
       {min}
       {max}
       {step}

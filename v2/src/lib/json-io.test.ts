@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { exportNotebook, importNotebook, validateNotebookJSON, validateNotebook, adoptNotebookIdentity } from './json-io';
+import { session, resetSession } from './session.svelte';
 import type { Notebook } from './types';
 
 const sampleNotebook: Notebook = {
@@ -26,6 +27,19 @@ const sampleNotebook: Notebook = {
     },
   ],
 };
+
+describe('exportNotebook — session-layer state never leaks into the document', () => {
+  it('exports the authored slider value even while a session drag is live', () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.sections[0].cards[0].slots = [
+      { id: 'slot_sl', type: 'slider', props: { key: 'rate', value: 50, min: 0, max: 100 } },
+    ];
+    session.live['card_1'] = { rate: 80 };
+    const json = exportNotebook(nb);
+    expect(json.notebook.sections[0].cards[0].slots[0].props).toMatchObject({ value: 50 });
+    resetSession();
+  });
+});
 
 describe('exportNotebook', () => {
   it('exports with version and structure', () => {

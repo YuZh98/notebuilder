@@ -29,6 +29,13 @@ export interface SlotType<P extends SlotProps = SlotProps> {
   kind: 'write' | 'interact' | 'compute' | 'track';
   completable: boolean;
 
+  /**
+   * Which layer this slot's Study-mode `onState` writes belong to. `'progress'` (the default)
+   * is readerState: persisted, exported, keyed by slot id. `'session'` is v1's LIVE layer:
+   * keyed by variable name, wiped on every Study entry, never persisted or exported.
+   */
+  stateLayer?: 'progress' | 'session';
+
   /** Factory: returns default props for a new slot instance */
   create(): P;
 

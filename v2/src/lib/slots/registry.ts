@@ -1,5 +1,5 @@
 import type { SlotType } from '../slot-contract';
-import type { SlotProps } from '../types';
+import type { Card, SlotProps } from '../types';
 import { textSlot } from './text';
 import { sliderSlot } from './slider';
 import { computeSlot } from './compute';
@@ -28,6 +28,16 @@ export function getSlot(type: string): AnySlotType | undefined {
 
 export function allSlots(): AnySlotType[] {
   return [...registry.values()];
+}
+
+/** Which layer a card slot's runtime writes belong to; unknown ids (CARD_STATE_KEY) are progress. */
+export function stateLayerFor(
+  card: Pick<Card, 'slots' | 'back'>,
+  slotId: string,
+): 'progress' | 'session' {
+  const slot = [...card.slots, ...(card.back ?? [])].find((s) => s.id === slotId);
+  const type = slot && getSlot(slot.type);
+  return type?.stateLayer === 'session' ? 'session' : 'progress';
 }
 
 // Register core slots

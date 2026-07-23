@@ -14,6 +14,7 @@
   import CardNotes from './CardNotes.svelte';
   import type { ProgressProps } from '../slots/progress';
   import type { Annotation, Card, Slot, SlotProps } from '../types';
+  import type { Scope } from '../variable-graph';
 
   let {
     card,
@@ -22,6 +23,7 @@
     selectedSlotId,
     // `state` is the external prop name; aliased so it cannot shadow the $state rune.
     state: cardState,
+    live = {},
     notes,
     notesOpen,
     onselect,
@@ -60,6 +62,8 @@
     forceMode?: 'edit' | 'study';
     /** This card's reader state, keyed by slot id (CARD_STATE_KEY holds card-level flags). */
     state: Record<string, Record<string, unknown>>;
+    /** Session-layer scope values keyed by variable name — seeds the card scope over authored defaults. */
+    live?: Scope;
     notes: Annotation[];
     notesOpen: boolean;
     onselect: () => void;
@@ -110,7 +114,7 @@
   // Variables are card-scoped: both faces of a flip card share one scope.
   const resolved = $derived.by(() => {
     try {
-      return { scope: buildCardScope([...card.slots, ...(card.back ?? [])], {}), error: '' };
+      return { scope: buildCardScope([...card.slots, ...(card.back ?? [])], live), error: '' };
     } catch (e) {
       return { scope: {}, error: e instanceof Error ? e.message : String(e) };
     }
@@ -332,7 +336,7 @@
           <slotType.renderStudy
             props={slot.props}
             {scope}
-            state={slotState(slot.id)}
+            state={slotType.stateLayer === 'session' ? live : slotState(slot.id)}
             onState={(next) => onstate(slot.id, next)}
           />
         {/if}

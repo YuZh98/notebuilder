@@ -45,13 +45,22 @@ describe('clearShuffle', () => {
 });
 
 describe('resetSession', () => {
-  it('wipes all three maps', () => {
+  it('wipes all four maps', () => {
     session.shuf['s1'] = ['a'];
     session.search['s1'] = 'q';
     session.showArch['s1'] = true;
+    session.live['c1'] = { rate: 80 };
     resetSession();
     expect(session.shuf).toEqual({});
     expect(session.search).toEqual({});
     expect(session.showArch).toEqual({});
+    expect(session.live).toEqual({});
+  });
+});
+
+describe('session.live (v1 LIVE layer)', () => {
+  it('holds per-card scope values keyed by variable name', () => {
+    session.live['c1'] = { rate: 80 };
+    expect(session.live['c1'].rate).toBe(80);
   });
 });

@@ -73,6 +73,8 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
+  import { stateLayerFor } from './lib/slots/registry';
+  import type { Scope } from './lib/variable-graph';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
   import { resetPresentation } from './lib/presentation';
   import { SERVICE_FEATURES, SERVICE_ACTIONS, type ServiceKey } from './lib/services';
@@ -547,6 +549,7 @@
     if (get(mode) !== 'edit') return;
     readerState = resetPresentation(readerState);
     session.shuf = {};
+    session.live = {};
     selCard = null;
     selSection = null;
     selProd = null;
@@ -793,8 +796,12 @@
     }
   }
 
-  function onSlotState(cardId: string, slotId: string, next: Record<string, unknown>) {
-    readerState[cardId] = { ...readerState[cardId], [slotId]: next };
+  function onSlotState(card: Card, slotId: string, next: Record<string, unknown>) {
+    if (stateLayerFor(card, slotId) === 'session') {
+      session.live[card.id] = { ...session.live[card.id], ...(next as Scope) };
+    } else {
+      readerState[card.id] = { ...readerState[card.id], [slotId]: next };
+    }
   }
 
   // progress is cross-card: gather the cards in its declared scope.
@@ -907,10 +914,11 @@
     surface={editable ? 'notebook' : 'read'}
     selected={selCard === card.id}
     state={readerState[card.id] ?? {}}
+    live={session.live[card.id] ?? {}}
     notes={annotationsFor(annotations, card.id)}
     notesOpen={notesFor === card.id}
     onselect={() => selectCard(card.id)}
-    onstate={(slotId, next) => onSlotState(card.id, slotId, next)}
+    onstate={(slotId, next) => onSlotState(card, slotId, next)}
     onmove={(dir) => {
       pushHistory();
       moveCard(notebook, card.id, dir);

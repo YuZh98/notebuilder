@@ -28,6 +28,7 @@ export const sliderSlot: SlotType<SliderProps> = {
   type: 'slider',
   kind: 'interact',
   completable: false,
+  stateLayer: 'session',
 
   create(): SliderProps {
     return { key: 'a', value: 50, min: 0, max: 100, step: 1 };

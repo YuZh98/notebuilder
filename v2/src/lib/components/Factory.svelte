@@ -19,7 +19,9 @@
   import { toast } from '../toast.svelte';
   import { pushGestureSnapshot } from '../drag/gesture-history';
   import { pushHistory } from '../history.svelte';
+  import { stateLayerFor } from '../slots/registry';
   import type { Card } from '../types';
+  import type { Scope } from '../variable-graph';
 
   let {
     onseal,
@@ -33,17 +35,19 @@
     confirm?: (message: string, title: string) => Promise<boolean>;
   } = $props();
 
-  // Session-only live preview, keyed by bench id. `prevCards` holds a reactive copy the study
-  // card mutates in place (slider/compute react); `prevState` is the reader channel that
-  // choice/list/text-input and reveal-when read. Both reset on leaving Preview.
+  // Session-only live preview, keyed by bench id. `prevCards` holds a reactive copy of each
+  // bench; `prevState` is the reader channel that choice/list/text-input and reveal-when read;
+  // `prevLive` is the session-layer scope bucket (slider). All reset on leaving Preview.
   let prevCards = $state<Record<string, Card>>({});
   let prevState = $state<Record<string, Record<string, Record<string, unknown>>>>({});
+  let prevLive = $state<Record<string, Scope>>({});
   // Populate a reactive, discardable clone per bench on entering Preview; clear on leaving so
   // each Preview session starts fresh. Edits to these clones never touch the real bench.
   $effect(() => {
     if (!factory.preview) {
       prevCards = {};
       prevState = {};
+      prevLive = {};
       return;
     }
     for (const b of factory.benches) {
@@ -163,12 +167,12 @@
   }
 
   // Shared CardView props: notebook-specific callbacks are no-ops; slot edits write the bench.
-  // `live` (Preview) hands the study card a reactive, session-only copy; the collapsed thumbnail
+  // `preview` hands the study card a reactive, session-only copy; the collapsed thumbnail
   // gets a frozen snapshot.
-  function benchProps(b: Bench, editable: boolean, live = false) {
+  function benchProps(b: Bench, editable: boolean, preview = false) {
     const card = editable
       ? benchFaceCard(b, factory.face === 'back')
-      : live
+      : preview
         ? previewCardFor(b)
         : benchPreviewCard($state.snapshot(b) as Bench);
     // Highlight the selected slot on the editable active bench; null on previews/collapsed cards.
@@ -180,13 +184,18 @@
       selected: false,
       selectedSlotId,
       state: editable ? {} : (prevState[b.id] ?? {}),
+      live: preview ? (prevLive[b.id] ?? {}) : {},
       notes: [],
       notesOpen: false,
       onselect: noop,
       onstate: editable
         ? noop
         : (slotId: string, next: Record<string, unknown>) => {
-            prevState[b.id] = { ...prevState[b.id], [slotId]: next };
+            if (stateLayerFor(card, slotId) === 'session') {
+              prevLive[b.id] = { ...prevLive[b.id], ...(next as Scope) };
+            } else {
+              prevState[b.id] = { ...prevState[b.id], [slotId]: next };
+            }
           },
       onmove: noop,
       ondelete: noop,
