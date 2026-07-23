@@ -4,6 +4,14 @@ Curated navigation map of the codebase. **Purpose: find the right spot to edit w
 whole thing.** Anchors below are **function/registry names** (greppable), not line numbers (those
 drift).
 
+> This repo contains **two codebases**: the shipped v1 (root) and the in-progress v2 rewrite (`v2/`).
+> The v1 product is a single `index.html` — vanilla JS, `localStorage`, no framework. The v2 rewrite
+> is a Svelte 5 + TypeScript + Tauri desktop app backed by SQLite.
+
+---
+
+## Part A: v1 (root — the shipped product)
+
 > The app is authored as **modular source in `src/`** and bundled into a single `index.html` by
 > `scripts/build.mjs` (`npm run build`). The shipped product and every shared export are one
 > self-contained HTML file — vanilla JS, `localStorage`, no framework, no backend. The committed
@@ -11,7 +19,7 @@ drift).
 
 ---
 
-## 1. What the app is (one paragraph)
+### A1. What v1 is (one paragraph)
 
 A **Factory** builds *products* (cards) from **slots** (content: text/list/choice/slider/compute/
 chart/progress; text renders markdown incl. `## ` headings and GFM tables; list styles
@@ -22,7 +30,7 @@ product copies as **cards**. **Edit** = author/decorate; **Study** = read/intera
 meter that tracks per-reader completion. A finished notebook **shares** as one offline `.html` that
 boots straight into a locked Reader.
 
-## 2. Source layout & dependency direction (respect this)
+### A2. Source layout & dependency direction (respect this)
 
 `src/app/*.js` are numbered fragments concatenated **in order** into one closure; each layer may use
 names from the layers above it, never below. `scripts/build.mjs` injects `src/styles.css` and inlines
@@ -50,7 +58,7 @@ vendor/katex.js  inlined KaTeX bundle (KATEX_CSS/JS + /*KATEX_BUNDLE_START/END*/
 `curSlots`. **Rule:** handlers mutate `DB`, then `save()` + `render()`. Render never mutates `DB`.
 State flows DB → view, never the reverse.
 
-## 3. Data shapes (the contracts)
+### A3. Data shapes (the contracts)
 
 > **Internal vs product vocabulary** (carry this table while reading code): the codebase predates the
 > product naming, so internals speak the old domain language. `house` = **notebook**, `room` =
@@ -84,7 +92,7 @@ State flows DB → view, never the reverse.
   fills per-reader; **presentation** (`PRES_KEYS` plus `LIVE`/`SHUF`) is session-only — stripped at
   `stripVol`, cleared by `resetPresentation()` on every Study entry. Mode switches never touch progress.
 
-## 4. Registries — single source of truth (edit here, not scattered)
+### A4. Registries — single source of truth (edit here, not scattered)
 
 | Registry | Holds | Add an entry → |
 |---|---|---|
@@ -95,7 +103,7 @@ State flows DB → view, never the reverse.
 | **`THEMES`** | app-theme registry (chips + names; only the chosen id is data) | new theme |
 | **`SERVICES`** | per-room service widgets | new service |
 
-## 5. Render call-tree (read path — `50-render.js` / `60-stage.js`)
+### A5. Render call-tree (read path — `50-render.js` / `60-stage.js`)
 
 ```
 render → renderTop (fixed top bar — brand · notebook▾ · ＋new · mode toggle (Edit/Study) + add
@@ -114,7 +122,7 @@ render → renderTop (fixed top bar — brand · notebook▾ · ＋new · mode t
 - **`refreshLive(srcEl)`** (`70-events.js`) refreshes only the card containing the dragged control
   (variables can't leave the card).
 
-## 6. The three cross-cutting engines
+### A6. The three cross-cutting engines
 
 1. **Drag** (`90-drag-engine.js` + `100`/`110`) — ONE pointer engine `startCardDrag(src)`
    (cards/products/benches/slots/rooms; floating clone + dashed placeholder + `flipGrid` FLIP).
@@ -131,7 +139,7 @@ Plus: **history** `pushHistory`/`undo`/`redo`/`snapState`; **persistence** `load
 reassembles a standalone Reader `.html` from the inlined `<style>`, the `#app` script, and the
 `/*KATEX_BUNDLE_START/END*/` markers.
 
-## 7. Event model — everything is `data-act` dispatch (listeners in `70-events.js`)
+### A7. Event model — everything is `data-act` dispatch (listeners in `70-events.js`)
 
 - **Producers**: render strings emit `data-act="X"` (or dynamically via `viewToggle()`/`pickGroup()`).
   A few interactions dispatch on `data-i` (`pick`, `flip`, `slide` in study).
@@ -139,7 +147,7 @@ reassembles a standalone Reader `.html` from the inlined `<style>`, the `#app` s
   **pointerdown** (drag grips), plus **drop** (native decorator drops). Most handlers: mutate `DB` →
   `save()` → `render()`.
 
-## 8. "I want to change X" → go here
+### A8. "I want to change X" → go here (v1)
 
 | Goal | Where |
 |---|---|
@@ -155,7 +163,7 @@ reassembles a standalone Reader `.html` from the inlined `<style>`, the `#app` s
 | Theme | `THEMES` + `body[data-theme=…]` CSS in `src/styles.css` |
 | Shared-file Reader | `buildExport` (`80-actions.js`) + the `shared:true` seed branch |
 
-## 9. Invariants & conventions (don't break)
+### A9. Invariants & conventions (don't break — v1)
 
 - **No `eval`/`Function`** on user content — only `EXPR` (own-key whitelist), `condOK`, `interp`.
 - **Escape-first** — all user text through `esc`/`md` before innerHTML.
@@ -170,7 +178,7 @@ reassembles a standalone Reader `.html` from the inlined `<style>`, the `#app` s
 - **DBKEY bump = fresh seed** (wipes the sandbox) — only with the user's OK.
 - **`index.html` is generated** — edit `src/` and `npm run build`; never hand-edit the bundle.
 
-## 10. Dev tooling
+### A10. Dev tooling (v1)
 
 | Command | Does |
 |---|---|
@@ -182,3 +190,258 @@ reassembles a standalone Reader `.html` from the inlined `<style>`, the `#app` s
 
 Manual browser checks: `window.LS.DB()`, `window.LS.reset()`, `window.render()`. The build re-emits a
 fresh `index.html`, so reload after `npm run build`.
+
+---
+
+## Part B: v2 (`v2/` — the Tauri/Svelte rewrite)
+
+> v2 is a full rewrite: same product concepts, new stack. It ships as a **Tauri desktop app** (Rust
+> shell + Svelte 5 webview) backed by **SQLite** instead of localStorage. The codebase uses TypeScript,
+> Svelte 5 runes (`$state`, `$derived`), and Vitest for unit testing.
+
+---
+
+### B1. What v2 is (one paragraph)
+
+The same **Factory → product → seal → notebook** workflow rebuilt with proper types, components, and a
+native desktop shell. A **Notebook** contains **Sections** (with optional `divider` kind for chapters)
+holding **Cards**. Cards are stamped from **CardTypes** (the sealed product catalog). Each card has
+**Slots** (typed content widgets) on front/back faces, and optional **verbs** (`flip`/`bare`). A
+**service bar** per section provides study-mode features (search, shuffle, flip-all, reset, archive,
+pin). Persistence is **SQLite** via Tauri's `plugin-sql`, with migrations in Rust. Import/export uses
+a versioned **JSON interchange format** that validates (including variable-graph cycle detection) at
+import time.
+
+### B2. Source layout
+
+```
+v2/
+  src/
+    main.ts              Svelte mount
+    App.svelte           Root component (32KB): mode/place routing, notebook CRUD, effects
+    app.css              Global stylesheet
+    lib/
+      types.ts           Core type definitions (Slot, Card, Section, Notebook, etc.)
+      card-types.ts      CardType, stampCard, placeType, builtinCardTypes
+      bench.svelte.ts    Factory workbench state (Svelte 5 $state rune)
+      session.svelte.ts  Study session state (shuffle, search, archive toggle)
+      notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, etc.
+      coverage-matrix.ts Matrix axes, cell matching, same 3-axis model as v1
+      services.ts        ServiceBar: SERVICE_ORDER, svcBarItems, reorderSvc, search
+      service-ops.ts     Mutation helpers: toggleService, resetSection, flipAllSection
+      json-io.ts         Export/import + validateNotebookJSON + cardGraph validation
+      share.ts           Tauri file dialog wrappers for import/export
+      db.ts              SQLite layer (saveNotebook, loadNotebook, reader state, prefs)
+      db-map.ts          Notebook ↔ relational row mapping
+      variable-graph.ts  Topological sort, cycle detection, scope resolution
+      card-scope.ts      Build scope from a card's slots (same invariant: card-scoped)
+      expr.ts            Safe expression evaluator (no eval, variable whitelist)
+      markdown.ts        Markdown → HTML (inline + block) with KaTeX
+      mdbar.ts           Formatting toolbar actions
+      verbs.ts           Reveal/glow/emphasis evaluation
+      themes.ts          Theme registry
+      toast.svelte.ts    Notification state
+      uid.ts             ID generator
+      debounce.ts        Utility
+      annotations.ts     Reader annotations (local-only)
+      shell.ts           Shell/container styling logic
+      slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, render*
+      progress.ts        Notebook/section/chapter progress computation
+      card-done.ts       Per-card completion logic
+      var-colors.ts      Variable key → color assignment
+
+      slots/             Per-slot-type modules (11 types):
+        registry.ts      Slot type registry (registerSlot / getSlot / allSlots)
+        identifiers.ts   Key naming helpers
+        text.ts          + TextEdit.svelte + TextStudy.svelte
+        slider.ts        + SliderEdit.svelte + SliderStudy.svelte
+        compute.ts       + ComputeEdit.svelte + ComputeStudy.svelte (+ .test.ts)
+        chart.ts         + ChartEdit.svelte + ChartStudy.svelte + plot.ts
+        choice.ts        + ChoiceEdit.svelte + ChoiceStudy.svelte (+ .test.ts)
+        list.ts          + ListEdit.svelte + ListStudy.svelte (+ .test.ts)
+        progress.ts      + ProgressEdit.svelte + ProgressStudy.svelte
+        code.ts          + CodeEdit.svelte + CodeStudy.svelte
+        image.ts         + ImageEdit.svelte + ImageStudy.svelte
+        table.ts         + TableEdit.svelte + TableStudy.svelte
+        text-input.ts    + TextInputEdit.svelte + TextInputStudy.svelte
+        VerbWrapper.svelte   Reveal/glow/emphasis decorator
+
+      components/        UI components:
+        TopBar.svelte    Mode toggle, notebook switcher, add buttons
+        Stage.svelte     Main stage router (notebook/factory/matrix)
+        SectionView.svelte  Section grid: cards + chapter fold + service bar
+        CardView.svelte  Card frame: front/back faces, slots, verbs, resize
+        Factory.svelte   Bench editor + slot palette + preview toggle
+        SideBar.svelte   Context panel (inspector/notebook/section)
+        SideFactory.svelte  Factory sidebar (slot config, verb palette)
+        CoverageMatrix.svelte  3-axis matrix grid (same v1 concept)
+        ServiceBar.svelte  Per-section feature/action bar
+        SealModal.svelte  Seal product: name, icon, store, varieties
+        ProductDetail.svelte  Product info + fork/place
+        StoreLane.svelte  Store shelf in sidebar
+        SlotConfig.svelte  Slot field editor + verb builder
+        CeText.svelte    ContentEditable text field
+        MdBar.svelte     Markdown toolbar
+        Dustbin.svelte   Drop-to-delete target
+        Toast.svelte     Notifications
+        CardNotes.svelte Reader annotations
+
+      drag/              Drag-and-drop engine:
+        engine.ts        Core pointer engine (startDrag, FLIP animation)
+        kinds.ts         DRAG_KINDS registry: card/section/qopt/product/slot/bench/tag/svc
+        geometry.ts      Hit testing, midpoint calculation
+        notebook-drop.ts Drop handlers for notebook grids
+        factory-drop.ts  Drop handlers for factory grids
+        header-drag.ts   Matrix axis reorder (separate engine)
+        svc-drop.ts      Service bar chip reorder
+        resize.ts        Edge-resize engine
+        qopt-remap.ts    Choice option reorder mapping
+        dust.svelte.ts   Dustbin active state
+        gesture-history.ts  Undo hook for drag completion
+
+      stores/            Svelte stores:
+        mode.ts          Edit/Study toggle
+        place.ts         house/factory place
+  src-tauri/
+    src/lib.rs           Tauri setup: SQLite migrations (5 versions), menu events
+    src/main.rs          Entry point
+    Cargo.toml           tauri, plugin-sql, plugin-dialog, plugin-fs, plugin-log
+    tauri.conf.json      App config
+```
+
+### B3. Data shapes (v2 — typed)
+
+```typescript
+Slot     = { id, type, props: SlotProps, verbs?: VerbConfig, w?, fuse?, fuseW? }
+Card     = { id, sectionId, typeId?, position, slots[], verbs?, back?, tags?, accent?, w?, archived? }
+Section  = { id, notebookId, name, position, cards[], kind?, locked?, width?, title?, subtitle?,
+             folded?, services?, svcOrder?, svcW? }
+Notebook = { id, name, createdAt, updatedAt, sections[], subtitle?, width? }
+CardType = { id, name, description?, verbs?, slots: SlotTemplate[], back?, accent?, note?, icon?,
+             store?, varieties? }
+```
+
+**SQLite schema** (5 migrations in `lib.rs`):
+- `notebooks` (id, name, created_at, updated_at, data JSON)
+- `sections` (id, notebook_id FK, name, position, data JSON)
+- `cards` (id, section_id FK, type_id, position, data JSON)
+- `reader_state` (card_id, slot_id, data JSON) — local progress, never exported
+- `annotations` (id, card_id, kind, body, created_at) — local-only
+- `card_types` (id, name, data JSON, created_at) — sealed products
+- `preferences` (key, value) — theme, etc.
+
+**Same invariants as v1:**
+- Variables are **card-scoped** (front + back share one scope, never cross card boundaries).
+- Study state: document (exported) · progress (persisted locally, never exported) · presentation (session-only).
+- Sealed product structure is immutable; content within slots remains editable.
+
+### B4. Slot system — the `SlotType` contract
+
+Every slot type implements `SlotType<P>` (`slot-contract.ts`):
+
+| Method | Purpose |
+|---|---|
+| `create()` | Default props for a new instance |
+| `variables(props)` | Declared reads/writes (feeds the variable graph) |
+| `evaluate?(props, scope)` | Compute write values from current scope |
+| `isDone?(props, state)` | Progress tracking (completable slots only) |
+| `validate?(props)` | Prop validation errors |
+| `migrate?(old, version)` | Schema migration |
+| `renderEdit` | Svelte component for Edit mode |
+| `renderStudy` | Svelte component for Study mode |
+
+**Registered types** (11): `text`, `slider`, `compute`, `chart`, `choice`, `list`, `progress`,
+`code`, `image`, `table`, `text-input`.
+
+### B5. Key systems (v2)
+
+1. **Drag engine** (`drag/engine.ts` + `kinds.ts`) — unified pointer engine with `DRAG_KINDS` registry
+   (8 kinds: card, section, qopt, product, slot, bench, tag, svc). Same FLIP animation approach as v1.
+   Separate header-drag for matrix axis reorder. Drop handlers split by context (notebook vs factory).
+
+2. **Variable graph** (`variable-graph.ts`) — topological-sort evaluator. Each slot declares reads/
+   writes; `resolveGraph` orders by dependency and evaluates once. `findGraphIssues` does static
+   analysis (missing deps, cycles) at import time.
+
+3. **Coverage matrix** (`coverage-matrix.ts`) — same 3 axes as v1 (section/product/tag). Appears when
+   ≥2 axes have ≥2 values.
+
+4. **Service bar** (`services.ts` + `service-ops.ts`) — 6 services (pin, shuffle, flipAll, reset,
+   search, archive). Features decorate cards; actions fire once. Custom order via `svcOrder`.
+
+5. **JSON interchange** (`json-io.ts`) — versioned export/import with full validation including
+   variable-graph cycle detection. Static analysis catches broken variable references before notebooks
+   are loaded.
+
+6. **Persistence** (`db.ts`) — SQLite via Tauri plugin-sql. `isTauri()` guards DB calls so the code
+   runs in tests/browser without the native layer.
+
+### B6. "I want to change X" → go here (v2)
+
+| Goal | Where |
+|---|---|
+| New slot type | Implement `SlotType<P>` in `slots/mytype.ts` + Edit/Study `.svelte` + register in `slots/registry.ts` |
+| New verb/effect | `verbs.ts` + wire in `slots/VerbWrapper.svelte` + update `VerbConfig` in `types.ts` |
+| Card/section CRUD | `notebook-ops.ts` |
+| Factory/seal workflow | `bench.svelte.ts` + `card-types.ts` + `SealModal.svelte` |
+| Drag behavior | `drag/kinds.ts` (config) + `drag/notebook-drop.ts` or `drag/factory-drop.ts` (handlers) |
+| Matrix/coverage axes | `coverage-matrix.ts` |
+| Service bar | `services.ts` (registry/logic) + `ServiceBar.svelte` (UI) + `service-ops.ts` (mutations) |
+| Import/export | `json-io.ts` (logic) + `share.ts` (file dialogs) |
+| Persistence/DB | `db.ts` + `db-map.ts` + migrations in `src-tauri/src/lib.rs` |
+| Themes | `themes.ts` + CSS variables in `app.css` |
+| Progress tracking | `progress.ts` + `card-done.ts` + `slots/progress.ts` |
+| Variable reactivity | `variable-graph.ts` + `card-scope.ts` + slot's `variables()`/`evaluate()` |
+
+### B7. Invariants & conventions (don't break — v2)
+
+- **No `eval`/`Function`** — only `expr.ts` (whitelist-based safe evaluator).
+- **Card-scoped variables** — reads/writes never cross card boundaries. `findGraphIssues` enforces.
+- **SlotType contract** — every slot type must declare `variables()` and provide both render components.
+- **SQLite parameterized queries** — no string interpolation of user data in SQL.
+- **Session state (`session.svelte.ts`)** is never persisted or exported — mode/notebook switches reset it.
+- **`folded` is local-only** — never included in JSON export (fold state is per-reader).
+- **Tauri-guard pattern** — `isTauri()` gates all native calls so lib modules run in unit tests.
+- **Structural immutability of placed cards** — slot add/remove only in the Factory bench; placed cards
+  allow only content and style edits (same rule as v1).
+
+### B8. Dev tooling (v2)
+
+| Command | Does |
+|---|---|
+| `npm run dev` | Vite dev server (hot reload) |
+| `npm run build` | Vite production build |
+| `npm run tauri dev` | Tauri desktop app (Rust + webview) |
+| `npm test` | Vitest run (unit tests) |
+| `npm run test:watch` | Vitest watch mode |
+| `npm run check` | svelte-check (type checking) |
+
+---
+
+## Part C: Cross-cutting project structure
+
+```
+docs/
+  CODE-MAP.md           this file
+  adr/                  architecture decision records
+  spec/v2-spec.md       v2 product spec
+  research/             market analysis, v1 feature inventory
+  examples/             sample JSON notebook
+  DEBT.md               debt ledger (local, untracked)
+  superpowers/plans/    task plans (local, untracked)
+
+scripts/
+  build.mjs             v1 concatenation build
+  extract.mjs           v1 source extraction helper
+
+scratch/
+  p3-gate/ … p6-gate/  visual QA screenshots (v1 vs v2 side-by-side)
+  HANDOFF.md            developer handoff notes
+
+tests/                  v1 Playwright BDD suite (~65 specs)
+
+.github/
+  workflows/ci.yml      CI: build + test on push/PR
+  ISSUE_TEMPLATE/       bug/feature templates
+  pull_request_template.md
+```
