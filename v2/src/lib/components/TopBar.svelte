@@ -96,10 +96,19 @@
     onswitch(id);
   }
 
+  import { printPage } from '../print';
+
   function printPdf() {
     if ($mode === 'edit') onenterstudy();
-    toast('print dialog → Save as PDF');
-    setTimeout(() => window.print(), 150);
+    // Delay to let the mode switch render before printing.
+    setTimeout(async () => {
+      try {
+        await printPage();
+        toast('print dialog → Save as PDF');
+      } catch (e) {
+        toast(`print failed: ${e instanceof Error ? e.message : String(e)}`, 4000);
+      }
+    }, 150);
   }
 </script>
 

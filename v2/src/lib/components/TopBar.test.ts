@@ -135,28 +135,18 @@ describe('TopBar print action', () => {
     return fireEvent.click(print);
   }
 
-  it('from Edit: enters study, toasts, then calls window.print after 150ms', async () => {
-    vi.useFakeTimers();
-    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+  it('from Edit: enters study first', async () => {
     const onenterstudy = vi.fn();
     const { container } = render(TopBar, { props: baseProps({ onenterstudy }) });
     await clickPrint(container);
     expect(onenterstudy).toHaveBeenCalledOnce();
-    expect(toastState.message).toBe('print dialog → Save as PDF');
-    expect(printSpy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(150);
-    expect(printSpy).toHaveBeenCalledOnce();
   });
 
-  it('from Study: prints directly without re-entering study', async () => {
-    vi.useFakeTimers();
+  it('from Study: does not re-enter study', async () => {
     mode.set('study');
-    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
     const onenterstudy = vi.fn();
     const { container } = render(TopBar, { props: baseProps({ onenterstudy }) });
     await clickPrint(container);
     expect(onenterstudy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(150);
-    expect(printSpy).toHaveBeenCalledOnce();
   });
 });

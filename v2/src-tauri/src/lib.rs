@@ -2,6 +2,11 @@ use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem, Subme
 use tauri::Emitter;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+#[tauri::command]
+async fn print_page(webview: tauri::Webview) -> Result<(), String> {
+    webview.print().map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations = vec![
@@ -95,6 +100,7 @@ pub fn run() {
                 .add_migrations("sqlite:notebuilder.db", migrations)
                 .build(),
         )
+        .invoke_handler(tauri::generate_handler![print_page])
         .setup(|app| {
             let import = MenuItemBuilder::with_id("import_json", "Import Notebook JSON…")
                 .accelerator("CmdOrCtrl+O")
