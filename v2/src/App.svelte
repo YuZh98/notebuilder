@@ -939,14 +939,12 @@
     onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
     oneditinfactory={() => {
       const ct = card.typeId ? cardTypes.find((t) => t.id === card.typeId) : null;
-      if (ct) {
-        addBench(typeToBench(ct));
-      } else {
-        addBench(typeToBench(cardToType(card, card.typeId ?? 'Untitled')));
-      }
+      // structuredClone chokes on the $state proxy, so snapshot before capturing a typeless card.
+      addBench(typeToBench(ct ?? cardToType($state.snapshot(card) as Card, 'Untitled')));
       setPlace('factory');
     }}
     pinEnabled={section.services?.pin === true}
+    notesEnabled={section.services?.notes === true}
     archEnabled={$mode === 'study' && section.services?.archive === true}
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
