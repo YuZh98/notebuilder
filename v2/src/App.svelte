@@ -65,7 +65,6 @@
     renameSection,
     deleteSection,
     moveSection,
-    addCard,
     deleteCard,
     moveCard,
     addSlot,
@@ -952,8 +951,10 @@
       class="add-card"
       onclick={() => {
         pushHistory();
-        addCard(notebook, section.id);
-      }}>+ blank card</button>
+        const ct = builtinCardTypes.find((t) => t.id === 'ct_note')!;
+        const card = stampCard(ct, section.id, section.cards.length);
+        section.cards.push(card);
+      }}>+ note</button>
     <button
       class="add-card"
       onclick={() => (galleryFor = galleryFor === section.id ? null : section.id)}

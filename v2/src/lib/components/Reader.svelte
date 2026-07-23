@@ -43,7 +43,6 @@
     renameSection,
     deleteSection,
     moveSection,
-    addCard,
     deleteCard,
     moveCard,
     addSlot,
@@ -688,7 +687,7 @@
 
 {#snippet sectionFooter(section: Section)}
   <div class="add-row">
-    <button class="add-card" onclick={() => { pushHistory(); addCard(notebook, section.id); }}>+ blank card</button>
+    <button class="add-card" onclick={() => { pushHistory(); const ct = builtinCardTypes.find((t: CardType) => t.id === 'ct_note')!; const card = stampCard(ct, section.id, section.cards.length); section.cards.push(card); }}>+ note</button>
     <button class="add-card" onclick={() => (galleryFor = galleryFor === section.id ? null : section.id)}>+ from gallery</button>
   </div>
   {#if galleryFor === section.id}

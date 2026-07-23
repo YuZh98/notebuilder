@@ -95,8 +95,8 @@
   let typeNameDraft = $state('');
 
   const studying = $derived((forceMode ?? $mode) === 'study');
-  /** Mechanical compat: editable = true when the surface supports editing and we're not studying. */
-  const editable = $derived(surface !== 'read' && !studying);
+  /** True when the surface supports editing and we're not studying — gates edit-mode slot bodies. */
+  const showEditSlots = $derived(surface !== 'read' && !studying);
   const flipped = $derived(cardState[CARD_STATE_KEY]?.flipped === true);
   const done = $derived(studying && isCardDone(card, cardState));
 
@@ -269,7 +269,7 @@
   }
 
   function handleClick(e: MouseEvent) {
-    if (studying || !editable) return;
+    if (studying || !showEditSlots) return;
     // Card selection is exclusive with section selection — the room's click handler must not fire.
     e.stopPropagation();
     if (
@@ -402,7 +402,7 @@
   role="presentation"
   onclick={handleClick}
 >
-  {#if editable}
+  {#if showEditSlots}
     {#if surface === 'notebook'}
       <span class="grip" role="presentation" onpointerdown={gripDown}>⋮⋮</span>
       <span class="rz" role="presentation" onpointerdown={startCardResize}></span>
@@ -430,7 +430,7 @@
     {#if studying && resolved.error}
       <div class="scope-error">Variables unavailable: {resolved.error}</div>
     {/if}
-    {#if editable}
+    {#if showEditSlots}
       <div class="cardtools">
         {#if surface === 'notebook'}
           <button title="Move card up" onclick={() => onmove(-1)}>↑</button>

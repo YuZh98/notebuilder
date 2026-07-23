@@ -1,5 +1,6 @@
 import { getSlot } from './slots/registry';
 import { uid } from './uid';
+import { stampCard, builtinCardTypes } from './card-types';
 import type { Notebook, Section, Card, Slot } from './types';
 
 export function createNotebook(name: string): Notebook {
@@ -77,16 +78,13 @@ export function moveSection(nb: Notebook, sectionId: string, dir: -1 | 1): void 
   swap(nb.sections, nb.sections.findIndex((s) => s.id === sectionId), dir);
 }
 
+/** Add a typed card to a section. Used by test fixtures; the app places via stampCard directly. */
 export function addCard(nb: Notebook, sectionId: string): Card {
   const section = nb.sections.find((s) => s.id === sectionId);
   if (!section) throw new Error(`No such section: ${sectionId}`);
   if (section.kind === 'divider') throw new Error('Divider sections cannot hold cards');
-  const card: Card = {
-    id: uid('card'),
-    sectionId,
-    position: section.cards.length,
-    slots: [newSlot('text')],
-  };
+  const ct = builtinCardTypes.find((t) => t.id === 'ct_note')!;
+  const card = stampCard(ct, sectionId, section.cards.length);
   section.cards.push(card);
   return card;
 }
