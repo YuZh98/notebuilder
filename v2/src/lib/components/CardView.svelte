@@ -6,7 +6,7 @@
   import { isPinned } from '../service-ops';
   import { shouldShow, isLocked } from '../verbs';
   import { startEdgeResize } from '../drag/resize';
-  import { clampCardW, fuseSplit } from '../drag/geometry';
+  import { clampCardW, clampSlotW, fuseSplit } from '../drag/geometry';
   import { captureNow, pushSnapshot } from '../history.svelte';
   import VerbWrapper from '../slots/VerbWrapper.svelte';
   import ProgressStudy from '../slots/ProgressStudy.svelte';
@@ -44,6 +44,7 @@
     ongrip,
     onresize,
     onfusew,
+    onslotresize,
     forceMode,
     pinEnabled = false,
     notesEnabled = false,
@@ -85,6 +86,8 @@
     ongrip: (ev: PointerEvent, srcEl: HTMLElement) => void;
     onresize: (w: number) => void;
     onfusew: (leftId: string, rightId: string, leftW: number, rightW: number) => void;
+    /** Bench-only per-slot width commit; the notebook and read surfaces render no slot handle. */
+    onslotresize?: (slotId: string, w: number) => void;
     /** Section `pin` service on → show the 📌/📍 pin toggle in both modes (v1 60-stage.js:167). */
     pinEnabled?: boolean;
     /** Section opt-in (services.notes): reader notes are off unless the section enables them. */
@@ -123,6 +126,7 @@
   let liveW: number | null = $state(null);
   let resizing = $state(false);
   let liveFuse: Record<string, number> | null = $state(null);
+  let liveSlotW: { id: string; w: number } | null = $state(null);
 
   const styleVars = $derived(
     `--w:${liveW ?? card.w ?? 12}` + (card.accent ? `;--cardc:${card.accent}` : ''),
@@ -151,6 +155,54 @@
         if (mv !== null) {
           pushSnapshot(snap);
           onresize(w);
+        }
+      },
+    );
+  }
+
+  // v1 60-stage.js:28 bench-slot chrome — icon+label, effect flags and the w badge that
+  // makes the width handle legible.
+  const SLOT_ICONS: Record<string, string> = {
+    text: '¶', list: '•', code: '‹›', table: '▦', image: '🖼', choice: '◉',
+    slider: '⇄', 'text-input': '⌨', compute: '🟰', chart: '∿', progress: '▰',
+  };
+  const SVERB_ICONS: Record<string, string> = {
+    reveal: '👁', glow: '✦', emphasis: '❝', hint: '💡', sequential: '⏭', locked: '🔒',
+  };
+  function verbFlags(slot: Slot): string[] {
+    return Object.entries(slot.verbs ?? {})
+      .filter(([, v]) => Boolean(v))
+      .map(([k]) => SVERB_ICONS[k] ?? '✦');
+  }
+
+  const slotW = (slot: Slot) => (liveSlotW?.id === slot.id ? liveSlotW.w : (slot.w ?? 12));
+
+  // A group's --sw follows the in-flight width so a chain resizes live (v1 110-drag-bench.js:7).
+  function liveGroupW(g: SlotGroup): number {
+    const l = liveSlotW;
+    if (!l || !g.cells.some((c) => c.slot.id === l.id)) return g.sumw;
+    return Math.min(12, g.cells.reduce((a, c) => a + slotW(c.slot), 0));
+  }
+
+  function startSlotResize(ev: PointerEvent, slot: Slot) {
+    const row = (ev.currentTarget as HTMLElement).closest('.cardrow');
+    if (!row) return;
+    const colW = row.getBoundingClientRect().width / 12;
+    if (colW <= 0) return;
+    const startW = slot.w ?? 12;
+    let w = startW;
+    const snap = captureNow();
+    startEdgeResize(
+      ev,
+      (dx) => {
+        w = clampSlotW(startW + dx / colW);
+        liveSlotW = { id: slot.id, w };
+      },
+      (mv) => {
+        liveSlotW = null;
+        if (mv !== null) {
+          pushSnapshot(snap);
+          onslotresize?.(slot.id, w);
         }
       },
     );
@@ -342,6 +394,17 @@
   {/if}
 {/snippet}
 
+{#snippet benchChrome(slot: Slot)}
+  <div class="bs-head sm muted">
+    <span>{SLOT_ICONS[slot.type] ?? '▢'} {slot.type}</span>
+    {#if slot.fuse}<span class="faceflag">⛓</span>{/if}
+    {#each verbFlags(slot) as f, i (i)}<span class="faceflag">{f}</span>{/each}
+    <span class="spacer"></span>
+    <span class="wbadge">w{slotW(slot)}</span>
+  </div>
+  <span class="bs-rz" role="presentation" onpointerdown={(e) => startSlotResize(e, slot)}></span>
+{/snippet}
+
 <!-- One .cardslot per slot; consecutive fused slots share a .cardslot (v1 renderSlots).
      `emptyLabel` renders v1's muted "front empty" / "back empty" placeholder for a bare flip face. -->
 {#snippet faceRows(face: Slot[], edit: boolean, emptyLabel = '')}
@@ -353,7 +416,7 @@
       {#if group.fused}
         {@const vis = chainCells(group.cells, face, edit)}
         {#if vis.length}
-          <div class="cardslot" style="--sw:{group.sumw}">
+          <div class="cardslot" style="--sw:{liveGroupW(group)}">
             <div class="fusewrap">
               {#each vis as cell, k (cell.slot.id)}
                 {#if k}<div
@@ -368,6 +431,9 @@
                   data-sid={cell.slot.id}
                   style="flex:{liveFuse?.[cell.slot.id] ?? cell.slot.fuseW ?? 1}"
                 >
+                  {#if edit && surface === 'bench'}
+                    {@render benchChrome(cell.slot)}
+                  {/if}
                   {#if edit}
                     {@render editBody(cell.slot)}
                   {:else}
@@ -383,8 +449,11 @@
           class="cardslot"
           class:sel={group.cells[0].slot.id === selectedSlotId}
           data-sid={group.cells[0].slot.id}
-          style="--sw:{group.sumw}"
+          style="--sw:{liveGroupW(group)}"
         >
+          {#if edit && surface === 'bench'}
+            {@render benchChrome(group.cells[0].slot)}
+          {/if}
           {#if edit}
             {@render editBody(group.cells[0].slot)}
           {:else}
@@ -639,6 +708,40 @@
   }
   .notes-toggle.has-notes {
     color: var(--accent, #7c3aed);
+  }
+  /* Bench slot chrome (v1 styles.css .benchslot) — the cells are CardView's, so the ported
+     .benchslot rules don't reach them. */
+  .cardslot,
+  .fusecell {
+    position: relative;
+  }
+  .bs-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 0 6px;
+    padding-right: 12px;
+  }
+  .bs-head .spacer {
+    flex: 1;
+  }
+  .wbadge {
+    font-family: ui-monospace, monospace;
+    opacity: 0.75;
+  }
+  .bs-rz {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 11px;
+    height: 100%;
+    cursor: ew-resize;
+    border-radius: 0 10px 10px 0;
+    z-index: 2;
+  }
+  .cardslot:hover .bs-rz,
+  .fusecell:hover .bs-rz {
+    background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.3));
   }
   .slot {
     margin-bottom: 8px;

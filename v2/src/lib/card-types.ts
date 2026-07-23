@@ -6,6 +6,9 @@ export type SlotTemplate = {
   type: string;
   props: SlotProps;
   verbs?: VerbConfig;
+  w?: number;
+  fuse?: boolean;
+  fuseW?: number;
 };
 
 /** A named accent variant of a card type. */
@@ -103,6 +106,9 @@ export function stampSlot(t: SlotTemplate): Slot {
     type: t.type,
     props: structuredClone(t.props),
     ...(t.verbs && { verbs: structuredClone(t.verbs) }),
+    ...(t.w !== undefined && { w: t.w }),
+    ...(t.fuse !== undefined && { fuse: t.fuse }),
+    ...(t.fuseW !== undefined && { fuseW: t.fuseW }),
   };
 }
 
@@ -111,6 +117,9 @@ export function templateSlot(s: Slot): SlotTemplate {
     type: s.type,
     props: structuredClone(s.props),
     ...(s.verbs && { verbs: structuredClone(s.verbs) }),
+    ...(s.w !== undefined && { w: s.w }),
+    ...(s.fuse !== undefined && { fuse: s.fuse }),
+    ...(s.fuseW !== undefined && { fuseW: s.fuseW }),
   };
 }
 

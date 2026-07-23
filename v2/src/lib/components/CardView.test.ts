@@ -761,6 +761,117 @@ describe('CardView card width resize', () => {
   });
 });
 
+describe('CardView bench slot width resize (E)', () => {
+  function benchSetup(w = 4) {
+    const card = cardOf({ slots: [slot('sl1', { w }), slot('sl2', { w: 6 })] });
+    const snapshot = JSON.parse(JSON.stringify(card));
+    const props = { ...baseProps(card), surface: 'bench' as const, onslotresize: vi.fn() };
+    const { container } = render(CardView, { props });
+    const row = container.querySelector('.cardrow') as HTMLElement;
+    stubRect(row, 0, 1200); // colW = 100
+    const cell = container.querySelector('.cardslot[data-sid="sl1"]') as HTMLElement;
+    const rz = cell.querySelector('.bs-rz') as HTMLElement;
+    return { card, snapshot, props, container, cell, rz };
+  }
+  const swOf = (cell: HTMLElement) => cell.getAttribute('style')?.replace(/\s/g, '');
+
+  it('bench slots carry the v1 header: icon+label, w badge, resize handle', () => {
+    const { container, cell } = benchSetup();
+    expect(cell.querySelector('.bs-head')).not.toBeNull();
+    expect(cell.querySelector('.bs-head')?.textContent).toContain('text');
+    expect(cell.querySelector('.wbadge')?.textContent).toBe('w4');
+    expect(cell.querySelector('.bs-rz')).not.toBeNull();
+    expect(container.querySelectorAll('.bs-rz')).toHaveLength(2);
+  });
+
+  it('a fused slot shows the ⛓ flag and a verbed slot its effect icon', () => {
+    const card = cardOf({
+      slots: [
+        slot('sl1', { w: 4, fuse: true, verbs: { glow: true } }),
+        slot('sl2', { w: 4 }),
+      ],
+    });
+    const { container } = render(CardView, {
+      props: { ...baseProps(card), surface: 'bench' as const, onslotresize: vi.fn() },
+    });
+    const head = container.querySelector('[data-sid="sl1"] .bs-head')!;
+    expect(head.textContent).toContain('⛓');
+    expect(head.textContent).toContain('✦');
+  });
+
+  it('the notebook and read surfaces render no slot header or handle', () => {
+    for (const surface of ['notebook', 'read'] as const) {
+      const { container, unmount } = render(CardView, {
+        props: { ...baseProps(cardOf()), surface },
+      });
+      expect(container.querySelector('.bs-rz'), surface).toBeNull();
+      expect(container.querySelector('.bs-head'), surface).toBeNull();
+      unmount();
+    }
+  });
+
+  it('dragging updates --sw and the badge live, commits the snapped width on up', async () => {
+    const { card, snapshot, props, cell, rz } = benchSetup(4);
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 340)); // dx=240 → 4+2.4 → snaps to 6
+    await tick();
+    expect(swOf(cell)).toContain('--sw:6');
+    expect(cell.querySelector('.wbadge')?.textContent).toBe('w6');
+    expect(card).toEqual(snapshot); // live preview never touches the model
+    document.dispatchEvent(pev('pointerup', 340));
+    await tick();
+    expect(props.onslotresize).toHaveBeenCalledWith('sl1', 6);
+    expect(swOf(cell)).toContain('--sw:4'); // back to the model until the owner commits
+    expect(card).toEqual(snapshot);
+  });
+
+  it('clamps to [2, 12] in whole twelfths', async () => {
+    const { props, cell, rz } = benchSetup(4);
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 5000));
+    await tick();
+    expect(swOf(cell)).toContain('--sw:12');
+    document.dispatchEvent(pev('pointermove', -5000));
+    await tick();
+    expect(swOf(cell)).toContain('--sw:2');
+    document.dispatchEvent(pev('pointerup', -5000));
+    await tick();
+    expect(props.onslotresize).toHaveBeenCalledWith('sl1', 2);
+  });
+
+  it('pointercancel restores the start width and never commits (D12)', async () => {
+    const { card, snapshot, props, cell, rz } = benchSetup(4);
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 340));
+    await tick();
+    expect(swOf(cell)).toContain('--sw:6');
+    document.dispatchEvent(pev('pointercancel', 340));
+    await tick();
+    expect(swOf(cell)).toContain('--sw:4');
+    expect(props.onslotresize).not.toHaveBeenCalled();
+    expect(card).toEqual(snapshot);
+  });
+
+  it('resizing a fused member drives the chain sum (--sw) live', async () => {
+    const card = cardOf({
+      slots: [slot('sl1', { w: 4, fuse: true }), slot('sl2', { w: 4 })],
+    });
+    const props = { ...baseProps(card), surface: 'bench' as const, onslotresize: vi.fn() };
+    const { container } = render(CardView, { props });
+    stubRect(container.querySelector('.cardrow') as HTMLElement, 0, 1200);
+    const chain = container.querySelector('.cardslot') as HTMLElement;
+    expect(swOf(chain)).toContain('--sw:8');
+    const rz = container.querySelector('[data-sid="sl1"] .bs-rz') as HTMLElement;
+    await fireEvent(rz, pev('pointerdown', 100));
+    document.dispatchEvent(pev('pointermove', 300)); // 4 → 6, chain 8 → 10
+    await tick();
+    expect(swOf(chain)).toContain('--sw:10');
+    document.dispatchEvent(pev('pointerup', 300));
+    await tick();
+    expect(props.onslotresize).toHaveBeenCalledWith('sl1', 6);
+  });
+});
+
 describe('CardView fuse ratio resize', () => {
   function setup() {
     const card = cardOf({ slots: [slot('a', { fuse: true, w: 6 }), slot('b', { w: 6 })] });

@@ -28,6 +28,33 @@ const sampleNotebook: Notebook = {
   ],
 };
 
+describe('slot widths round-trip through every share surface (E)', () => {
+  it('JSON export → import → HTML payload all carry mixed w/fuse/fuseW', async () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.sections[0].cards[0].slots = [
+      { id: 'sl1', type: 'text', props: { text: 'a' }, w: 4, fuse: true, fuseW: 1.5 },
+      { id: 'sl2', type: 'text', props: { text: 'b' }, w: 8 },
+    ];
+    const json = exportNotebook(nb);
+    const imported = importNotebook(json);
+    expect(imported.sections[0].cards[0].slots.map((s) => ({ w: s.w, fuse: s.fuse, fuseW: s.fuseW }))).toEqual([
+      { w: 4, fuse: true, fuseW: 1.5 },
+      { w: 8, fuse: undefined, fuseW: undefined },
+    ]);
+    const { injectNotebook, extractNotebook } = await import('./html-io');
+    const html = injectNotebook(
+      '<html><script type="application/json" id="notebook-source">{}</script></html>',
+      JSON.stringify({ shared: true, notebook: json }),
+    );
+    const extracted = JSON.parse(extractNotebook(html)!);
+    expect(extracted.notebook.notebook.sections[0].cards[0].slots[0]).toMatchObject({
+      w: 4,
+      fuse: true,
+      fuseW: 1.5,
+    });
+  });
+});
+
 describe('exportNotebook — session-layer state never leaks into the document', () => {
   it('exports the authored slider value even while a session drag is live', () => {
     const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));

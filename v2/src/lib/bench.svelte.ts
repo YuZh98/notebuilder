@@ -243,6 +243,11 @@ export function deleteBenchSlot(b: Bench, slotId: string): void {
 }
 
 /** Replace a bench slot's props (Build-mode edits flow through the synthetic card). */
+export function setBenchSlotW(b: Bench, slotId: string, w: number): void {
+  const slot = [...b.slots, ...(b.back ?? [])].find((s) => s.id === slotId);
+  if (slot) slot.w = w;
+}
+
 export function updateBenchSlot(b: Bench, slotId: string, props: SlotProps): void {
   const slot = [...b.slots, ...(b.back ?? [])].find((s) => s.id === slotId);
   if (slot) slot.props = props;

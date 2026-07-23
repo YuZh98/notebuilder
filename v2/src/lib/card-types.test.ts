@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES } from './card-types';
+import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES, templateSlot, stampSlot } from './card-types';
 import type { CardType } from './card-types';
 import { getSlot } from './slots/registry';
 import type { Card } from './types';
@@ -226,5 +226,22 @@ describe('D17 seed restore', () => {
       expect(typeof (s.props as { min: number }).min).toBe('number');
       expect(typeof (s.props as { max: number }).max).toBe('number');
     }
+  });
+});
+
+describe('slot width survives sealing and stamping (E)', () => {
+  it('templateSlot keeps w, fuse and fuseW; stampSlot restores them', () => {
+    const slot = { id: 'sl1', type: 'text', props: { text: 'x' }, w: 4, fuse: true, fuseW: 1.5 };
+    const t = templateSlot(slot);
+    expect(t).toMatchObject({ w: 4, fuse: true, fuseW: 1.5 });
+    const stamped = stampSlot(t);
+    expect(stamped).toMatchObject({ type: 'text', w: 4, fuse: true, fuseW: 1.5 });
+    expect(stamped.id).not.toBe('sl1');
+  });
+
+  it('a width-less slot stays width-less through the round trip', () => {
+    const t = templateSlot({ id: 'sl1', type: 'text', props: {} });
+    expect('w' in t).toBe(false);
+    expect('w' in stampSlot(t)).toBe(false);
   });
 });

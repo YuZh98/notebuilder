@@ -12,6 +12,7 @@
     setSlotVerb,
     deleteBenchSlot,
     updateBenchSlot,
+    setBenchSlotW,
     fuseBenchSlot,
     benchFaceCard,
     type Bench,
@@ -210,6 +211,7 @@
       onupdateslot: editable
         ? (slotId: string, props: Record<string, unknown>) => updateBenchSlot(b, slotId, props)
         : noop,
+      onslotresize: editable ? (slotId: string, w: number) => setBenchSlotW(b, slotId, w) : noop,
       ondeleteslot: editable
         ? (slotId: string) => {
             pushHistory();

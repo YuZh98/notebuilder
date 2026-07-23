@@ -3,6 +3,7 @@ import {
   passedThreshold,
   insertionIndex,
   clampCardW,
+  clampSlotW,
   clampRoomW,
   fuseSplit,
   pointInRect,
@@ -159,5 +160,16 @@ describe('remapIndex', () => {
   it('leaves indices outside the affected range untouched', () => {
     expect(remapIndex(0, 2, 4)).toBe(0);
     expect(remapIndex(5, 2, 4)).toBe(5);
+  });
+});
+
+describe('clampSlotW', () => {
+  it('snaps to whole twelfths and clamps to [2, 12] (v1 110-drag-bench floor of 2)', () => {
+    expect(clampSlotW(7.4)).toBe(7);
+    expect(clampSlotW(7.6)).toBe(8);
+    expect(clampSlotW(0)).toBe(2);
+    expect(clampSlotW(-3)).toBe(2);
+    expect(clampSlotW(20)).toBe(12);
+    expect(clampSlotW(6)).toBe(6);
   });
 });

@@ -18,6 +18,11 @@ export function clampCardW(w: number): number {
   return Math.round(clamped * 20) / 20;
 }
 
+/** Bench slot width clamp — v1's floor of 2 (110-drag-bench.js:7), snapped to whole twelfths. */
+export function clampSlotW(w: number): number {
+  return Math.round(Math.max(2, Math.min(12, w)));
+}
+
 /** Room width clamp — v1 90-drag-engine.js:157. */
 export function clampRoomW(w: number, maxW: number): number {
   return Math.round(Math.max(240, Math.min(maxW, w)));

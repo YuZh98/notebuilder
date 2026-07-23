@@ -16,6 +16,7 @@ import {
   deleteBenchSlot,
   updateBenchSlot,
   fuseBenchSlot,
+  setBenchSlotW,
   setSlotVerb,
   serializeFactory,
   hydrateFactory,
@@ -448,5 +449,29 @@ describe('serialize/hydrate', () => {
     expect(factory.preview).toBe(false);
     expect(factory.sel).toBe(null);
     expect(factory.face).toBe('front');
+  });
+});
+
+describe('setBenchSlotW', () => {
+  it('writes a front-face slot width', () => {
+    const b = freshBench();
+    addBenchSlot(b, 'text');
+    setBenchSlotW(b, b.slots[0].id, 5);
+    expect(b.slots[0].w).toBe(5);
+  });
+
+  it('writes a back-face slot width', () => {
+    const b = freshBench();
+    setBenchVerb(b, 'flip', true);
+    addBenchSlot(b, 'text', 'back');
+    setBenchSlotW(b, b.back![0].id, 4);
+    expect(b.back![0].w).toBe(4);
+  });
+
+  it('an unknown slot id is a no-op', () => {
+    const b = freshBench();
+    addBenchSlot(b, 'text');
+    setBenchSlotW(b, 'nope', 5);
+    expect(b.slots[0].w).toBe(12);
   });
 });
