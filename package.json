@@ -1,6 +1,6 @@
 {
   "name": "notebuilder",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Build reactive explainers and share them as one offline HTML file. Local-first, no accounts, no backend.",
   "license": "MIT",

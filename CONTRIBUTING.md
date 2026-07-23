@@ -1,41 +1,51 @@
 # Contributing to NoteBuilder
 
-Thanks for helping. NoteBuilder is a single-file app built from modular source.
+Thanks for helping. Active development happens in **`v2/`** (Svelte 5 + TypeScript + Tauri 2); the
+repository root is the legacy single-file prototype, kept building but not evolving.
 
-## Setup
+## Setup (v2 — the app)
 
 ```bash
+cd v2
 npm install
-npm run dev      # build + serve at http://localhost:8950
+npm run dev          # browser dev server (persistence no-ops; demo notebook loads)
+npm run tauri dev    # the real desktop app — needs Rust + Xcode CLT
 ```
 
-Requires Node 20+ and **Python 3** (`npm run dev` and `npm test` serve the built file with
-`python3 -m http.server`). On a machine without Python, serve `index.html` with any static server and
-point Playwright's `baseURL` at it.
+Gates — keep all green before and after every change:
 
-## The shape of the code
+```bash
+npm test             # Vitest unit suite
+npm run check        # svelte-check, TypeScript strict
+npm run build        # Vite production build
+npm run build:reader # only when the Reader render path changes — commit the regenerated template
+```
 
-- Edit **`src/`**, never the generated `index.html`. Source is split by layer under `src/app/` (build
-  order = numeric prefix), plus `src/styles.css` and the vendored `src/vendor/katex.js`.
-- `npm run build` concatenates source → `index.html`. The architecture map is
-  [`docs/CODE-MAP.md`](docs/CODE-MAP.md); the build rationale is
-  [`docs/adr/0001-modular-build.md`](docs/adr/0001-modular-build.md).
+## The shape of v2
 
-## Working rules
+- Architecture map: Part B of [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Product spec:
+  [`docs/spec/v2-spec.md`](docs/spec/v2-spec.md).
+- **Invariants** (don't break): variables are card-scoped, never cross a card boundary; three state
+  layers (document persists + exports · reader state persists locally, never exports · session is
+  transient); slot structure is sealed outside the Factory; every drag rides the one pointer engine
+  in `v2/src/lib/drag/` — no native HTML5 drag; no `eval` on user content, escape-first before any
+  `{@html}`; every document edit is undoable.
+- **Migrations always.** A change to the SQLite shape ships a migration in
+  `v2/src-tauri/src/lib.rs`; a change to the JSON interchange shape bumps its schema version and
+  ships an import migration. Old saves and old exports must still load.
+- **Behavior changes are test-driven** — add a failing test, then make it pass. Verify UI and
+  interaction changes by running the app, not by reading the diff.
 
-- **Behavior changes are test-driven.** Add a failing Playwright spec under `tests/`, then make it pass.
-  `npm test` rebuilds, serves, and runs the suite — keep it green before and after every change.
-- **Migrations always.** Any change to saved data shape ships a migration in the same change; old saves
-  and old exports must still load. Import applies the same migrations as load.
-- **Invariants** (don't break): three study-state layers (document persists+exports · progress persists
-  locally, never exports · presentation is session-only); variables are card-scoped; slot structure is
-  sealed (add/remove only in the Factory); no `eval`, escape-first; every document edit is undoable.
-- **Verify visually** for UI/interaction changes — run it in the browser, don't trust the diff alone.
+## Legacy prototype (root)
+
+Edit `src/`, never the generated `index.html`; `npm run build` regenerates it, `npm test` runs the
+Playwright suite (needs Node 20+ and Python 3 for the static server). Same invariants as above,
+minus SQLite.
 
 ## Commits & PRs
 
 - Conventional Commits: `feat` · `fix` · `schema` · `refactor` · `test` · `docs` · `chore` (use
-  `schema` when the change bumps the notebook data format / ships a migration). Subject ≤ 72 chars,
+  `schema` when the change alters a persisted or interchange data shape). Subject ≤ 72 chars,
   imperative; body explains *why*.
 - Describe *what changed*, not how it was produced.
-- CI must be green (build · lint · format · tests) before merge.
+- CI must be green before merge.

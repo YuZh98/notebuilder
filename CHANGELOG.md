@@ -1,37 +1,31 @@
 # Changelog
 
-All notable changes to this project are documented here. Format follows
-[Keep a Changelog](https://keepachangelog.com/); this project uses a schema version for the notebook
-data format (currently **v4**), bumped on breaking data-shape changes.
+Notable changes, following [Keep a Changelog](https://keepachangelog.com/). The notebook JSON
+interchange format is versioned separately and migrated on import.
 
-## [Unreleased]
+## [0.2.0] — 2026-07-23
 
-## [1.0.0] — 2026-06
+NoteBuilder becomes a native macOS desktop app (`v2/`): Svelte 5 + TypeScript + Tauri 2, backed by
+SQLite. Rebuilds the full prototype experience on a typed engine and moves it forward.
 
-First public release. NoteBuilder builds reactive explainers and ships them as one offline HTML file.
+- **Slot → CardType → CardInstance** model: design slot arrangements in the Factory, seal them as
+  card types, stamp independent copies into notebooks.
+- **11 slots** — text, list, code, table, image, choice, slider, text input, compute, chart,
+  progress — composed on a 12-column grid with per-slot resize and fusing.
+- **Card-scoped variables** with a topologically sorted dependency graph; cycles and missing
+  writers are rejected at import.
+- **Hard Edit/Study separation** (`Cmd+Enter`); Study is the live, interactive render.
+- **Three state layers**: document (persists + exports), reader state (persists locally, never
+  exports), session (transient).
+- **Sharing**: notebook JSON, or a self-contained Reader `.html` that opens offline in any browser
+  with read-locked content and a Remix unlock.
+- **Authoring comfort**: full undo/redo, one pointer-based drag engine (cards, slots, tags,
+  services), sidebar inspector, tags with author-controlled order and a coverage matrix, themes,
+  GFM markdown + KaTeX, native print.
 
-### Core model
-- **Card-scoped variables** — a slider/control, a formula, and a chart in the same card wire together; a
-  variable never leaks across cards (schema v2). Import warns on legacy cross-card references.
-- **One control slot** — number folded into slider (a hidden bar + empty range = a free number box,
-  schema v3).
-- **Text does more** — heading folded into text (`## ` markdown); GFM tables render in any text slot.
-- **Progress is a per-reader completion meter** (schema v4) — counts finished cards over a
-  section / chapter / whole notebook, filtered by tag, showing any of M/N · % · bar; Rollup folded in.
-- **Chapters** — a divider is a foldable chapter header that collapses the sections beneath it.
+## [0.1.0] — 2026-06
 
-### Sharing
-- **Reader mode** — a shared `.html` opens locked to reading (no authoring chrome) with a single
-  **Remix** to unlock editing.
-- **Slim export** — a shared file carries only the exported notebook, not your catalog or other
-  notebooks; the recipient's progress is their own.
-
-### Authoring
-- **JSON / AI front door** — create a notebook by pasting JSON, with a copy-paste schema prompt for an
-  LLM.
-- First run lands in **Study** on a live example card.
-- **Share** is the primary action; the value box hugs its value and shows in Edit (WYSIWYG).
-
-### Engineering
-- Migrated from a single-file prototype to **modular source bundled into one `index.html`** (see
-  `docs/adr/0001-modular-build.md`). Playwright BDD suite; CI on build · lint · format · tests.
+The original prototype (repository root): a single-file web app — vanilla JS, localStorage, the
+whole product shipped as one self-contained `index.html`. Introduced reactive cards, card-scoped
+variables, per-reader progress, and one-file HTML sharing with Reader/Remix. Legacy; superseded by
+0.2.0.

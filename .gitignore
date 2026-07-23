@@ -7,20 +7,10 @@ playwright-report/
 # dev-tool byproduct (written by scripts/extract.mjs; not a build input)
 /scripts/.manifest.json
 
-# local scratch / internal artifacts
+# local scratch
 /scratch/
 *.local.*
-/.claude/
-/v2/.claude/
-/.superpowers/
-
-# internal working docs — plans and the debt ledger stay local
-/docs/superpowers/
-/docs/DEBT.md
 
 # v2 build output
 /v2/dist/
 /v2/dist-reader/
-
-# browser-test artifacts
-/.playwright-mcp/

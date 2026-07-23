@@ -1,6 +1,6 @@
 [package]
 name = "notebuilder"
-version = "0.1.0"
+version = "0.2.0"
 description = "NoteBuilder - Local-first interactive notebook builder"
 authors = ["you"]
 license = "MIT"
