@@ -312,6 +312,16 @@ describe('Factory — bench slot selection', () => {
     expect(factory.sel).toBeNull();
   });
 
+  it('clicking the container head — outside the slot grid — clears the selection', async () => {
+    const { a } = seed();
+    factory.sel = 0;
+    const { container } = render(Factory, { props: props() });
+    const head = container.querySelector(`.faccard[data-bench="${a.id}"] .bench-head`) as HTMLElement;
+    expect(head).not.toBeNull();
+    await fireEvent.click(head);
+    expect(factory.sel).toBeNull();
+  });
+
   it('clicking the inline slot delete ✕ keeps the selection on the same slot, not a shifted one', async () => {
     const { a } = seed();
     addBenchSlot(a, 'slider');

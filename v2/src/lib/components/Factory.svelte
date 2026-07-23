@@ -236,13 +236,16 @@
           <div class="sm muted bench-caption">{b.name}</div>
         </div>
       {:else if b.id === factory.active}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+        <!-- Capture phase on the whole container, not just the slot grid: v1's `selbench` sits on
+             `.benchcard`, so clicking the head, note or face chips also deselects (60-stage.js:18). -->
         <div
           class="benchcard faccard on"
           style="--w:6"
           data-bench={b.id}
           ondragover={faccardOver}
           ondrop={(e) => faccardDrop(e, b)}
+          onclickcapture={(e) => benchClick(e, b)}
         >
           <div class="row bench-head">
             <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -288,13 +291,11 @@
                 onclick={() => (factory.face = 'back')}>Back</button>
             </div>
           {/if}
-          <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-          <!-- Capture phase: CardView's editable click handler stops bubbling, so intercept on the way down. -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
             class="bench bench-grid"
             ondragover={benchOver}
             ondrop={(e) => benchDrop(e, b)}
-            onclickcapture={(e) => benchClick(e, b)}
             onpointerdowncapture={benchSlotDown}
           >
             <CardView {...benchProps(b, true)} />
