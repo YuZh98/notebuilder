@@ -37,8 +37,8 @@ function extractCardViewProps(src: string): string[] {
 
 // Reader-only props that are allowed to differ (e.g. props only the Reader needs).
 const READER_ONLY_ALLOW: string[] = [];
-// App-only props allowed to differ (e.g. props only the main app needs).
-const APP_ONLY_ALLOW: string[] = [];
+// App-only props: the shared Reader has no Factory place, so "Edit in Factory" doesn't apply.
+const APP_ONLY_ALLOW: string[] = ['oneditinfactory'];
 
 describe('Reader drift guard', () => {
   const appProps = extractCardViewProps(appSrc);

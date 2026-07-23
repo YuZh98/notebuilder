@@ -42,7 +42,7 @@
   import { uid } from './lib/uid';
   import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
-  import { factory, addBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
+  import { factory, addBench, typeToBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
   import {
     registerHistory,
     clearHistory,
@@ -937,6 +937,15 @@
     ongrip={(ev, el) => gripCard(card, ev, el)}
     onresize={(w) => setCardW(card, w)}
     onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
+    oneditinfactory={() => {
+      const ct = card.typeId ? cardTypes.find((t) => t.id === card.typeId) : null;
+      if (ct) {
+        addBench(typeToBench(ct));
+      } else {
+        addBench(typeToBench(cardToType(card, card.typeId ?? 'Untitled')));
+      }
+      setPlace('factory');
+    }}
     pinEnabled={section.services?.pin === true}
     archEnabled={$mode === 'study' && section.services?.archive === true}
     showArch={session.showArch[section.id] === true}
