@@ -84,3 +84,31 @@ describe('SideBar — Section ops panel', () => {
     expect(dustState.show).toBe(true);
   });
 });
+
+describe('SideBar — card panel (C)', () => {
+  const panelCard = () => ({
+    id: 'c1',
+    sectionId: 's1',
+    position: 0,
+    slots: [{ id: 'sl1', type: 'text-input', props: { placeholder: 'p' } }],
+  });
+
+  it('shows the card panel above Section ops when a card is selected in Edit', () => {
+    const { container } = render(SideBar, { props: baseProps({ card: panelCard() }) });
+    const panel = container.querySelector('.card-panel');
+    expect(panel).not.toBeNull();
+    const secOps = container.querySelector('.store-lane')!;
+    expect(panel!.compareDocumentPosition(secOps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('hides the panel when no card is selected', () => {
+    const { container } = render(SideBar, { props: baseProps() });
+    expect(container.querySelector('.card-panel')).toBeNull();
+  });
+
+  it('hides the panel in Study mode', () => {
+    mode.set('study');
+    const { container } = render(SideBar, { props: baseProps({ card: panelCard() }) });
+    expect(container.querySelector('.card-panel')).toBeNull();
+  });
+});

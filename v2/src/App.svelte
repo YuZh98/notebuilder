@@ -66,6 +66,8 @@
     deleteSection,
     moveSection,
     deleteCard,
+    duplicateCard,
+    findCard,
     moveCard,
     addSlot,
     deleteSlot,
@@ -370,6 +372,20 @@
     deleteCard(notebook, cardId);
   }
 
+  function duplicateSelectedCard() {
+    if (!selCard) return;
+    pushHistory();
+    const copy = duplicateCard(notebook, selCard);
+    if (copy) selCard = copy.id;
+  }
+
+  function editCardInFactory(card: Card) {
+    const ct = card.typeId ? cardTypes.find((t) => t.id === card.typeId) : null;
+    // structuredClone chokes on the $state proxy, so snapshot before capturing a typeless card.
+    addBench(typeToBench(ct ?? cardToType($state.snapshot(card) as Card, 'Untitled')));
+    setPlace('factory');
+  }
+
   function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
     pushHistory();
     const verbs = { ...card.verbs, [key]: on || undefined };
@@ -407,6 +423,8 @@
   const selectedSection = $derived(
     notebook.sections.find((s) => s.id === selSection && s.kind !== 'divider') ?? null,
   );
+
+  const selectedCard = $derived(selCard ? (findCard(notebook, selCard) ?? null) : null);
 
   // v1 80-actions.js:2-6 runService — shuffle is view-only; flipAll/reset write reader state.
   function runService(section: Section, key: ServiceKey) {
@@ -945,12 +963,6 @@
     ongrip={(ev, el) => gripCard(card, ev, el)}
     onresize={(w) => setCardW(card, w)}
     onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
-    oneditinfactory={() => {
-      const ct = card.typeId ? cardTypes.find((t) => t.id === card.typeId) : null;
-      // structuredClone chokes on the $state proxy, so snapshot before capturing a typeless card.
-      addBench(typeToBench(ct ?? cardToType($state.snapshot(card) as Card, 'Untitled')));
-      setPlace('factory');
-    }}
     pinEnabled={section.services?.pin === true}
     notesEnabled={section.services?.notes === true}
     archEnabled={$mode === 'study' && section.services?.archive === true}
@@ -1017,6 +1029,16 @@
       {cardTypes}
       {selProd}
       section={selectedSection}
+      card={selectedCard}
+      cardstate={selectedCard ? (readerState[selectedCard.id] ?? {}) : {}}
+      cardlive={selectedCard ? (session.live[selectedCard.id] ?? {}) : {}}
+      alltags={notebookTags}
+      oncardupdateslot={(slotId, props) => selectedCard && updateSlotProps(selectedCard.id, slotId, props)}
+      oncardstate={(slotId, next) => selectedCard && onSlotState(selectedCard, slotId, next)}
+      oncardduplicate={duplicateSelectedCard}
+      oncardremove={() => selectedCard && removeCard(selectedCard.id)}
+      oncardfactory={() => selectedCard && editCardInFactory(selectedCard)}
+      oncardclose={() => (selCard = null)}
       onrename={renameNotebook}
       ondelete={() => void removeNotebook()}
       onpickprod={pickProduct}

@@ -7,6 +7,7 @@ import {
   moveSection,
   addCard,
   deleteCard,
+  duplicateCard,
   moveCard,
   addSlot,
   deleteSlot,
@@ -336,5 +337,66 @@ describe('divider card guards', () => {
     expect(div1.cards).toEqual([]);
     expect(s0.cards.map((c) => c.id)).toEqual([card.id]);
     expect(card.sectionId).toBe(s0.id);
+  });
+});
+
+describe('duplicateCard (v1 dupfurn)', () => {
+  function seeded() {
+    const nb = createNotebook('Dup');
+    const sec = nb.sections[0];
+    const card = addCard(nb, sec.id);
+    card.w = 6;
+    card.accent = '#ff0000';
+    card.tags = ['algebra'];
+    addCard(nb, sec.id);
+    return { nb, sec, card };
+  }
+
+  it('inserts the copy directly below with fresh card and slot ids', () => {
+    const { nb, sec, card } = seeded();
+    const copy = duplicateCard(nb, card.id)!;
+    expect(copy).toBeDefined();
+    expect(sec.cards[1].id).toBe(copy.id);
+    expect(copy.id).not.toBe(card.id);
+    expect(copy.sectionId).toBe(sec.id);
+    const srcIds = new Set(card.slots.map((s) => s.id));
+    for (const s of copy.slots) expect(srcIds.has(s.id)).toBe(false);
+    expect(sec.cards.map((c) => c.position)).toEqual([0, 1, 2]);
+  });
+
+  it('carries content, variety accent, type, tags and width', () => {
+    const { nb, card } = seeded();
+    card.slots[0].props = { text: 'hello' };
+    const copy = duplicateCard(nb, card.id)!;
+    expect(copy.slots.map((s) => ({ type: s.type, props: s.props }))).toEqual(
+      card.slots.map((s) => ({ type: s.type, props: s.props })),
+    );
+    expect(copy.w).toBe(6);
+    expect(copy.accent).toBe('#ff0000');
+    expect(copy.typeId).toBe(card.typeId);
+    expect(copy.tags).toEqual(['algebra']);
+  });
+
+  it('deep-copies: editing the copy leaves the source untouched', () => {
+    const { nb, card } = seeded();
+    const copy = duplicateCard(nb, card.id)!;
+    (copy.slots[0].props as { text: string }).text = 'changed';
+    expect((card.slots[0].props as { text: string }).text).not.toBe('changed');
+  });
+
+  it('duplicates back-face slots with fresh ids', () => {
+    const { nb, card } = seeded();
+    card.verbs = { flip: true };
+    card.back = [{ id: 'bk1', type: 'text', props: { text: 'b' } }];
+    const copy = duplicateCard(nb, card.id)!;
+    expect(copy.back).toHaveLength(1);
+    expect(copy.back![0].id).not.toBe('bk1');
+    expect(copy.back![0].props).toEqual({ text: 'b' });
+  });
+
+  it('returns undefined for an unknown id and changes nothing', () => {
+    const { nb, sec } = seeded();
+    expect(duplicateCard(nb, 'nope')).toBeUndefined();
+    expect(sec.cards).toHaveLength(2);
   });
 });

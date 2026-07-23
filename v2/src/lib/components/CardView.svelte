@@ -44,7 +44,6 @@
     ongrip,
     onresize,
     onfusew,
-    oneditinfactory,
     forceMode,
     pinEnabled = false,
     notesEnabled = false,
@@ -86,8 +85,6 @@
     ongrip: (ev: PointerEvent, srcEl: HTMLElement) => void;
     onresize: (w: number) => void;
     onfusew: (leftId: string, rightId: string, leftW: number, rightW: number) => void;
-    /** Fork this card's type (or the card itself) into a Factory bench and switch place. */
-    oneditinfactory?: () => void;
     /** Section `pin` service on → show the 📌/📍 pin toggle in both modes (v1 60-stage.js:167). */
     pinEnabled?: boolean;
     /** Section opt-in (services.notes): reader notes are off unless the section enables them. */
@@ -453,12 +450,6 @@
             onchange={(e) => ontags(e.currentTarget.value)}
           />
           <span class="spacer"></span>
-          {#if oneditinfactory}
-            <button
-              title={card.typeId ? 'Edit in Factory' : 'Send to Factory'}
-              onclick={oneditinfactory}
-            >🏭</button>
-          {/if}
           <button title="Delete card" onclick={ondelete}>✕</button>
         {:else}
           <label>

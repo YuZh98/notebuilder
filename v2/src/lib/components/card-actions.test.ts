@@ -61,15 +61,26 @@ const noteProps = {
   onfusew: noop,
 };
 
-describe('Edit in Factory (B3)', () => {
-  it('forks the card into a new bench and switches to the Factory', async () => {
+describe('Edit in Factory (B3, panel-hosted since C)', () => {
+  const factoryBtn = (c: HTMLElement) =>
+    c.querySelector<HTMLButtonElement>(
+      '.card-panel button[title="Edit in Factory"], .card-panel button[title="Send to Factory"]',
+    );
+
+  it('selecting a card offers the Factory action in the sidebar panel, not on the card', async () => {
     const { container } = render(App);
     await tick();
+    expect(
+      container.querySelector(
+        '.cardtools button[title="Edit in Factory"], .cardtools button[title="Send to Factory"]',
+      ),
+      'the card toolbar must no longer host the Factory action',
+    ).toBeNull();
     const benchesBefore = factory.benches.length;
-    const btn = container.querySelector<HTMLButtonElement>(
-      '.cardtools button[title="Edit in Factory"], .cardtools button[title="Send to Factory"]',
-    );
-    expect(btn, 'no Factory button on a placed card in Edit').not.toBeNull();
+    await fireEvent.click(container.querySelector('[data-card]') as HTMLElement);
+    await tick();
+    const btn = factoryBtn(container);
+    expect(btn, 'no Factory button in the card panel').not.toBeNull();
     await fireEvent.click(btn!);
     await tick();
     expect(get(place)).toBe('factory');
@@ -79,12 +90,11 @@ describe('Edit in Factory (B3)', () => {
   it('leaves the placed card untouched', async () => {
     const { container } = render(App);
     await tick();
+    await fireEvent.click(container.querySelector('[data-card]') as HTMLElement);
+    await tick();
     const card = container.querySelector('[data-card]') as HTMLElement;
     const before = card.outerHTML;
-    const btn = container.querySelector<HTMLButtonElement>(
-      '.cardtools button[title="Edit in Factory"], .cardtools button[title="Send to Factory"]',
-    )!;
-    await fireEvent.click(btn);
+    await fireEvent.click(factoryBtn(container)!);
     await tick();
     place.set('house');
     await tick();

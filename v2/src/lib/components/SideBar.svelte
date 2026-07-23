@@ -2,6 +2,7 @@
   import { mode } from '../stores/mode';
   import StoreLane from './StoreLane.svelte';
   import ProductDetail from './ProductDetail.svelte';
+  import CardPanel from './CardPanel.svelte';
   import { dustState } from '../drag/dust.svelte';
   import {
     SERVICE_ORDER,
@@ -11,7 +12,8 @@
     type ServiceKey,
   } from '../services';
   import { STORES, type CardType, type Variety } from '../card-types';
-  import type { Section, SlotProps } from '../types';
+  import type { Card, Section, SlotProps } from '../types';
+  import type { Scope } from '../variable-graph';
 
   let {
     notebookName,
@@ -20,6 +22,16 @@
     cardTypes,
     selProd,
     section,
+    card = null,
+    cardstate = {},
+    cardlive = {},
+    alltags = [],
+    oncardupdateslot,
+    oncardstate,
+    oncardduplicate,
+    oncardremove,
+    oncardfactory,
+    oncardclose,
     onrename,
     ondelete,
     onpickprod,
@@ -37,6 +49,17 @@
     selProd: string | null;
     /** Currently selected (non-divider) section, or null — drives the Section ops panel. */
     section?: Section | null;
+    /** Currently selected card, or null — drives the card inspector panel (v1 sideFurnInspector). */
+    card?: Card | null;
+    cardstate?: Record<string, Record<string, unknown>>;
+    cardlive?: Scope;
+    alltags?: string[];
+    oncardupdateslot?: (slotId: string, props: SlotProps) => void;
+    oncardstate?: (slotId: string, next: Record<string, unknown>) => void;
+    oncardduplicate?: () => void;
+    oncardremove?: () => void;
+    oncardfactory?: () => void;
+    oncardclose?: () => void;
     onrename: (name: string) => void;
     ondelete: () => void;
     onpickprod: (id: string) => void;
@@ -86,6 +109,22 @@
         {/if}
       </div>
     </div>
+    {#if card}
+      {#key card.id}
+        <CardPanel
+          {card}
+          state={cardstate}
+          live={cardlive}
+          {alltags}
+          onupdateslot={(slotId, props) => oncardupdateslot?.(slotId, props)}
+          onstate={(slotId, next) => oncardstate?.(slotId, next)}
+          onduplicate={() => oncardduplicate?.()}
+          onremove={() => oncardremove?.()}
+          oneditinfactory={oncardfactory}
+          onclose={() => oncardclose?.()}
+        />
+      {/key}
+    {/if}
     <div class="store-lane">
       <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
       <h4

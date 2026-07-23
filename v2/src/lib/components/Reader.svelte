@@ -44,6 +44,8 @@
     deleteSection,
     moveSection,
     deleteCard,
+    duplicateCard,
+    findCard,
     moveCard,
     addSlot,
     deleteSlot,
@@ -119,6 +121,8 @@
   const selectedSection = $derived(
     notebook.sections.find((s) => s.id === selSection && s.kind !== 'divider') ?? null,
   );
+
+  const selectedCard = $derived(selCard ? (findCard(notebook, selCard) ?? null) : null);
 
   const notebookTags = $derived.by(() => {
     const seen = new Set<string>();
@@ -380,6 +384,13 @@
     if (selCard === cardId) selCard = null;
     pushHistory();
     deleteCard(notebook, cardId);
+  }
+
+  function duplicateSelectedCard() {
+    if (!selCard) return;
+    pushHistory();
+    const copy = duplicateCard(notebook, selCard);
+    if (copy) selCard = copy.id;
   }
 
   function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
@@ -726,6 +737,15 @@
     {cardTypes}
     {selProd}
     section={selectedSection}
+    card={selectedCard}
+    cardstate={selectedCard ? (readerState[selectedCard.id] ?? {}) : {}}
+    cardlive={selectedCard ? (session.live[selectedCard.id] ?? {}) : {}}
+    alltags={notebookTags}
+    oncardupdateslot={(slotId, props) => selectedCard && updateSlotProps(selectedCard.id, slotId, props)}
+    oncardstate={(slotId, next) => selectedCard && onSlotState(selectedCard, slotId, next)}
+    oncardduplicate={duplicateSelectedCard}
+    oncardremove={() => selectedCard && removeCard(selectedCard.id)}
+    oncardclose={() => (selCard = null)}
     onrename={renameNotebook}
     ondelete={() => {}}
     candelete={false}

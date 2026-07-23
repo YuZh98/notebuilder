@@ -99,6 +99,26 @@ export function deleteCard(nb: Notebook, cardId: string): void {
   }
 }
 
+/**
+ * Copy a card — content, variety and width — directly below the source (v1 dupfurn,
+ * 70-events.js:103). Fresh ids for the card and every slot, so reader state starts empty.
+ */
+export function duplicateCard(nb: Notebook, cardId: string): Card | undefined {
+  for (const section of nb.sections) {
+    const i = section.cards.findIndex((c) => c.id === cardId);
+    if (i === -1) continue;
+    // JSON round-trip: cards are plain data, and structuredClone chokes on $state proxies.
+    const copy = JSON.parse(JSON.stringify(section.cards[i])) as Card;
+    copy.id = uid('card');
+    copy.slots = copy.slots.map((s) => ({ ...s, id: uid('slot') }));
+    if (copy.back) copy.back = copy.back.map((s) => ({ ...s, id: uid('slot') }));
+    section.cards.splice(i + 1, 0, copy);
+    renumber(section.cards);
+    return copy;
+  }
+  return undefined;
+}
+
 export function moveCard(nb: Notebook, cardId: string, dir: -1 | 1): void {
   for (const section of nb.sections) {
     const i = section.cards.findIndex((c) => c.id === cardId);
