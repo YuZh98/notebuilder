@@ -45,6 +45,7 @@
     oneditinfactory,
     forceMode,
     pinEnabled = false,
+    notesEnabled = false,
     archEnabled = false,
     showArch = false,
     onpin,
@@ -85,6 +86,8 @@
     oneditinfactory?: () => void;
     /** Section `pin` service on → show the 📌/📍 pin toggle in both modes (v1 60-stage.js:167). */
     pinEnabled?: boolean;
+    /** Section opt-in (services.notes): reader notes are off unless the section enables them. */
+    notesEnabled?: boolean;
     /** Section `archive` service on in Study → show the 🗄/♻ archive toggle (v1 60-stage.js:168). */
     archEnabled?: boolean;
     /** Viewing the archive list → the archive button restores (♻) instead of archiving (🗄). */
@@ -545,7 +548,7 @@
       {:else}
         {@render faceRows(card.slots, false)}
       {/if}
-      {#if studying}
+      {#if studying && notesEnabled}
         <button class="notes-toggle" class:has-notes={notes.length > 0} onclick={ontogglenotes}>
           ✎ {notes.length > 0 ? `notes (${notes.length})` : 'note'}
         </button>
@@ -606,16 +609,20 @@
     color: #dc2626;
     margin-bottom: 8px;
   }
+  /* Quiet like v1's other manipulation affordances (D9): hidden until the card is hovered or the
+     control is keyboard-focused. A card that already carries notes keeps the marker visible. */
   .notes-toggle {
     background: none;
     border: none;
     color: inherit;
     cursor: pointer;
     font-size: 11px;
-    opacity: 0.4;
+    opacity: 0;
     padding: 4px 0 0;
+    transition: opacity 0.12s ease;
   }
-  .notes-toggle:hover,
+  :global(.furn:hover) .notes-toggle,
+  .notes-toggle:focus-visible,
   .notes-toggle.has-notes {
     opacity: 0.8;
   }

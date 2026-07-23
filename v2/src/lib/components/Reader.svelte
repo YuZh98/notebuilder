@@ -678,6 +678,7 @@
     onresize={(w) => (card.w = w)}
     onfusew={(leftId, rightId, lw, rw) => setFuseW(card, leftId, rightId, lw, rw)}
     pinEnabled={section.services?.pin === true}
+    notesEnabled={section.services?.notes === true}
     archEnabled={$mode === 'study' && section.services?.archive === true}
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}

@@ -1,7 +1,7 @@
 import type { Section, Card } from './types';
 
 /** The six per-section services (v1 40-services.js:3-10), split into features and actions (D4). */
-export type ServiceKey = 'pin' | 'shuffle' | 'flipAll' | 'reset' | 'search' | 'archive';
+export type ServiceKey = 'pin' | 'shuffle' | 'flipAll' | 'reset' | 'search' | 'archive' | 'notes';
 
 export type ServiceDef = { key: ServiceKey; label: string; icon: string };
 
@@ -10,6 +10,8 @@ export const SERVICE_FEATURES: readonly ServiceDef[] = [
   { key: 'pin', label: 'Pin', icon: '📌' },
   { key: 'search', label: 'Search', icon: '🔎' },
   { key: 'archive', label: 'Archive', icon: '🗄' },
+  // v2-only (D28): v1 has no per-card notes, so notes are opt-in per section rather than always on.
+  { key: 'notes', label: 'Notes', icon: '✎' },
 ];
 
 /** Section-level actions: one-shot operations triggered from the study bar. */
@@ -27,6 +29,7 @@ export const SERVICE_ORDER: readonly ServiceKey[] = [
   'reset',
   'search',
   'archive',
+  'notes',
 ];
 
 /** Default study-bar sequence (v1 60-stage.js:150-154): search, archive, then the run actions. */

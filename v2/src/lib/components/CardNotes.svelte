@@ -25,7 +25,9 @@
   {#each notes as note (note.id)}
     <div class="note">
       <p>{note.body}</p>
-      <button title="Delete note" onclick={() => ondelete(note.id)}>✕</button>
+      <button class="del" title="Delete note" aria-label="Delete note" onclick={() => ondelete(note.id)}
+        >✕</button
+      >
     </div>
   {/each}
   <div class="composer">
@@ -62,17 +64,25 @@
     margin: 0;
     white-space: pre-wrap;
   }
-  .note button {
+  /* The delete control was easy to miss at 0.4 with no hit area of its own. */
+  .note .del {
     background: none;
-    border: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
     color: inherit;
     cursor: pointer;
-    font-size: 11px;
-    opacity: 0.4;
-    padding: 0 2px;
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.55;
+    padding: 3px 6px;
   }
-  .note button:hover {
+  .note:hover .del,
+  .note .del:focus-visible {
     opacity: 1;
+    border-color: var(--line);
+  }
+  .note .del:hover {
+    color: var(--warn, #dc2626);
   }
   .composer {
     display: flex;

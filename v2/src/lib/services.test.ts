@@ -19,11 +19,12 @@ function card(over: Partial<Card> = {}): Card {
 }
 
 describe('service registry (D4 split)', () => {
-  it('features and actions cover exactly v1 six keys with v1 icons/labels', () => {
+  it('features and actions cover the v1 six keys with v1 icons/labels, plus v2 notes', () => {
     expect(SERVICE_FEATURES).toEqual([
       { key: 'pin', label: 'Pin', icon: '📌' },
       { key: 'search', label: 'Search', icon: '🔎' },
       { key: 'archive', label: 'Archive', icon: '🗄' },
+      { key: 'notes', label: 'Notes', icon: '✎' },
     ]);
     expect(SERVICE_ACTIONS).toEqual([
       { key: 'shuffle', label: 'Shuffle', icon: '🔀' },
@@ -33,7 +34,15 @@ describe('service registry (D4 split)', () => {
   });
 
   it('registry order matches v1 40-services declaration order', () => {
-    expect(SERVICE_ORDER).toEqual(['pin', 'shuffle', 'flipAll', 'reset', 'search', 'archive']);
+    expect(SERVICE_ORDER).toEqual([
+      'pin',
+      'shuffle',
+      'flipAll',
+      'reset',
+      'search',
+      'archive',
+      'notes',
+    ]);
   });
 
   it('the six keys are split with no overlap and no extras', () => {
