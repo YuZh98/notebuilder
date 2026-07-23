@@ -475,4 +475,31 @@ describe('engine integration — grip pointer sequence', () => {
     document.dispatchEvent(pev('pointerup', 10, 280));
     expect(sectionIds(nb)).toEqual(['s2', 's3', 's1', 'div1']);
   });
+
+  it('drops a tag chip onto a card and applies the tag (pointer engine, lane target)', () => {
+    const { nb, shell } = fixture();
+    const cb = makeNotebookDropCallbacks(depsOf(nb));
+    const chip = document.createElement('span');
+    chip.dataset.tag = 'algebra';
+    document.body.appendChild(chip);
+    const b = furnOf(shell, 'b');
+    _setElementFromPoint(() => b);
+    startPointerDrag({ kind: 'tag', id: 'algebra', srcEl: chip }, pev('pointerdown', 0, 0), cb);
+    document.dispatchEvent(pev('pointermove', 50, 20));
+    expect(b.classList.contains('drop-on')).toBe(true);
+    document.dispatchEvent(pev('pointerup', 50, 20));
+    expect(nb.sections[0].cards.find((c) => c.id === 'b')?.tags).toEqual(['algebra']);
+  });
+
+  it('a tag dropped on empty space applies nothing', () => {
+    const { nb } = fixture();
+    const cb = makeNotebookDropCallbacks(depsOf(nb));
+    const chip = document.createElement('span');
+    document.body.appendChild(chip);
+    _setElementFromPoint(() => null);
+    startPointerDrag({ kind: 'tag', id: 'algebra', srcEl: chip }, pev('pointerdown', 0, 0), cb);
+    document.dispatchEvent(pev('pointermove', 50, 20));
+    document.dispatchEvent(pev('pointerup', 50, 20));
+    for (const s of nb.sections) for (const c of s.cards) expect(c.tags).toBeUndefined();
+  });
 });

@@ -50,8 +50,16 @@ export const DRAG_KINDS: Record<DragKind, KindSpec> = {
   // through CardView, so the grid is the row, not v1's flat .bench-grid.
   slot: { itemSel: '.cardslot', gridSels: ['.cardrow'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
   bench: { itemSel: '.faccard', gridSels: ['.fac-grid'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
-  // P6: tag reorder lands with the tag bar.
-  tag: { itemSel: '[data-tagreorder]', gridSels: [], horiz: alwaysHoriz, deletable: false, ghostSource: true },
+  // Tag chip → any notebook card applies the tag (v1 data-tagdrag), landing as a lane target.
+  // Reorder stays unwired: derived tag order has no storage without a cats registry (D21).
+  tag: {
+    itemSel: '[data-tagreorder]',
+    gridSels: [],
+    horiz: alwaysHoriz,
+    deletable: false,
+    ghostSource: true,
+    laneSel: '.furn[data-card]',
+  },
   // Service-bar chip: reorder inside the horizontal bar; dust disables the service (v1 130-boot:17-24).
   svc: { itemSel: '.svc-item', gridSels: ['.svcbar'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
 };

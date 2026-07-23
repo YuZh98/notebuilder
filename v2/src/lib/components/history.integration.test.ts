@@ -125,6 +125,94 @@ describe('undo coverage — discrete author mutations', () => {
   });
 });
 
+describe('tags panel — one undo step per operation (D)', () => {
+  async function selectFirstCard(container: HTMLElement) {
+    const furn = container.querySelector<HTMLElement>('.furn')!;
+    await fireEvent.click(furn);
+    await tick();
+    return furn;
+  }
+
+  async function addTag(container: HTMLElement, name: string) {
+    const input = container.querySelector<HTMLInputElement>('.tags-panel .tag-add input')!;
+    input.value = name;
+    await fireEvent.input(input);
+    await fireEvent.click(container.querySelector('.tags-panel .tag-add button')!);
+    await tick();
+  }
+
+  const cardTagsInput = (furn: HTMLElement) =>
+    furn.querySelector<HTMLInputElement>('.tags-input')!;
+
+  it('adding a tag applies it to the selected card as one undo step', async () => {
+    const { container } = render(App);
+    await tick();
+    const furn = await selectFirstCard(container);
+    clearHistory();
+    await addTag(container, 'algebra');
+    expect(container.querySelector('.tags-panel [data-tag="algebra"]')).not.toBeNull();
+    expect(cardTagsInput(furn).value).toContain('algebra');
+    expect(canUndo()).toBe(true);
+    undo();
+    await tick();
+    expect(canUndo(), 'add-tag must be exactly one undo entry').toBe(false);
+    expect(container.querySelector('.tags-panel [data-tag="algebra"]')).toBeNull();
+  });
+
+  it('renaming updates every card and the chip in one undo step', async () => {
+    const { container } = render(App);
+    await tick();
+    let furn = await selectFirstCard(container);
+    await addTag(container, 'old');
+    clearHistory();
+    const rename = container.querySelector<HTMLInputElement>(
+      '.tags-panel [data-tag="old"] input',
+    )!;
+    rename.value = 'new';
+    await fireEvent.change(rename);
+    await tick();
+    furn = container.querySelector<HTMLElement>('.furn')!;
+    expect(container.querySelector('.tags-panel [data-tag="new"]')).not.toBeNull();
+    expect(container.querySelector('.tags-panel [data-tag="old"]')).toBeNull();
+    expect(cardTagsInput(furn).value).toContain('new');
+    expect(canUndo()).toBe(true);
+    undo();
+    await tick();
+    expect(canUndo(), 'rename must be exactly one undo entry').toBe(false);
+    expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).toContain('old');
+  });
+
+  it('deleting a tag strips it everywhere behind a confirm, one undo step', async () => {
+    const { container } = render(App);
+    await tick();
+    const furn = await selectFirstCard(container);
+    await addTag(container, 'gone');
+    clearHistory();
+    await fireEvent.click(container.querySelector('.tags-panel [data-tag="gone"] .tagx')!);
+    await tick();
+    expect(window.confirm).toHaveBeenCalled();
+    expect(container.querySelector('.tags-panel [data-tag="gone"]')).toBeNull();
+    expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).not.toContain('gone');
+    expect(canUndo()).toBe(true);
+    undo();
+    await tick();
+    expect(canUndo(), 'delete must be exactly one undo entry').toBe(false);
+    expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).toContain('gone');
+  });
+
+  it('clicking a chip toggles the tag on the selected card', async () => {
+    const { container } = render(App);
+    await tick();
+    const furn = await selectFirstCard(container);
+    await addTag(container, 'togg');
+    clearHistory();
+    await fireEvent.click(container.querySelector('.tags-panel [data-tag="togg"]')!);
+    await tick();
+    expect(cardTagsInput(furn).value, 'chip click removes a carried tag').not.toContain('togg');
+    expect(canUndo()).toBe(true);
+  });
+});
+
 describe('card panel — two write paths, one history (C)', () => {
   /** Select the demo quiz card (text-input slot) and return its panel + on-card inputs. */
   async function openPanel(container: HTMLElement) {

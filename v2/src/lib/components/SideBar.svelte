@@ -3,6 +3,7 @@
   import StoreLane from './StoreLane.svelte';
   import ProductDetail from './ProductDetail.svelte';
   import CardPanel from './CardPanel.svelte';
+  import TagsPanel from './TagsPanel.svelte';
   import { dustState } from '../drag/dust.svelte';
   import {
     SERVICE_ORDER,
@@ -26,6 +27,12 @@
     cardstate = {},
     cardlive = {},
     alltags = [],
+    tags = [],
+    ontagtoggle,
+    ontagrename,
+    ontagdelete,
+    ontagadd,
+    ontaggrip,
     oncardupdateslot,
     oncardstate,
     oncardduplicate,
@@ -60,6 +67,13 @@
     oncardremove?: () => void;
     oncardfactory?: () => void;
     oncardclose?: () => void;
+    /** Derived notebook-wide tag list — drives the 🏷 Tags panel (v1 tagsSection). */
+    tags?: string[];
+    ontagtoggle?: (tag: string) => void;
+    ontagrename?: (old: string, next: string) => void;
+    ontagdelete?: (tag: string) => void;
+    ontagadd?: (tag: string) => void;
+    ontaggrip?: (tag: string, ev: PointerEvent, srcEl: HTMLElement) => void;
     onrename: (name: string) => void;
     ondelete: () => void;
     onpickprod: (id: string) => void;
@@ -125,6 +139,15 @@
         />
       {/key}
     {/if}
+    <TagsPanel
+      {tags}
+      cardTags={card ? (card.tags ?? []) : null}
+      ontoggle={(t) => ontagtoggle?.(t)}
+      onrename={(old, next) => ontagrename?.(old, next)}
+      ondelete={(t) => ontagdelete?.(t)}
+      onadd={(t) => ontagadd?.(t)}
+      ongrip={(t, ev, el) => ontaggrip?.(t, ev, el)}
+    />
     <div class="store-lane">
       <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
       <h4

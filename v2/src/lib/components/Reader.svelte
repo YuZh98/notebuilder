@@ -26,6 +26,8 @@
   import {
     registerHistory,
     pushHistory,
+    captureNow,
+    pushSnapshot,
     undo as histUndo,
     redo as histRedo,
     abortEdit as histAbortEdit,
@@ -52,6 +54,7 @@
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
   import { session, shuffleSection, clearShuffle } from '../session.svelte';
+  import { applyTag, removeTag, renameTag, deleteTag, tagUsage } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from '../service-ops';
@@ -391,6 +394,45 @@
     pushHistory();
     const copy = duplicateCard(notebook, selCard);
     if (copy) selCard = copy.id;
+  }
+
+  function toggleCardTag(tag: string) {
+    if (!selectedCard) return;
+    pushHistory();
+    if (selectedCard.tags?.includes(tag)) removeTag(notebook, selectedCard.id, tag);
+    else applyTag(notebook, selectedCard.id, tag);
+  }
+
+  // Snapshot-then-push so an invalid rename (pinned, empty, unchanged) costs no undo entry.
+  function renameTagEverywhere(old: string, next: string) {
+    const snap = captureNow();
+    if (renameTag(notebook, old, next)) pushSnapshot(snap);
+    else if (old === 'pinned') toast('“pinned” is maintained by the 📍 pin button and can’t be renamed');
+  }
+
+  function deleteTagEverywhere(tag: string) {
+    const used = tagUsage(notebook, tag);
+    const ok = window.confirm(
+      `Delete tag “${tag}”?\nIt will be removed from ${used} card${used === 1 ? '' : 's'}. (Undoable)`,
+    );
+    if (!ok) return;
+    pushHistory();
+    deleteTag(notebook, tag);
+    toast(`tag “${tag}” deleted (Undo to restore)`);
+  }
+
+  function addTagToSelected(name: string) {
+    if (!selectedCard) {
+      toast('select a card first — tags live on cards');
+      return;
+    }
+    if (selectedCard.tags?.includes(name)) return;
+    pushHistory();
+    applyTag(notebook, selectedCard.id, name);
+  }
+
+  function gripTag(tag: string, ev: PointerEvent, srcEl: HTMLElement) {
+    startPointerDrag({ kind: 'tag', id: tag, srcEl }, ev, dropCallbacks);
   }
 
   function setCardVerb(card: Card, key: 'flip' | 'bare', on: boolean) {
@@ -746,6 +788,12 @@
     oncardduplicate={duplicateSelectedCard}
     oncardremove={() => selectedCard && removeCard(selectedCard.id)}
     oncardclose={() => (selCard = null)}
+    tags={notebookTags}
+    ontagtoggle={toggleCardTag}
+    ontagrename={renameTagEverywhere}
+    ontagdelete={deleteTagEverywhere}
+    ontagadd={addTagToSelected}
+    ontaggrip={gripTag}
     onrename={renameNotebook}
     ondelete={() => {}}
     candelete={false}

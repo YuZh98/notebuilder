@@ -85,6 +85,25 @@ describe('SideBar — Section ops panel', () => {
   });
 });
 
+describe('SideBar — tags panel (D)', () => {
+  it('renders the tags panel above Section ops in Edit', () => {
+    const { container } = render(SideBar, { props: baseProps({ tags: ['algebra', 'geometry'] }) });
+    const panel = container.querySelector('.tags-panel');
+    expect(panel).not.toBeNull();
+    expect(panel!.querySelectorAll('[data-tag]')).toHaveLength(2);
+    const secOps = [...container.querySelectorAll('h4')].find((h) =>
+      h.textContent?.includes('Section ops'),
+    )!;
+    expect(panel!.compareDocumentPosition(secOps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('hides the tags panel in Study mode', () => {
+    mode.set('study');
+    const { container } = render(SideBar, { props: baseProps({ tags: ['algebra'] }) });
+    expect(container.querySelector('.tags-panel')).toBeNull();
+  });
+});
+
 describe('SideBar — card panel (C)', () => {
   const panelCard = () => ({
     id: 'c1',

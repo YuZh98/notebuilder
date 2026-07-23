@@ -1,6 +1,7 @@
 import { toast } from '../toast.svelte';
 import { pushGestureSnapshot } from './gesture-history';
 import { deleteCard, deleteSection, findCard, moveCardBefore, moveSectionBefore } from '../notebook-ops';
+import { applyTag } from '../tags';
 import { placeType, type CardType, type Variety } from '../card-types';
 import type { Notebook, Section } from '../types';
 import type { DragSource, DropTarget, EngineCallbacks } from './engine';
@@ -94,6 +95,16 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
     toast(`placed "${ct.name}"`);
   };
 
+  // Tag chip → a card (the tag kind's laneSel): apply, don't reorder (v1 data-tagdrag).
+  const dropTag = (src: DragSource, t: DropTarget): void => {
+    if (t.kind !== 'lane') return;
+    const cardId = (t.el as HTMLElement).dataset.card;
+    if (!cardId) return;
+    pushGestureSnapshot();
+    applyTag(deps.notebook(), cardId, src.id);
+    toast(`tagged “${src.id}”`);
+  };
+
   return {
     canDrag: (src) => {
       if (src.kind !== 'card') return true;
@@ -110,6 +121,7 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
       if (src.kind === 'card') dropCard(src, t);
       else if (src.kind === 'section') dropSection(src, t);
       else if (src.kind === 'product') dropProduct(src, t);
+      else if (src.kind === 'tag') dropTag(src, t);
     },
     phWidth: (src) => (src.kind === 'card' ? (findCard(deps.notebook(), src.id)?.w ?? 12) : 8),
   };
