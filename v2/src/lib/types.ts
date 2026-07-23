@@ -70,6 +70,8 @@ export type Section = {
 
 /** A notebook — the top-level container */
 export type Notebook = {
+  /** Author-controlled tag identity and order (D26) — first element is the first chip. */
+  cats?: string[];
   id: string;
   name: string;
   createdAt: string;

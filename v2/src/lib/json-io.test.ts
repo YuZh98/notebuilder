@@ -28,6 +28,47 @@ const sampleNotebook: Notebook = {
   ],
 };
 
+describe('cats in the interchange format (D26 — SCHEMA_VERSION 2)', () => {
+  it('exports cats and restores them on import, free tags included', () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.cats = ['free-tag', 'used'];
+    nb.sections[0].cards[0].tags = ['used'];
+    const json = exportNotebook(nb);
+    expect(json.notebook.cats).toEqual(['free-tag', 'used']);
+    const back = importNotebook(json);
+    expect(back.cats).toEqual(['free-tag', 'used']);
+  });
+
+  it('a version-1 payload (pre-D26, no cats) still imports, deriving cats first-seen', () => {
+    const old = {
+      version: 1,
+      notebook: {
+        name: 'Old file',
+        sections: [
+          {
+            name: 'S',
+            cards: [
+              { slots: [{ type: 'text', props: { text: 'a' } }], tags: ['x', 'y'] },
+              { slots: [{ type: 'text', props: { text: 'b' } }], tags: ['z', 'x'] },
+            ],
+          },
+        ],
+      },
+    } as unknown as Parameters<typeof importNotebook>[0];
+    const nb = importNotebook(old);
+    expect(nb.cats).toEqual(['x', 'y', 'z']);
+    expect(nb.sections[0].cards[0].tags).toEqual(['x', 'y']);
+  });
+
+  it('validate accepts a well-formed cats list and rejects a malformed one', () => {
+    const good = exportNotebook(sampleNotebook) as unknown as { notebook: Record<string, unknown> };
+    good.notebook.cats = ['a', 'b'];
+    expect(validateNotebookJSON(good)).toEqual([]);
+    good.notebook.cats = ['a', 7];
+    expect(validateNotebookJSON(good).some((e) => e.includes('cats'))).toBe(true);
+  });
+});
+
 describe('slot widths round-trip through every share surface (E)', () => {
   it('JSON export → import → HTML payload all carry mixed w/fuse/fuseW', async () => {
     const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
@@ -71,7 +112,7 @@ describe('exportNotebook — session-layer state never leaks into the document',
 describe('exportNotebook', () => {
   it('exports with version and structure', () => {
     const json = exportNotebook(sampleNotebook);
-    expect(json.version).toBe(1);
+    expect(json.version).toBe(2);
     expect(json.notebook.name).toBe('Test Notebook');
     expect(json.notebook.sections).toHaveLength(1);
     expect(json.notebook.sections[0].cards).toHaveLength(1);
@@ -365,9 +406,9 @@ describe('chapter and chrome fields', () => {
     expect(errors.some((e) => /width/.test(e))).toBe(true);
   });
 
-  it('validate still passes valid chrome fields (schema version stays 1)', () => {
+  it('validate still passes valid chrome fields (schema version 2 since D26)', () => {
     const json = exportNotebook(chromeNotebook());
-    expect(json.version).toBe(1);
+    expect(json.version).toBe(2);
     expect(validateNotebookJSON(json)).toEqual([]);
   });
 });
@@ -427,7 +468,7 @@ describe('validateNotebookJSON graph checks', () => {
 describe('version guard', () => {
   it('rejects a file from a newer schema version with a clear message', () => {
     const json = exportNotebook(sampleNotebook);
-    json.version = 2;
+    json.version = 3;
     const { errors } = validateNotebook(json);
     expect(errors.some((e) => /newer version/i.test(e))).toBe(true);
   });

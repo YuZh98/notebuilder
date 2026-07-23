@@ -77,7 +77,7 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
-  import { applyTag, removeTag, renameTag, deleteTag, tagUsage } from './lib/tags';
+  import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
@@ -404,14 +404,10 @@
     });
   }
 
-  function addTagToSelected(name: string) {
-    if (!selectedCard) {
-      toast('select a card first — tags live on cards');
-      return;
-    }
-    if (selectedCard.tags?.includes(name)) return;
-    pushHistory();
-    applyTag(notebook, selectedCard.id, name);
+  // D26: the add input creates a free tag; click or drag the chip to put it on cards.
+  function addFreeTag(name: string) {
+    const snap = captureNow();
+    if (createTag(notebook, name)) pushSnapshot(snap);
   }
 
   function gripTag(tag: string, ev: PointerEvent, srcEl: HTMLElement) {
@@ -444,12 +440,7 @@
   }
 
   function setCardTags(card: Card, raw: string) {
-    const tags = raw
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
-    if (tags.length > 0) card.tags = tags;
-    else delete card.tags;
+    setCardTagsOp(notebook, card.id, raw);
   }
 
   function setCardW(card: Card, w: number) {
@@ -883,11 +874,8 @@
   }
 
   // Distinct tags across the notebook — offered to ProgressEdit's track picker.
-  const notebookTags = $derived.by(() => {
-    const seen = new Set<string>();
-    for (const s of notebook.sections) for (const c of s.cards) for (const t of c.tags ?? []) seen.add(t);
-    return [...seen];
-  });
+  // D26: cats is the tag identity and order; loaders derive it for pre-D26 data.
+  const notebookTags = $derived(notebook.cats ?? []);
 </script>
 
 <TopBar
@@ -1098,7 +1086,7 @@
       ontagtoggle={toggleCardTag}
       ontagrename={renameTagEverywhere}
       ontagdelete={deleteTagEverywhere}
-      ontagadd={addTagToSelected}
+      ontagadd={addFreeTag}
       ontaggrip={gripTag}
       onsvcgrip={gripSvc}
       onrename={renameNotebook}

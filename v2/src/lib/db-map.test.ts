@@ -237,7 +237,9 @@ describe('chrome fields (sections.data / notebooks.data / cards.data accent)', (
 
   it('round-trips chrome fields', () => {
     const { notebook, sections, cards } = notebookToRows(CHROME_NB);
-    expect(rowsToNotebook(notebook, sections, cards)).toEqual(CHROME_NB);
+    const { cats, ...rest } = rowsToNotebook(notebook, sections, cards);
+    expect(rest).toEqual(CHROME_NB);
+    expect(cats).toBeDefined();
   });
 
   it('omits absent chrome keys after round-trip', () => {
@@ -256,7 +258,9 @@ describe('round-trip', () => {
   it('full notebook with slots, verbs, back, tags survives round-trip', () => {
     const { notebook, sections, cards } = notebookToRows(FULL_NB);
     const result = rowsToNotebook(notebook, sections, cards);
-    expect(result).toEqual(FULL_NB);
+    const { cats, ...rest } = result;
+    expect(rest).toEqual(FULL_NB);
+    expect(cats).toBeDefined();
   });
 
   it('empty notebook (no sections) round-trips', () => {
@@ -268,7 +272,9 @@ describe('round-trip', () => {
       sections: [],
     };
     const { notebook, sections, cards } = notebookToRows(empty);
-    expect(rowsToNotebook(notebook, sections, cards)).toEqual(empty);
+    const { cats, ...rest } = rowsToNotebook(notebook, sections, cards);
+    expect(rest).toEqual(empty);
+    expect(cats).toEqual([]);
   });
 
   it('card with no verbs/back/tags round-trips clean', () => {
@@ -296,7 +302,9 @@ describe('round-trip', () => {
     };
     const { notebook, sections, cards } = notebookToRows(nb);
     const result = rowsToNotebook(notebook, sections, cards);
-    expect(result).toEqual(nb);
+    const { cats, ...rest } = result;
+    expect(rest).toEqual(nb);
+    expect(cats).toEqual([]);
     // verbs/back/tags must not appear on the card
     expect(result.sections[0].cards[0]).not.toHaveProperty('verbs');
     expect(result.sections[0].cards[0]).not.toHaveProperty('back');
@@ -333,7 +341,9 @@ describe('service/archive fields round-trip', () => {
       ],
     };
     const { notebook, sections, cards } = notebookToRows(nb);
-    expect(rowsToNotebook(notebook, sections, cards)).toEqual(nb);
+    const { cats, ...rest } = rowsToNotebook(notebook, sections, cards);
+    expect(rest).toEqual(nb);
+    expect(cats).toBeDefined();
   });
 
   it('omits absent fields', () => {
@@ -358,5 +368,44 @@ describe('service/archive fields round-trip', () => {
     expect(result.sections[0]).not.toHaveProperty('svcOrder');
     expect(result.sections[0]).not.toHaveProperty('svcW');
     expect(result.sections[0].cards[0]).not.toHaveProperty('archived');
+  });
+});
+
+describe('cats rides the notebook data blob (D26 — no SQL migration)', () => {
+  const bare = (over: Partial<Notebook> = {}): Notebook => ({
+    id: 'nb1',
+    name: 'NB',
+    createdAt: 'c',
+    updatedAt: 'u',
+    sections: [],
+    ...over,
+  });
+
+  it('round-trips cats through the data column', () => {
+    const rows = notebookToRows(bare({ cats: ['b', 'a'] }));
+    expect(JSON.parse(rows.notebook.data).cats).toEqual(['b', 'a']);
+    const back = rowsToNotebook(rows.notebook, rows.sections, rows.cards);
+    expect(back.cats).toEqual(['b', 'a']);
+  });
+
+  it('a pre-D26 blob (no cats) derives cats from card tags, first-seen', () => {
+    const nb = bare({
+      sections: [
+        {
+          id: 's1',
+          notebookId: 'nb1',
+          name: 'S',
+          position: 0,
+          cards: [
+            { id: 'c1', sectionId: 's1', position: 0, slots: [], tags: ['x', 'y'] },
+            { id: 'c2', sectionId: 's1', position: 1, slots: [], tags: ['z', 'x'] },
+          ],
+        },
+      ],
+    });
+    const rows = notebookToRows(nb);
+    expect(JSON.parse(rows.notebook.data).cats).toBeUndefined();
+    const back = rowsToNotebook(rows.notebook, rows.sections, rows.cards);
+    expect(back.cats).toEqual(['x', 'y', 'z']);
   });
 });

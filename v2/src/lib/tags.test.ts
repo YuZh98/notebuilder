@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { applyTag, removeTag, renameTag, deleteTag, tagUsage } from './tags';
+import {
+  applyTag,
+  removeTag,
+  renameTag,
+  deleteTag,
+  tagUsage,
+  createTag,
+  reorderTag,
+  setCardTags,
+  derivedTagUnion,
+} from './tags';
 import { matrixDims } from './coverage-matrix';
 import type { Notebook, Card } from './types';
 
@@ -93,6 +103,92 @@ describe('deleteTag (v1 tagdel)', () => {
     deleteTag(nb, 'gone');
     expect(nb.sections[0].cards[0].tags).toBeUndefined();
     expect(nb.sections[0].cards[1].tags).toEqual(['keep']);
+  });
+});
+
+describe('cats — author-controlled tag identity and order (D26)', () => {
+  function catsNb(cats: string[], cards: Card[]): Notebook {
+    const nb = nbOf(cards);
+    nb.cats = cats;
+    return nb;
+  }
+
+  it('createTag adds a free tag to cats and touches no card', () => {
+    const nb = catsNb([], [card('a')]);
+    expect(createTag(nb, 'free')).toBe(true);
+    expect(nb.cats).toEqual(['free']);
+    expect(nb.sections[0].cards[0].tags).toBeUndefined();
+  });
+
+  it('createTag is a no-op on an existing name', () => {
+    const nb = catsNb(['free'], []);
+    expect(createTag(nb, 'free')).toBe(false);
+    expect(nb.cats).toEqual(['free']);
+  });
+
+  it('applyTag registers a brand-new tag in cats', () => {
+    const nb = catsNb(['old'], [card('a')]);
+    applyTag(nb, 'a', 'fresh');
+    expect(nb.cats).toEqual(['old', 'fresh']);
+  });
+
+  it('removeTag keeps the cats entry — the tag survives as a free tag', () => {
+    const nb = catsNb(['t'], [card('a', ['t'])]);
+    removeTag(nb, 'a', 't');
+    expect(nb.cats).toEqual(['t']);
+    expect(tagUsage(nb, 't')).toBe(0);
+  });
+
+  it('renameTag rewrites the cats entry in place, keeping its position', () => {
+    const nb = catsNb(['x', 'old', 'y'], [card('a', ['old'])]);
+    renameTag(nb, 'old', 'new');
+    expect(nb.cats).toEqual(['x', 'new', 'y']);
+  });
+
+  it('renameTag merging into an existing cats name drops the old entry', () => {
+    const nb = catsNb(['old', 'new'], [card('a', ['old'])]);
+    renameTag(nb, 'old', 'new');
+    expect(nb.cats).toEqual(['new']);
+  });
+
+  it('renameTag renames a free tag (zero cards) too', () => {
+    const nb = catsNb(['lonely'], []);
+    expect(renameTag(nb, 'lonely', 'renamed')).toBe(true);
+    expect(nb.cats).toEqual(['renamed']);
+  });
+
+  it('deleteTag removes the cats entry', () => {
+    const nb = catsNb(['gone', 'keep'], [card('a', ['gone'])]);
+    deleteTag(nb, 'gone');
+    expect(nb.cats).toEqual(['keep']);
+  });
+
+  it('reorderTag moves a tag to the target index', () => {
+    const nb = catsNb(['a', 'b', 'c'], []);
+    reorderTag(nb, 0, 2);
+    expect(nb.cats).toEqual(['b', 'c', 'a']);
+    reorderTag(nb, 2, 0);
+    expect(nb.cats).toEqual(['a', 'b', 'c']);
+  });
+
+  it('setCardTags registers unseen comma-input tags in cats and rewrites the card', () => {
+    const nb = catsNb(['known'], [card('a')]);
+    setCardTags(nb, 'a', ' known, brand-new ,');
+    expect(nb.sections[0].cards[0].tags).toEqual(['known', 'brand-new']);
+    expect(nb.cats).toEqual(['known', 'brand-new']);
+    setCardTags(nb, 'a', '');
+    expect(nb.sections[0].cards[0].tags).toBeUndefined();
+  });
+
+  it('derivedTagUnion returns first-seen order across cards', () => {
+    const nb = nbOf([card('a', ['x', 'y']), card('b', ['z', 'x'])]);
+    expect(derivedTagUnion(nb)).toEqual(['x', 'y', 'z']);
+  });
+
+  it('the matrix tag axis follows cats order when present', () => {
+    const nb = catsNb(['second', 'first'], [card('a', ['first', 'second'])]);
+    const tagAxis = matrixDims(nb, []).find((d) => d.key === 'tag')!;
+    expect(tagAxis.values.map((v) => v.id).slice(0, 2)).toEqual(['second', 'first']);
   });
 });
 

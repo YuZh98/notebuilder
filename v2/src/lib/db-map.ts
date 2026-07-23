@@ -1,3 +1,4 @@
+import { derivedTagUnion } from './tags';
 import type { Notebook, Section, Card, Slot } from './types';
 
 export type NotebookRow = {
@@ -38,7 +39,7 @@ type SectionData = Pick<
   'kind' | 'locked' | 'width' | 'title' | 'subtitle' | 'folded' | 'services' | 'svcOrder' | 'svcW'
 >;
 
-type NotebookData = Pick<Notebook, 'subtitle' | 'width'>;
+type NotebookData = Pick<Notebook, 'subtitle' | 'width' | 'cats'>;
 
 export function notebookToRows(nb: Notebook): {
   notebook: NotebookRow;
@@ -48,6 +49,7 @@ export function notebookToRows(nb: Notebook): {
   const nbData: NotebookData = {};
   if (nb.subtitle !== undefined) nbData.subtitle = nb.subtitle;
   if (nb.width !== undefined) nbData.width = nb.width;
+  if (nb.cats !== undefined) nbData.cats = nb.cats;
 
   const notebook: NotebookRow = {
     id: nb.id,
@@ -156,5 +158,7 @@ export function rowsToNotebook(
   };
   if (nbData.subtitle !== undefined) notebook.subtitle = nbData.subtitle;
   if (nbData.width !== undefined) notebook.width = nbData.width;
+  // Pre-D26 blob: derive cats from card tags so it is never undefined downstream.
+  notebook.cats = nbData.cats ?? derivedTagUnion(notebook);
   return notebook;
 }

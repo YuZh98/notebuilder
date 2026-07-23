@@ -69,15 +69,16 @@
   </h4>
   {#if !folded}
     {#if tags.length > 0}
-      <div class="palette" style="margin:6px 0">
+      <div class="palette tag-grid" style="margin:6px 0">
         {#each tags as tag (tag)}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <span
             class="chip prodchip tagchip"
             class:on={cardTags?.includes(tag)}
             data-tag={tag}
+            data-tagreorder={tag}
             title={(cardTags ? 'click to tag the selected card · ' : '') +
-              'drag onto a card · type to rename'}
+              'drag onto a card or along the bar · type to rename'}
             onclick={(e) => chipClick(e, tag)}
             onpointerdown={(e) => chipGrip(e, tag)}
           >🏷<input
@@ -107,7 +108,7 @@
           if (e.key === 'Enter') add();
         }}
       />
-      <button class="btn sm" title="Create a tag on the selected card" onclick={add}>＋</button>
+      <button class="btn sm" title="Create a tag — drag or click it onto cards afterwards" onclick={add}>＋</button>
     </div>
   {/if}
 </div>

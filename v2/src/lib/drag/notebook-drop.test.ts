@@ -491,6 +491,30 @@ describe('engine integration — grip pointer sequence', () => {
     expect(nb.sections[0].cards.find((c) => c.id === 'b')?.tags).toEqual(['algebra']);
   });
 
+  it('a tag dropped within the tag grid reorders cats (D26)', () => {
+    const { nb } = fixture();
+    nb.cats = ['p', 'q', 'r'];
+    const grid = document.createElement('div');
+    grid.className = 'palette tag-grid';
+    const chips: Record<string, HTMLElement> = {};
+    for (const t of nb.cats) {
+      const c = document.createElement('span');
+      c.className = 'chip';
+      c.dataset.tagreorder = t;
+      grid.appendChild(c);
+      chips[t] = c;
+    }
+    document.body.appendChild(grid);
+    stubRect(chips.q, 0, 100);
+    stubRect(chips.r, 100, 100);
+    const cb = makeNotebookDropCallbacks(depsOf(nb));
+    _setElementFromPoint(() => chips.r);
+    startPointerDrag({ kind: 'tag', id: 'p', srcEl: chips.p }, pev('pointerdown', 0, 0), cb);
+    document.dispatchEvent(pev('pointermove', 180, 20)); // past r's midpoint → after r
+    document.dispatchEvent(pev('pointerup', 180, 20));
+    expect(nb.cats).toEqual(['q', 'r', 'p']);
+  });
+
   it('a tag dropped on empty space applies nothing', () => {
     const { nb } = fixture();
     const cb = makeNotebookDropCallbacks(depsOf(nb));

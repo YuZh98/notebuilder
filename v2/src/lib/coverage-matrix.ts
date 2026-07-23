@@ -62,7 +62,8 @@ export function matrixDims(nb: Notebook, types: CardType[]): AxisDim[] {
 
   const productNames: string[] = [];
   let hasUntyped = false;
-  const tags: string[] = [];
+  // cats order leads (D26); tags on cards but absent from cats append first-seen.
+  const tags: string[] = [...(nb.cats ?? [])];
   for (const s of nb.sections) {
     for (const c of s.cards) {
       const name = productName(c, types);

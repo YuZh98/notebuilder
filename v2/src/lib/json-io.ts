@@ -1,9 +1,11 @@
 import type { Notebook, Section, Card, Slot } from './types';
+import { derivedTagUnion } from './tags';
 import { getSlot } from './slots/registry';
 import { findGraphIssues, type GraphDecl } from './variable-graph';
 import { uid } from './uid';
 
-const SCHEMA_VERSION = 1;
+// v2 (D26): the notebook carries `cats` — author-controlled tag identity and order.
+const SCHEMA_VERSION = 2;
 
 export type NotebookJSON = {
   version: number;
@@ -11,6 +13,7 @@ export type NotebookJSON = {
     name: string;
     subtitle?: string;
     width?: 'narrow' | 'medium' | 'wide';
+    cats?: string[];
     sections: SectionJSON[];
   };
 };
@@ -56,6 +59,7 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
       name: notebook.name,
       ...(notebook.subtitle !== undefined && { subtitle: notebook.subtitle }),
       ...(notebook.width !== undefined && { width: notebook.width }),
+      ...(notebook.cats !== undefined && { cats: notebook.cats }),
       sections: notebook.sections.map((s) => ({
         name: s.name,
         ...(s.kind !== undefined && { kind: s.kind }),
@@ -93,8 +97,8 @@ function exportSlot(slot: Slot): SlotJSON {
 
 /** Import from JSON interchange format to a Notebook */
 export function importNotebook(json: NotebookJSON): Notebook {
-  // Older schemas would be migrated here before this check; none exist yet (SCHEMA_VERSION === 1).
-  if (json.version !== SCHEMA_VERSION) {
+  // Older payloads migrate below (v1 → v2 derives cats); only a NEWER version is rejected.
+  if (json.version > SCHEMA_VERSION) {
     throw new Error(`Unsupported schema version: ${json.version}`);
   }
 
@@ -131,7 +135,7 @@ export function importNotebook(json: NotebookJSON): Notebook {
     };
   });
 
-  return {
+  const nb: Notebook = {
     id: notebookId,
     name: json.notebook.name,
     createdAt: new Date().toISOString(),
@@ -140,6 +144,9 @@ export function importNotebook(json: NotebookJSON): Notebook {
     ...(json.notebook.subtitle !== undefined && { subtitle: json.notebook.subtitle }),
     ...(json.notebook.width !== undefined && { width: json.notebook.width }),
   };
+  // v1 payloads carry no cats: derive first-seen from card tags (D26 migration).
+  nb.cats = json.notebook.cats ?? derivedTagUnion(nb);
+  return nb;
 }
 
 /** Rebind an imported notebook onto an existing notebook identity, so it replaces it in storage */
@@ -203,6 +210,9 @@ export function validateNotebook(json: unknown): ValidationResult {
   }
   if (nb.width !== undefined && !['narrow', 'medium', 'wide'].includes(nb.width as string)) {
     errors.push("notebook.width must be 'narrow', 'medium', or 'wide'");
+  }
+  if (nb.cats !== undefined && !(Array.isArray(nb.cats) && nb.cats.every((t) => typeof t === 'string'))) {
+    errors.push('notebook.cats must be an array of strings');
   }
   if (!Array.isArray(nb.sections)) {
     errors.push('notebook.sections must be an array');

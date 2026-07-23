@@ -59,11 +59,11 @@ export const DRAG_KINDS: Record<DragKind, KindSpec> = {
   // through CardView, so the grid is the row, not v1's flat .bench-grid.
   slot: { itemSel: '.cardslot', gridSels: ['.cardrow'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
   bench: { itemSel: '.faccard', gridSels: ['.fac-grid'], horiz: alwaysHoriz, deletable: true, ghostSource: true },
-  // Tag chip → any notebook card applies the tag (v1 data-tagdrag), landing as a lane target.
-  // Reorder stays unwired: derived tag order has no storage without a cats registry (D21).
+  // Tag chip: → any notebook card applies the tag (lane target, v1 data-tagdrag);
+  // → within the panel's .tag-grid reorders Notebook.cats (D26).
   tag: {
     itemSel: '[data-tagreorder]',
-    gridSels: [],
+    gridSels: ['.tag-grid'],
     horiz: alwaysHoriz,
     deletable: false,
     ghostSource: true,

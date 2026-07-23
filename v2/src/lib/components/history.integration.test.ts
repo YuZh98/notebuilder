@@ -205,18 +205,26 @@ describe('tags panel — one undo step per operation (D)', () => {
   const cardTagsInput = (furn: HTMLElement) =>
     furn.querySelector<HTMLInputElement>('.tags-input')!;
 
-  it('adding a tag applies it to the selected card as one undo step', async () => {
+  /** D26: the add input creates a FREE tag; a chip click applies it to the selection. */
+  async function addAndApply(container: HTMLElement, name: string) {
+    await addTag(container, name);
+    await fireEvent.click(container.querySelector(`.tags-panel [data-tag="${name}"]`)!);
+    await tick();
+  }
+
+  it('creating a free tag needs no selection, touches no card, and is one undo step', async () => {
     const { container } = render(App);
     await tick();
-    const furn = await selectFirstCard(container);
     clearHistory();
     await addTag(container, 'algebra');
     expect(container.querySelector('.tags-panel [data-tag="algebra"]')).not.toBeNull();
-    expect(cardTagsInput(furn).value).toContain('algebra');
+    for (const input of container.querySelectorAll<HTMLInputElement>('.tags-input')) {
+      expect(input.value).not.toContain('algebra');
+    }
     expect(canUndo()).toBe(true);
     undo();
     await tick();
-    expect(canUndo(), 'add-tag must be exactly one undo entry').toBe(false);
+    expect(canUndo(), 'create-tag must be exactly one undo entry').toBe(false);
     expect(container.querySelector('.tags-panel [data-tag="algebra"]')).toBeNull();
   });
 
@@ -224,7 +232,7 @@ describe('tags panel — one undo step per operation (D)', () => {
     const { container } = render(App);
     await tick();
     let furn = await selectFirstCard(container);
-    await addTag(container, 'old');
+    await addAndApply(container, 'old');
     clearHistory();
     const rename = container.querySelector<HTMLInputElement>(
       '.tags-panel [data-tag="old"] input',
@@ -247,7 +255,7 @@ describe('tags panel — one undo step per operation (D)', () => {
     const { container } = render(App);
     await tick();
     const furn = await selectFirstCard(container);
-    await addTag(container, 'gone');
+    await addAndApply(container, 'gone');
     clearHistory();
     await fireEvent.click(container.querySelector('.tags-panel [data-tag="gone"] .tagx')!);
     await tick();
@@ -261,7 +269,7 @@ describe('tags panel — one undo step per operation (D)', () => {
     expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).toContain('gone');
   });
 
-  it('clicking a chip toggles the tag on the selected card', async () => {
+  it('clicking a chip toggles the tag on the selected card; the free chip survives removal', async () => {
     const { container } = render(App);
     await tick();
     const furn = await selectFirstCard(container);
@@ -269,7 +277,14 @@ describe('tags panel — one undo step per operation (D)', () => {
     clearHistory();
     await fireEvent.click(container.querySelector('.tags-panel [data-tag="togg"]')!);
     await tick();
-    expect(cardTagsInput(furn).value, 'chip click removes a carried tag').not.toContain('togg');
+    expect(cardTagsInput(furn).value, 'first click applies').toContain('togg');
+    await fireEvent.click(container.querySelector('.tags-panel [data-tag="togg"]')!);
+    await tick();
+    expect(cardTagsInput(furn).value, 'second click removes').not.toContain('togg');
+    expect(
+      container.querySelector('.tags-panel [data-tag="togg"]'),
+      'a zero-card tag keeps its chip (D26)',
+    ).not.toBeNull();
     expect(canUndo()).toBe(true);
   });
 });

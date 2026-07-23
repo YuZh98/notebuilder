@@ -48,6 +48,14 @@ describe('TagsPanel — chips', () => {
     expect(props.ontoggle).not.toHaveBeenCalled();
   });
 
+  it('chips carry data-tagreorder inside a .tag-grid so the engine can reorder them', () => {
+    const { container } = render(TagsPanel, { props: baseProps() });
+    const grid = container.querySelector('.tag-grid');
+    expect(grid).not.toBeNull();
+    expect(grid!.querySelectorAll('[data-tagreorder]')).toHaveLength(3);
+    expect(grid!.querySelector('[data-tagreorder="algebra"]')).not.toBeNull();
+  });
+
   it('chips start the pointer drag, never native DnD', () => {
     const props = baseProps();
     const { container } = render(TagsPanel, { props });

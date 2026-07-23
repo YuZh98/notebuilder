@@ -1,7 +1,7 @@
 import { toast } from '../toast.svelte';
 import { pushGestureSnapshot } from './gesture-history';
 import { deleteCard, deleteSection, findCard, moveCardBefore, moveSectionBefore } from '../notebook-ops';
-import { applyTag } from '../tags';
+import { applyTag, reorderTag } from '../tags';
 import { placeType, type CardType, type Variety } from '../card-types';
 import type { Notebook, Section } from '../types';
 import type { DragSource, DropTarget, EngineCallbacks } from './engine';
@@ -109,14 +109,34 @@ export function makeNotebookDropCallbacks(deps: NotebookDropDeps): EngineCallbac
     if (sectionId) deps.attachService?.(sectionId, src.id);
   };
 
-  // Tag chip → a card (the tag kind's laneSel): apply, don't reorder (v1 data-tagdrag).
+  // Tag chip → a card (laneSel) applies; → the tag grid reorders cats (D26).
   const dropTag = (src: DragSource, t: DropTarget): void => {
-    if (t.kind !== 'lane') return;
-    const cardId = (t.el as HTMLElement).dataset.card;
-    if (!cardId) return;
+    if (t.kind === 'lane') {
+      const cardId = (t.el as HTMLElement).dataset.card;
+      if (!cardId) return;
+      pushGestureSnapshot();
+      applyTag(deps.notebook(), cardId, src.id);
+      toast(`tagged “${src.id}”`);
+      return;
+    }
+    if (t.kind !== 'grid') return;
+    const nb = deps.notebook();
+    const cats = nb.cats ?? [];
+    const from = cats.indexOf(src.id);
+    if (from === -1) return;
+    const ids = [...t.grid.children]
+      .filter(
+        (c): c is HTMLElement =>
+          c instanceof HTMLElement && c.matches('[data-tagreorder]') && !c.classList.contains('drag-ph'),
+      )
+      .map((el) => el.dataset.tagreorder)
+      .filter((id): id is string => typeof id === 'string' && id !== src.id);
+    const before = ids[t.idx] ?? null;
+    const rest = cats.filter((c) => c !== src.id);
+    const to = before === null ? rest.length : rest.indexOf(before);
+    if (to === -1) return;
     pushGestureSnapshot();
-    applyTag(deps.notebook(), cardId, src.id);
-    toast(`tagged “${src.id}”`);
+    reorderTag(nb, from, to);
   };
 
   return {

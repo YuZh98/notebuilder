@@ -34,7 +34,7 @@ describe('buildShareHtml', () => {
     const html = buildShareHtml(sample());
     const p = payloadOf(html);
     expect(p.notebook.notebook.name).toBe('Test Notebook');
-    expect(p.notebook.version).toBe(1);
+    expect(p.notebook.version).toBe(2);
   });
 
   it('marks the payload shared:true', () => {
@@ -96,7 +96,7 @@ describe('exportNotebookToFile — browser fallback', () => {
     expect(res).toEqual({ path: 'Test Notebook.json' });
     expect(click).toHaveBeenCalledOnce();
     const parsed = JSON.parse(parts[0][0] as string);
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(2);
     expect(parsed.notebook.name).toBe('Test Notebook');
   });
 });
