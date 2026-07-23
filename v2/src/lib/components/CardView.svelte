@@ -612,7 +612,9 @@
       {:else}
         {@render faceRows(card.slots, false)}
       {/if}
-      {#if studying && notesEnabled}
+      <!-- Existing notes force the marker even with the service off (never orphan a note);
+           the service gates only the empty-state affordance. -->
+      {#if studying && (notesEnabled || notes.length > 0)}
         <button
           class="notes-toggle"
           class:has-notes={notes.length > 0}

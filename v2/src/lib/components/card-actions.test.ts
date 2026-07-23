@@ -104,6 +104,26 @@ describe('Edit in Factory (B3, panel-hosted since C)', () => {
 });
 
 describe('Card notes are opt-in per section', () => {
+  it('an existing note forces the marker even when the section service is off (BL3)', () => {
+    const { container } = render(CardView, {
+      props: {
+        ...noteProps,
+        notesEnabled: false,
+        notes: [{ id: 'ann1', cardId: 'c1', kind: 'note' as const, body: 'kept', createdAt: '' }],
+      },
+    });
+    const toggle = container.querySelector('.notes-toggle');
+    expect(toggle, 'a carried note must never be silently orphaned').not.toBeNull();
+    expect(toggle?.textContent).toContain('notes (1)');
+  });
+
+  it('no notes and no service → no affordance at all', () => {
+    const { container } = render(CardView, {
+      props: { ...noteProps, notesEnabled: false, notes: [] },
+    });
+    expect(container.querySelector('.notes-toggle')).toBeNull();
+  });
+
   it('shows no notes affordance in Study until the section enables the service', async () => {
     const { container } = render(App);
     await tick();
