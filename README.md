@@ -11,6 +11,10 @@
 
 NoteBuilder is a local-first macOS desktop app. Your notebooks live in a local SQLite database. No account, no cloud, no backend.
 
+![Study mode: a compound-interest notebook where two sliders drive computed values, live prose, and a growth chart in one card](docs/screenshots/v0.2.0/study-live.png)
+
+*The [`compound-interest`](docs/examples/compound-interest.json) example in Study mode: the two sliders write $P$ and $r$; the computed values, the prose, and the chart below all react as you drag. Import it yourself from [`docs/examples/`](docs/examples/).*
+
 ## Who is this for?
 
 Anyone who makes study material and wants it to be more than frozen text:
@@ -42,6 +46,8 @@ npm run tauri dev
 
 That is the full desktop app, with SQLite persistence and native print. `npm run tauri build` produces an app bundle. For UI work without the native shell, `npm run dev` serves the app in a browser with a demo notebook (persistence no-ops there).
 
+First thing to try: import an example from [`docs/examples/`](docs/examples/) with the **⤒** button and hit **Study**.
+
 ## How it works
 
 ### Cards are built from slots
@@ -52,6 +58,10 @@ A card is a small stack of primitives arranged on a 12-column grid: text, slider
 
 Edit shows structure and configuration. Study *is* the rendered, interactive result. `Cmd+Enter` flips between them. There is no half-live preview to fight with; Study mode is the preview.
 
+![Edit mode: the same compound-interest notebook as slot configuration fields, with the tags, section ops, and card-type store in the sidebar](docs/screenshots/v0.2.0/edit-mode.png)
+
+*The same notebook in Edit mode: every slot becomes its configuration fields, and the sidebar holds tags, section operations, and the card-type store.*
+
 ### The Factory stamps card types
 
 Design a slot arrangement once, seal it as a card type, then stamp independent copies into any notebook. Stamped cards are copies, not references, so editing a notebook never mutates your library.
@@ -60,9 +70,17 @@ Design a slot arrangement once, seal it as a card type, then stamp independent c
 
 Export a notebook as JSON for another NoteBuilder, or as a self-contained Reader `.html` that opens in any browser, offline. The recipient reads and interacts; their quiz answers and progress stay on their machine. A shared file carries only that notebook, never the rest of your library.
 
+![A shared Reader file open in a plain browser: locked chrome with only a Remix button, quiz unanswered because reader state starts fresh](docs/screenshots/v0.2.0/reader.png)
+
+*A shared `.html` open in a plain browser: authoring chrome is gone, a single **Remix** unlocks editing, and the quiz is unanswered because the reader's state is their own.*
+
 ### And the comforts
 
 Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, native print.
+
+![Study mode of a regression drill: an answered quiz with its explanation, a checklist with two items struck through, and a half-full progress bar](docs/screenshots/v0.2.0/drill-practice.png)
+
+*The [`regression-drill`](docs/examples/regression-drill.json) example mid-study: the quiz has been answered and explains itself, two checklist items are done, and the notebook-wide progress meter sits at 2/4.*
 
 ## Built to last
 

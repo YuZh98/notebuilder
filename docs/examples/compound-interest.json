@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "notebook": {
+    "name": "Compound Interest, Live",
+    "subtitle": "One reactive card explains more than a page of prose",
+    "cats": ["idea", "explore", "check"],
+    "sections": [
+      {
+        "name": "The Idea",
+        "title": "The Idea",
+        "subtitle": "Money grows on its own growth.",
+        "cards": [
+          {
+            "tags": ["idea"],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "## Compound interest\n\nA principal $P$ invested at annual rate $r$ grows to\n\n$$A(t) = P\\left(1 + \\tfrac{r}{100}\\right)^{t}$$\n\nafter $t$ years. The growth itself earns interest, which is why the curve below bends upward. Drag the sliders on the next card and watch it react."
+                }
+              }
+            ]
+          },
+          {
+            "tags": ["explore"],
+            "slots": [
+              { "type": "slider", "props": { "key": "P", "value": 1000, "min": 100, "max": 5000, "step": 100 }, "w": 6 },
+              { "type": "slider", "props": { "key": "r", "value": 7, "min": 1, "max": 15, "step": 0.5 }, "w": 6 },
+              { "type": "compute", "props": { "expr": "round(P * (1 + r/100) ^ 30)", "out": "final", "note": "Value after 30 years:" }, "w": 6 },
+              { "type": "compute", "props": { "expr": "round(720 / r) / 10", "out": "doubling", "note": "Doubling time (rule of 72), years:" }, "w": 6 },
+              {
+                "type": "text",
+                "props": {
+                  "text": "At **{{r}}%**, an initial **{{P}}** roughly doubles every **{{doubling}}** years. Same card, same variables: the sliders above write $P$ and $r$, everything below reads them."
+                }
+              },
+              { "type": "chart", "props": { "fn": "P * (1 + r/100) ^ x", "label": "A(t) over 30 years", "x0": 0, "x1": 30, "y0": 0, "y1": 20000 } }
+            ]
+          },
+          {
+            "tags": ["check"],
+            "slots": [
+              {
+                "type": "choice",
+                "props": {
+                  "q": "You invest at **6%** compounded annually. About how long until your money doubles?",
+                  "options": ["6 years", "12 years", "17 years", "24 years"],
+                  "answer": [1],
+                  "explanation": "Rule of 72: 72 / 6 = 12 years. The exact answer, ln 2 / ln 1.06, is 11.9 years."
+                }
+              }
+            ]
+          },
+          {
+            "tags": ["check"],
+            "slots": [
+              { "type": "progress", "props": { "scope": "section", "label": "Your progress", "show": { "mn": true, "pct": true, "bar": true } } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

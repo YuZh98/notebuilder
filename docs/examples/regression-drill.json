@@ -1,0 +1,178 @@
+{
+  "version": 2,
+  "notebook": {
+    "name": "Linear Regression Drill",
+    "subtitle": "Flashcards, a quiz, and a checklist that knows what you have finished",
+    "cats": [
+      "definition",
+      "practice",
+      "recap"
+    ],
+    "sections": [
+      {
+        "name": "Part I · Definitions",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Core objects",
+        "cards": [
+          {
+            "verbs": {
+              "flip": true
+            },
+            "tags": [
+              "definition"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Flip me.** What does the OLS estimator $\\hat\\beta$ minimize?"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "The residual sum of squares:\n\n$$\\hat\\beta = \\arg\\min_\\beta \\; \\lVert y - X\\beta \\rVert^2 = (X^\\top X)^{-1} X^\\top y$$"
+                }
+              }
+            ]
+          },
+          {
+            "verbs": {
+              "flip": true
+            },
+            "tags": [
+              "definition"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Flip me.** What does $R^2$ measure, and what is its range?"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "The share of variance in $y$ explained by the fit: $R^2 = 1 - \\mathrm{RSS}/\\mathrm{TSS}$, in $[0, 1]$ for a model with intercept."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "definition"
+            ],
+            "slots": [
+              {
+                "type": "table",
+                "props": {
+                  "rows": [
+                    [
+                      "Symbol",
+                      "Meaning"
+                    ],
+                    [
+                      "X",
+                      "n × p design matrix"
+                    ],
+                    [
+                      "β̂",
+                      "fitted coefficients"
+                    ],
+                    [
+                      "H = X(XᵀX)⁻¹Xᵀ",
+                      "hat matrix, projects y onto the column space"
+                    ],
+                    [
+                      "e = y − ŷ",
+                      "residuals, orthogonal to the columns of X"
+                    ]
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Part II · Practice",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Check yourself",
+        "cards": [
+          {
+            "tags": [
+              "practice"
+            ],
+            "slots": [
+              {
+                "type": "choice",
+                "props": {
+                  "q": "Adding a covariate to an OLS model can never...",
+                  "options": [
+                    "increase R²",
+                    "decrease R²",
+                    "change β̂ of other covariates",
+                    "decrease adjusted R²"
+                  ],
+                  "answer": [
+                    1
+                  ],
+                  "explanation": "Plain $R^2$ is non-decreasing in added covariates; that is exactly why adjusted $R^2$ exists."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "practice"
+            ],
+            "slots": [
+              {
+                "type": "list",
+                "props": {
+                  "style": "check",
+                  "items": [
+                    "Derive the normal equations",
+                    "State the Gauss–Markov assumptions",
+                    "Explain why residuals are orthogonal to fitted values",
+                    "Compute leverage from the hat matrix"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "recap"
+            ],
+            "accent": "#e4572e",
+            "slots": [
+              {
+                "type": "progress",
+                "props": {
+                  "scope": "notebook",
+                  "label": "Drill progress",
+                  "show": {
+                    "mn": true,
+                    "pct": true,
+                    "bar": true
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
