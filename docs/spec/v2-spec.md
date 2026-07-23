@@ -81,8 +81,12 @@ type VarDeclaration = {
 ## Storage & Sharing
 
 - **Internal storage:** SQLite database. Holds all notebooks, card types, factory, reader state, preferences.
-- **Import/Export:** JSON files. LLM-authored notebooks come in as JSON. Sharing with others = export JSON.
-- **JSON schema:** Small, flat, validatable, versioned. The contract between the app, LLMs, and other users.
+  Optional notebook fields (subtitle, width, tag order) ride a JSON `data` column — no migration per field.
+- **Import/Export:** JSON files. LLM-authored notebooks come in as JSON. Sharing with others = export JSON
+  or a self-contained Reader `.html` (same payload embedded).
+- **JSON schema:** Small, flat, validatable, versioned (currently **v2** — added `cats`, the
+  author-controlled tag identity and order). Import migrates older versions and rejects newer ones.
+  The contract between the app, LLMs, and other users.
 - **LLM workflow:** LLM generates JSON → user imports into app → app stores in SQLite → app renders. Unchanged from prototype concept.
 
 ---

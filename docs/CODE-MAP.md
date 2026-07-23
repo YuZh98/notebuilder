@@ -221,15 +221,17 @@ v2/
     App.svelte           Root component (32KB): mode/place routing, notebook CRUD, effects
     app.css              Global stylesheet
     lib/
-      types.ts           Core type definitions (Slot, Card, Section, Notebook, etc.)
+      types.ts           Core type definitions (Slot, Card, Section, Notebook — incl. Notebook.cats)
       card-types.ts      CardType, stampCard, placeType, builtinCardTypes
       bench.svelte.ts    Factory workbench state (Svelte 5 $state rune)
-      session.svelte.ts  Study session state (shuffle, search, archive toggle)
-      notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, etc.
+      session.svelte.ts  Study session state (shuffle, search, archive toggle, live control values)
+      notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, duplicateCard, etc.
+      tags.ts            The ONE tag write path: apply/remove/rename/delete/create/reorder + cats upkeep
       coverage-matrix.ts Matrix axes, cell matching, same 3-axis model as v1
       services.ts        ServiceBar: SERVICE_ORDER, svcBarItems, reorderSvc, search
       service-ops.ts     Mutation helpers: toggleService, resetSection, flipAllSection
-      json-io.ts         Export/import + validateNotebookJSON + cardGraph validation
+      json-io.ts         Export/import (SCHEMA_VERSION 2) + validateNotebookJSON + graph validation
+      html-io.ts         Shared-.html payload inject/extract (notebook-source script tag)
       share.ts           Tauri file dialog wrappers for import/export
       db.ts              SQLite layer (saveNotebook, loadNotebook, reader state, prefs)
       db-map.ts          Notebook ↔ relational row mapping
@@ -244,8 +246,10 @@ v2/
       uid.ts             ID generator
       debounce.ts        Utility
       annotations.ts     Reader annotations (local-only)
+      history.svelte.ts  Undo/redo stacks: pushHistory/pushSnapshot/beginEdit (focus-coalesced)
+      history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
       shell.ts           Shell/container styling logic
-      slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, render*
+      slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, stateLayer, render*
       progress.ts        Notebook/section/chapter progress computation
       card-done.ts       Per-card completion logic
       var-colors.ts      Variable key → color assignment
@@ -272,7 +276,9 @@ v2/
         SectionView.svelte  Section grid: cards + chapter fold + service bar
         CardView.svelte  Card frame: front/back faces, slots, verbs, resize
         Factory.svelte   Bench editor + slot palette + preview toggle
-        SideBar.svelte   Context panel (inspector/notebook/section)
+        SideBar.svelte   Context panel: notebook · card inspector · tags · section ops · store
+        CardPanel.svelte Selected-card inspector (v1 sideFurnInspector): fields, duplicate, remove, 🏭
+        TagsPanel.svelte 🏷 chips: click-to-tag, drag-apply/reorder, rename, delete, create
         SideFactory.svelte  Factory sidebar (slot config, verb palette)
         CoverageMatrix.svelte  3-axis matrix grid (same v1 concept)
         ServiceBar.svelte  Per-section feature/action bar
@@ -285,10 +291,11 @@ v2/
         Dustbin.svelte   Drop-to-delete target
         Toast.svelte     Notifications
         CardNotes.svelte Reader annotations
+        Reader.svelte    Shared-.html shell — hand-mirrors the App shell (see DEBT P1 + drift guard)
 
       drag/              Drag-and-drop engine:
         engine.ts        Core pointer engine (startDrag, FLIP animation)
-        kinds.ts         DRAG_KINDS registry: card/section/qopt/product/slot/bench/tag/svc
+        kinds.ts         DRAG_KINDS registry (9): card/section/qopt/product/slot/bench/tag/svc/svcattach
         geometry.ts      Hit testing, midpoint calculation
         notebook-drop.ts Drop handlers for notebook grids
         factory-drop.ts  Drop handlers for factory grids
@@ -298,6 +305,10 @@ v2/
         qopt-remap.ts    Choice option reorder mapping
         dust.svelte.ts   Dustbin active state
         gesture-history.ts  Undo hook for drag completion
+
+      generated/
+        reader-template.ts  COMMITTED build artifact — `npm run build:reader` regenerates it
+                            whenever the Reader render path changes; never hand-edit.
 
       stores/            Svelte stores:
         mode.ts          Edit/Study toggle
@@ -316,7 +327,9 @@ Slot     = { id, type, props: SlotProps, verbs?: VerbConfig, w?, fuse?, fuseW? }
 Card     = { id, sectionId, typeId?, position, slots[], verbs?, back?, tags?, accent?, w?, archived? }
 Section  = { id, notebookId, name, position, cards[], kind?, locked?, width?, title?, subtitle?,
              folded?, services?, svcOrder?, svcW? }
-Notebook = { id, name, createdAt, updatedAt, sections[], subtitle?, width? }
+Notebook = { id, name, createdAt, updatedAt, sections[], subtitle?, width?, cats? }
+           // cats = author-controlled tag identity+order (D26); loaders derive it when absent
+CardType.slots: SlotTemplate[] — templates carry w/fuse/fuseW so sealing keeps slot layout
 CardType = { id, name, description?, verbs?, slots: SlotTemplate[], back?, accent?, note?, icon?,
              store?, varieties? }
 ```
@@ -332,8 +345,15 @@ CardType = { id, name, description?, verbs?, slots: SlotTemplate[], back?, accen
 
 **Same invariants as v1:**
 - Variables are **card-scoped** (front + back share one scope, never cross card boundaries).
-- Study state: document (exported) · progress (persisted locally, never exported) · presentation (session-only).
+- Study state: document (exported) · progress (persisted locally, never exported) · **session**
+  (`session.svelte.ts` — shuffle/search/archive-view plus `session.live`, the per-card control
+  values keyed by variable name; wiped on every Study entry, never persisted).
+- A slot declares which layer its Study writes belong to via `SlotType.stateLayer`
+  (`'progress'` default → readerState by slot id; `'session'` → `session.live` by variable name —
+  slider is the one session-layer slot).
 - Sealed product structure is immutable; content within slots remains editable.
+- The **JSON interchange** is at `SCHEMA_VERSION` **2** (v2 added `cats`); import accepts older
+  versions and derives the missing fields, rejects newer.
 
 ### B4. Slot system — the `SlotType` contract
 
@@ -347,6 +367,7 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 | `isDone?(props, state)` | Progress tracking (completable slots only) |
 | `validate?(props)` | Prop validation errors |
 | `migrate?(old, version)` | Schema migration |
+| `stateLayer?` | `'progress'` (default) or `'session'` — which layer Study writes land in |
 | `renderEdit` | Svelte component for Edit mode |
 | `renderStudy` | Svelte component for Study mode |
 
@@ -356,7 +377,10 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 ### B5. Key systems (v2)
 
 1. **Drag engine** (`drag/engine.ts` + `kinds.ts`) — unified pointer engine with `DRAG_KINDS` registry
-   (8 kinds: card, section, qopt, product, slot, bench, tag, svc). Same FLIP animation approach as v1.
+   (9 kinds: card, section, qopt, product, slot, bench, tag, svc, svcattach). Same FLIP approach as
+   v1, but with **no native-drag path at all** (WKWebView blocks custom dataTransfer types — see the
+   `text/nb-svc` sweep test). A kind's `laneSel` makes arbitrary elements drop targets: tag → card
+   applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches / dustbin detaches.
    Separate header-drag for matrix axis reorder. Drop handlers split by context (notebook vs factory).
 
 2. **Variable graph** (`variable-graph.ts`) — topological-sort evaluator. Each slot declares reads/
@@ -374,7 +398,12 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
    are loaded.
 
 6. **Persistence** (`db.ts`) — SQLite via Tauri plugin-sql. `isTauri()` guards DB calls so the code
-   runs in tests/browser without the native layer.
+   runs in tests/browser without the native layer. Notebook/section/card extras ride `data` JSON
+   columns (`db-map.ts`) — new optional fields need no SQL migration.
+
+7. **Tags** (`tags.ts` + `TagsPanel.svelte`) — `Notebook.cats` holds identity and order; membership
+   lives on `card.tags`. Every mutation (including the card's comma input) goes through `tags.ts`,
+   which keeps `cats` in sync. `pinned` is owned by the pin button and cannot be renamed.
 
 ### B6. "I want to change X" → go here (v2)
 
@@ -387,7 +416,9 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 | Drag behavior | `drag/kinds.ts` (config) + `drag/notebook-drop.ts` or `drag/factory-drop.ts` (handlers) |
 | Matrix/coverage axes | `coverage-matrix.ts` |
 | Service bar | `services.ts` (registry/logic) + `ServiceBar.svelte` (UI) + `service-ops.ts` (mutations) |
-| Import/export | `json-io.ts` (logic) + `share.ts` (file dialogs) |
+| Import/export | `json-io.ts` (logic) + `share.ts` (file dialogs) + `html-io.ts` (shared .html) |
+| Tags | `tags.ts` (all writes) + `TagsPanel.svelte` (UI) + `drag/notebook-drop.ts` `dropTag` |
+| Card inspector | `CardPanel.svelte` (renders registry Edit components; writes via `updateSlotProps`) |
 | Persistence/DB | `db.ts` + `db-map.ts` + migrations in `src-tauri/src/lib.rs` |
 | Themes | `themes.ts` + CSS variables in `app.css` |
 | Progress tracking | `progress.ts` + `card-done.ts` + `slots/progress.ts` |
@@ -404,6 +435,14 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 - **Tauri-guard pattern** — `isTauri()` gates all native calls so lib modules run in unit tests.
 - **Structural immutability of placed cards** — slot add/remove only in the Factory bench; placed cards
   allow only content and style edits (same rule as v1).
+- **Components never mutate their props** — no `$bindable` in `slots/*Edit.svelte` or `*Study.svelte`
+  (sweep-tested in `state-layer.test.ts`); every change flows through `onUpdate`/`onState` callbacks
+  to the owner.
+- **One tag write path** — all `card.tags`/`Notebook.cats` mutations go through `tags.ts`.
+- **No native HTML5 drag** — every gesture rides `drag/engine.ts` (sweep-tested; WKWebView breaks
+  custom dataTransfer MIME types).
+- **Undo keeps live selections** — `restoreHistory` clears a selection only when the restored
+  snapshot no longer contains it (D25 revised).
 
 ### B8. Dev tooling (v2)
 
@@ -415,6 +454,7 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 | `npm test` | Vitest run (unit tests) |
 | `npm run test:watch` | Vitest watch mode |
 | `npm run check` | svelte-check (type checking) |
+| `npm run build:reader` | Regenerate `src/lib/generated/reader-template.ts` (commit the result) |
 
 ---
 

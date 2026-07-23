@@ -69,6 +69,14 @@ npm run format   # prettier
 Architecture map: [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Why there's a build step:
 [`docs/adr/0001-modular-build.md`](docs/adr/0001-modular-build.md).
 
+## The v2 rewrite (`v2/`)
+
+The repository also hosts the **next generation** of NoteBuilder: a Svelte 5 + TypeScript + Tauri
+desktop app backed by SQLite, rebuilding the same product with real types, components, and a native
+shell. It has reached feature parity with v1 and is under active development — see
+[`v2/README.md`](v2/README.md) and Part B of [`docs/CODE-MAP.md`](docs/CODE-MAP.md). The root app
+remains the shipped, stable product.
+
 ## Privacy
 
 Everything lives in your browser's `localStorage`. A shared file carries only the notebook you exported
