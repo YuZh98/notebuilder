@@ -4,28 +4,29 @@
 
 NoteBuilder is a local-first macOS desktop app for making study material that *does something*:
 flashcards that flip, quizzes that check themselves, sliders that drive formulas and charts,
-checklists and progress meters that track what *you've* finished. No account, no cloud, no backend —
-your notebooks live in a local SQLite database, and sharing is a file you hand to someone.
+checklists and progress meters that track what *you* have finished. There is no account, no cloud,
+and no backend. Your notebooks live in a local SQLite database, and sharing is a file you hand to
+someone.
 
 The app lives in [`v2/`](v2/) (Svelte 5 + TypeScript + Tauri 2).
 
 ## Why it's different
 
-- **Cards are built from slots.** A card is a small stack of primitives — text, slider, formula,
-  chart, choice, table, code, image, checklist, progress — arranged on a 12-column grid. A slider,
+- **Cards are built from slots.** A card is a small stack of primitives (text, slider, formula,
+  chart, choice, table, code, image, checklist, progress) arranged on a 12-column grid. A slider,
   a compute slot, and a chart in the same card wire together and react live.
 - **Variables are card-scoped.** A card is a self-contained reactive unit; dependencies resolve by
-  topological sort, cycles and missing writers are caught at import. Nothing leaks across cards.
+  topological sort, and cycles or missing writers are caught at import. Nothing leaks across cards.
 - **Edit and Study are hard-separated.** Edit shows structure and configuration; Study *is* the
   rendered, interactive result. `Cmd+Enter` flips between them.
 - **The Factory stamps card types.** Design a slot arrangement once, seal it as a card type, stamp
   independent copies into any notebook.
-- **Sharing is a file.** Export a notebook as JSON (for another NoteBuilder), or as a
-  self-contained Reader `.html` that opens in any browser, offline — the recipient reads, interacts,
-  and their quiz answers and progress stay their own.
+- **Sharing is a file.** Export a notebook as JSON for another NoteBuilder, or as a
+  self-contained Reader `.html` that opens in any browser, offline. The recipient reads and
+  interacts, and their quiz answers and progress stay their own.
 
 Plus the comforts: full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags
-with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, native print.
+with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, and native print.
 
 ## Run it
 
@@ -49,7 +50,7 @@ notebook (persistence and native calls no-op there).
 Run inside `v2/`:
 
 | Command | Does |
-|---|---|
+| --- | --- |
 | `npm test` | Vitest unit suite |
 | `npm run check` | svelte-check (TypeScript strict) |
 | `npm run build` | Vite production build |
@@ -63,7 +64,7 @@ Orientation: [`docs/CODE-MAP.md`](docs/CODE-MAP.md) (architecture map),
 
 The repository root holds the first NoteBuilder: a single-file web app (vanilla JS, localStorage)
 that proved the slot/card model and pioneered the one-file sharing story. It still builds and its
-Playwright suite still gates CI (`npm install && npm test` at the root), but it is legacy — new
+Playwright suite still gates CI (`npm install && npm test` at the root), but it is legacy. New
 work happens in `v2/`.
 
 ## License
