@@ -144,11 +144,9 @@ function genProps(r: Rng, type: string, vars: CardVars): SlotProps | undefined {
       };
     }
     case 'list':
-      // items is never empty: an empty `check` list declares itself completable
-      // but can only ever be done via an explicit `checked: []` reader state.
       return {
         ...base,
-        items: Array.from({ length: r.between(1, 5) }, () => r.word()),
+        items: Array.from({ length: r.int(6) }, () => r.word()),
         style: r.pick(LIST_STYLES),
       };
     case 'progress':
