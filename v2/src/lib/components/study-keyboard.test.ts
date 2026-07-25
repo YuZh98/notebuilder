@@ -10,6 +10,7 @@ import App from '../../App.svelte';
 import Reader from './Reader.svelte';
 import { mode } from '../stores/mode';
 import { place } from '../stores/place';
+import { session, resetSession } from '../session.svelte';
 import type { Notebook } from '../types';
 
 beforeAll(() => {
@@ -20,10 +21,17 @@ beforeAll(() => {
 afterEach(() => {
   mode.set('edit');
   place.set('house');
+  resetSession();
 });
 
 async function press(key: string, mods: Record<string, boolean> = {}) {
   await fireEvent.keyDown(window, { key, ...mods });
+  await tick();
+}
+
+/** Press a key as if the reader had tab-focused an element (a card button, say). */
+async function pressOn(target: Element, key: string) {
+  await fireEvent.keyDown(target, { key, bubbles: true });
   await tick();
 }
 
@@ -251,5 +259,109 @@ describe('Reader — the same cursor in an exported file', () => {
     expect(document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')).not.toBeNull();
     await press('Escape');
     expect(document.querySelector('[aria-label="Keyboard shortcuts"]')).toBeNull();
+  });
+});
+
+describe('Reader — the cursor only reaches what the reader can see', () => {
+  it('skips cards the section search has filtered out', async () => {
+    const nb = sharedNotebook();
+    nb.sections[0].services = { search: true };
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    // Search for the checklist card's text: the quiz and the flashcard leave the grid.
+    session.search[nb.sections[0].id] = 'second';
+    await tick();
+    expect([...container.querySelectorAll('.furn[data-card]')].map((f) => f.getAttribute('data-card'))).toEqual(['l']);
+
+    await press('j');
+    expect(focused(container)).toBe('l');
+    // j/k stay on the only visible card instead of walking onto hidden ones.
+    await press('j');
+    expect(focused(container)).toBe('l');
+    await press('k');
+    expect(focused(container)).toBe('l');
+
+    // The hidden quiz card is untouched by keys aimed at the cursor.
+    await press('1');
+    await press('Enter');
+    expect(container.querySelector('.furn[data-card="q"]')).toBeNull();
+
+    session.search[nb.sections[0].id] = '';
+    await tick();
+    expect(container.querySelector('.furn[data-card="q"] .option.selected')).toBeNull();
+  });
+
+  it('follows the shuffle order the grid is showing', async () => {
+    const nb = sharedNotebook();
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    session.shuf[nb.sections[0].id] = ['fc', 'l', 'q'];
+    await tick();
+
+    await press('j');
+    expect(focused(container)).toBe('fc');
+    await press('j');
+    expect(focused(container)).toBe('l');
+  });
+
+  it('reaches archived cards only while the archive view is on', async () => {
+    const nb = sharedNotebook();
+    nb.sections[0].cards[0].archived = true;
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    await press('j');
+    expect(focused(container)).toBe('l');
+
+    session.showArch[nb.sections[0].id] = true;
+    await tick();
+    await press('j');
+    expect(focused(container)).toBe('q');
+  });
+
+  it('skips a collapsed section', async () => {
+    const nb = sharedNotebook();
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    session.collapsed[nb.sections[0].id] = true;
+    await tick();
+    expect(container.querySelector('.furn[data-card]')).toBeNull();
+
+    await press('j');
+    expect(focused(container)).toBeNull();
+  });
+});
+
+describe('Reader — a tab-focused control keeps its own keys', () => {
+  it('Enter on a focused Submit button submits that slot once, not the cursor’s', async () => {
+    const { container } = render(Reader, { props: { notebook: sharedNotebook(), shared: true } });
+    await tick();
+
+    await press('j');
+    await press('2');
+    const submit = container.querySelector('.furn[data-card="q"] .submit') as HTMLElement;
+    submit.focus();
+    await pressOn(submit, 'Enter');
+
+    // The cursor did not swallow it: the button is still there to be clicked natively (jsdom does
+    // not synthesize the click), and no submission happened behind the reader's back.
+    expect(container.querySelector('.furn[data-card="q"] .submit')).not.toBeNull();
+    expect(container.querySelector('.furn[data-card="q"] .option.correct')).toBeNull();
+  });
+
+  it('digits still answer while a clicked option button holds focus', async () => {
+    const { container } = render(Reader, { props: { notebook: sharedNotebook(), shared: true } });
+    await tick();
+
+    await press('j');
+    const option = container.querySelector('.furn[data-card="q"] .option') as HTMLElement;
+    option.focus();
+    await pressOn(option, '3');
+
+    const options = [...container.querySelectorAll('.furn[data-card="q"] .option')];
+    expect(options[2].className).toContain('selected');
   });
 });

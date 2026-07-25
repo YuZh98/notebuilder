@@ -1,7 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { studyCards, stepFocus, isFlipCapable, studyKeyEffect } from './study-keys';
+import {
+  studyCards,
+  stepFocus,
+  isFlipCapable,
+  studyKeyEffect,
+  studySurfaces,
+  NO_SURFACES,
+} from './study-keys';
 import { CARD_STATE_KEY } from './card-done';
+import type { SectionView } from './visible-cards';
 import type { Card, Notebook, Section, Slot } from './types';
+
+const OPEN: SectionView = { search: '', showArch: false, shuffle: null, collapsed: false };
+/** Focus order with no filters, search, shuffle or collapse in play. */
+const order = (nb: Notebook, view: (s: { id: string }) => SectionView = () => OPEN) =>
+  studyCards(nb, view, null);
 
 function card(id: string, over: Partial<Card> = {}): Card {
   return { id, sectionId: 's1', position: 0, slots: [], ...over };
@@ -24,13 +37,13 @@ function notebook(sections: Section[]): Notebook {
 const choice = (id: string, props: Record<string, unknown>): Slot => ({ id, type: 'choice', props });
 const list = (id: string, props: Record<string, unknown>): Slot => ({ id, type: 'list', props });
 
-describe('studyCards — focus order', () => {
+describe('studyCards — focus order is the render order', () => {
   it('is document order across non-divider sections', () => {
     const nb = notebook([
       section('s1', [card('a'), card('b')]),
       section('s2', [card('c')]),
     ]);
-    expect(studyCards(nb)).toEqual(['a', 'b', 'c']);
+    expect(order(nb)).toEqual(['a', 'b', 'c']);
   });
 
   it('skips divider sections (they hold no cards) and archived cards', () => {
@@ -38,11 +51,108 @@ describe('studyCards — focus order', () => {
       section('d1', [card('ghost')], { kind: 'divider' }),
       section('s1', [card('a'), card('b', { archived: true }), card('c')]),
     ]);
-    expect(studyCards(nb)).toEqual(['a', 'c']);
+    expect(order(nb)).toEqual(['a', 'c']);
   });
 
   it('is empty for a notebook with no live cards', () => {
-    expect(studyCards(notebook([section('s1', [])]))).toEqual([]);
+    expect(order(notebook([section('s1', [])]))).toEqual([]);
+  });
+
+  it('follows the shuffle order the grid is rendering', () => {
+    const nb = notebook([section('s1', [card('a'), card('b'), card('c')])]);
+    expect(order(nb, () => ({ ...OPEN, shuffle: ['c', 'a', 'b'] }))).toEqual(['c', 'a', 'b']);
+  });
+
+  it('drops cards the section search has filtered out', () => {
+    const nb = notebook([
+      section('s1', [
+        card('a', { slots: [{ id: 'a1', type: 'text', props: { text: 'alpha' } }] }),
+        card('b', { slots: [{ id: 'b1', type: 'text', props: { text: 'beta' } }] }),
+      ]),
+    ]);
+    expect(order(nb, () => ({ ...OPEN, search: 'beta' }))).toEqual(['b']);
+  });
+
+  it('reaches archived cards — and only those — while the archive view is on', () => {
+    const nb = notebook([section('s1', [card('a'), card('b', { archived: true })])]);
+    expect(order(nb, () => ({ ...OPEN, showArch: true }))).toEqual(['b']);
+  });
+
+  it('skips a collapsed section entirely', () => {
+    const nb = notebook([section('s1', [card('a')]), section('s2', [card('b')])]);
+    const view = (s: { id: string }) => ({ ...OPEN, collapsed: s.id === 's1' });
+    expect(order(nb, view)).toEqual(['b']);
+  });
+
+  it('skips the sections a folded chapter divider hides', () => {
+    const nb = notebook([
+      section('d1', [], { kind: 'divider', folded: true }),
+      section('s1', [card('a')]),
+      section('d2', [], { kind: 'divider' }),
+      section('s2', [card('b')]),
+    ]);
+    expect(order(nb)).toEqual(['b']);
+  });
+
+  it('honours the coverage-matrix filter', () => {
+    const nb = notebook([section('s1', [card('a'), card('b')])]);
+    expect(studyCards(nb, () => OPEN, new Set(['b']))).toEqual(['b']);
+  });
+});
+
+describe('studySurfaces — which keys the focused card can answer', () => {
+  it('reports nothing for no card', () => {
+    expect(studySurfaces(null, {})).toEqual(NO_SURFACES);
+  });
+
+  it('reports the flip verb', () => {
+    expect(studySurfaces(card('a', { verbs: { flip: true } }), {}).flip).toBe(true);
+    expect(studySurfaces(card('a'), {}).flip).toBe(false);
+  });
+
+  it('reports the open choice slot’s option count, and 0 once it is submitted', () => {
+    const c = card('a', { slots: [choice('q1', { options: ['x', 'y', 'z'] })] });
+    expect(studySurfaces(c, {}).choiceOptions).toBe(3);
+    expect(studySurfaces(c, { q1: { submitted: true } }).choiceOptions).toBe(0);
+  });
+
+  it('reports submittability only with a selection in hand', () => {
+    const c = card('a', { slots: [choice('q1', { options: ['x', 'y'] })] });
+    expect(studySurfaces(c, {}).canSubmit).toBe(false);
+    expect(studySurfaces(c, { q1: { selected: [0] } }).canSubmit).toBe(true);
+    expect(studySurfaces(c, { q1: { selected: [0], submitted: true } }).canSubmit).toBe(false);
+  });
+
+  it('reports a tickable list until every item is checked', () => {
+    const c = card('a', { slots: [list('l1', { items: ['one', 'two'], style: 'check' })] });
+    expect(studySurfaces(c, {}).canTick).toBe(true);
+    expect(studySurfaces(c, { l1: { checked: [true, false] } }).canTick).toBe(true);
+    expect(studySurfaces(c, { l1: { checked: [true, true] } }).canTick).toBe(false);
+    const bullets = card('a', { slots: [list('l1', { items: ['one'], style: 'bullets' })] });
+    expect(studySurfaces(bullets, {}).canTick).toBe(false);
+  });
+
+  it('agrees with studyKeyEffect: no surface means no effect, and vice versa', () => {
+    const cards = [
+      card('a'),
+      card('a', { verbs: { flip: true } }),
+      card('a', { slots: [choice('q1', { options: ['x', 'y'] })] }),
+      card('a', { slots: [list('l1', { items: ['one'], style: 'check' })] }),
+    ];
+    const states: Record<string, Record<string, unknown>>[] = [
+      {},
+      { q1: { selected: [1] } },
+      { l1: { checked: [true] } },
+    ];
+    for (const c of cards) {
+      for (const st of states) {
+        const s = studySurfaces(c, st);
+        expect(!!studyKeyEffect('f', c, st)).toBe(s.flip);
+        expect(!!studyKeyEffect('Enter', c, st)).toBe(s.canSubmit);
+        expect(!!studyKeyEffect('x', c, st)).toBe(s.canTick);
+        expect(!!studyKeyEffect('1', c, st)).toBe(s.choiceOptions >= 1);
+      }
+    }
   });
 });
 

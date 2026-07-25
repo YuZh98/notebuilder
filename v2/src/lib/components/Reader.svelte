@@ -35,8 +35,8 @@
     canRedo,
     type HistSnapshot,
   } from '../history.svelte';
-  import { handleAppKey, type KeyCtx } from '../keyboard';
-  import { studyCards, stepFocus, studyKeyEffect, isFlipCapable } from '../study-keys';
+  import { handleAppKey, isInteractiveTarget, type KeyCtx } from '../keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
   import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
@@ -55,7 +55,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
-  import { session, shuffleSection, clearShuffle } from '../session.svelte';
+  import { session, sessionView, shuffleSection, clearShuffle } from '../session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
@@ -164,8 +164,14 @@
     }
   });
 
+  /** The focused card, and which study keys it can answer — null/none when there is no cursor. */
+  function focusedStudyCard(): Card | null {
+    return studyFocus ? (findCard(notebook, studyFocus) ?? null) : null;
+  }
+
   function moveStudyFocus(delta: 1 | -1) {
-    const next = stepFocus(studyCards(notebook), studyFocus, delta);
+    const order = studyCards(notebook, (s) => sessionView(s.id), visibleCardIds);
+    const next = stepFocus(order, studyFocus, delta);
     if (!next) return;
     studyFocus = next;
     document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -173,7 +179,7 @@
 
   // Card keys write through the same reader-state path as a click on the slot itself.
   function applyStudyKey(key: string) {
-    const card = studyFocus ? findCard(notebook, studyFocus) : null;
+    const card = focusedStudyCard();
     if (!card) return;
     const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
     if (effect) onSlotState(card, effect.slotId, effect.next);
@@ -193,6 +199,10 @@
     const el = e.target as HTMLElement | null;
     const inField =
       !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const focusedCard = focusedStudyCard();
+    const surfaces = focusedCard
+      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+      : NO_SURFACES;
     const ctx: KeyCtx = {
       inField,
       singleLineField: false,
@@ -205,7 +215,11 @@
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
       studyFocus,
-      focusedFlipCapable: isFlipCapable(studyFocus ? findCard(notebook, studyFocus) : null),
+      focusedFlipCapable: surfaces.flip,
+      focusedChoiceOptions: surfaces.choiceOptions,
+      focusedCanSubmit: surfaces.canSubmit,
+      focusedCanTick: surfaces.canTick,
+      targetInteractive: isInteractiveTarget(el),
       helpOpen,
     };
     const action = handleAppKey(e, ctx);

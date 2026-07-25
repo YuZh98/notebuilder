@@ -4,6 +4,8 @@
   import { renderInline, renderMarkdown } from '../markdown';
   import CeText from './CeText.svelte';
   import SectionView from './SectionView.svelte';
+  import { visibleSections } from '../visible-cards';
+  import { session } from '../session.svelte';
   import type { ServiceKey } from '../services';
   import type { Notebook, Section, Card } from '../types';
 
@@ -45,38 +47,8 @@
   const studying = $derived($mode === 'study');
   const hsub = $derived((notebook.subtitle ?? '').trim());
 
-  // Study-only per-section collapse — session state, distinct from the persisted chapter fold.
-  const studyCollapsed: Record<string, boolean> = $state({});
-
-  // v1 chapFold: a folded divider hides its sections until the next divider.
-  const rows = $derived.by(() => {
-    let chapFold = false;
-    const out: Section[] = [];
-    for (const s of notebook.sections) {
-      const divider = s.kind === 'divider';
-      if (!divider && chapFold) continue;
-      // Matrix filter hides sections with no matching card in BOTH modes (v1 60-stage:119).
-      if (
-        !divider &&
-        visibleCardIds !== null &&
-        !s.cards.some((c) => visibleCardIds.has(c.id))
-      ) {
-        continue;
-      }
-      if (
-        !divider &&
-        studying &&
-        s.cards.length === 0 &&
-        !(s.title ?? '').trim() &&
-        !(s.subtitle ?? '').trim()
-      ) {
-        continue;
-      }
-      if (divider) chapFold = s.folded === true;
-      out.push(s);
-    }
-    return out;
-  });
+  // Chapter folds and the matrix filter both drop rows; the study cursor walks the same list.
+  const rows = $derived(visibleSections(notebook, studying, visibleCardIds));
 
 </script>
 
@@ -117,8 +89,8 @@
       selected={selSection === section.id}
       onselect={() => onselect(section.id)}
       onpatch={(patch) => onpatchsection(section, patch)}
-      collapsed={studyCollapsed[section.id] === true}
-      ontogglecollapse={() => (studyCollapsed[section.id] = studyCollapsed[section.id] !== true)}
+      collapsed={session.collapsed[section.id] === true}
+      ontogglecollapse={() => (session.collapsed[section.id] = session.collapsed[section.id] !== true)}
       ongrip={(ev, el) => onsectiongrip?.(section, ev, el)}
       onsvcrun={(k) => onsvcrun?.(section, k)}
       {cardView}

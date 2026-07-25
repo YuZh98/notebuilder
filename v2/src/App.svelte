@@ -57,8 +57,8 @@
     canRedo,
     type HistSnapshot,
   } from './lib/history.svelte';
-  import { handleAppKey, type KeyCtx } from './lib/keyboard';
-  import { studyCards, stepFocus, studyKeyEffect, isFlipCapable } from './lib/study-keys';
+  import { handleAppKey, isInteractiveTarget, type KeyCtx } from './lib/keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
@@ -78,7 +78,7 @@
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
-  import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
+  import { session, sessionView, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
@@ -194,8 +194,14 @@
     }
   });
 
+  /** The focused card, and which study keys it can answer — null/none when there is no cursor. */
+  function focusedStudyCard(): Card | null {
+    return studyFocus ? (findCard(notebook, studyFocus) ?? null) : null;
+  }
+
   function moveStudyFocus(delta: 1 | -1) {
-    const next = stepFocus(studyCards(notebook), studyFocus, delta);
+    const order = studyCards(notebook, (s) => sessionView(s.id), visibleCardIds);
+    const next = stepFocus(order, studyFocus, delta);
     if (!next) return;
     studyFocus = next;
     document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -203,7 +209,7 @@
 
   // Card keys write through the same reader-state path as a click on the slot itself.
   function applyStudyKey(key: string) {
-    const card = studyFocus ? findCard(notebook, studyFocus) : null;
+    const card = focusedStudyCard();
     if (!card) return;
     const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
     if (effect) onSlotState(card, effect.slotId, effect.next);
@@ -817,6 +823,10 @@
       const inField =
         !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
       const cur = get(place);
+      const focusedCard = focusedStudyCard();
+      const surfaces = focusedCard
+        ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+        : NO_SURFACES;
       const ctx: KeyCtx = {
         inField,
         // CeText owns bare-Enter blur for single-line fields; the window handler never re-does it.
@@ -830,7 +840,11 @@
         sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
         cardIdsOfSelectedSection: sectionCardsOf(selCard),
         studyFocus,
-        focusedFlipCapable: isFlipCapable(studyFocus ? findCard(notebook, studyFocus) : null),
+        focusedFlipCapable: surfaces.flip,
+        focusedChoiceOptions: surfaces.choiceOptions,
+        focusedCanSubmit: surfaces.canSubmit,
+        focusedCanTick: surfaces.canTick,
+        targetInteractive: isInteractiveTarget(el),
         helpOpen,
       };
       const action = handleAppKey(e, ctx);

@@ -26,9 +26,37 @@ export type KeyCtx = {
   studyFocus: string | null;
   /** The focused card can flip — Space only flips (and only preventDefaults) when it can. */
   focusedFlipCapable: boolean;
+  /** Options in the focused card's first open choice slot; digits above it address nothing. */
+  focusedChoiceOptions: number;
+  /** The focused card has an answered, unsubmitted choice slot for Enter. */
+  focusedCanSubmit: boolean;
+  /** The focused card has a check list with an item still unticked for `x`. */
+  focusedCanTick: boolean;
+  /** The key landed on a control the browser activates itself (button, link, …) — see
+   * `isInteractiveTarget`. Space and Enter belong to that control, not to the study cursor. */
+  targetInteractive: boolean;
   /** The shortcut overlay is open — `?` and Escape close it before anything else. */
   helpOpen: boolean;
 };
+
+const INTERACTIVE_TAGS = new Set(['BUTTON', 'A', 'SUMMARY', 'SELECT']);
+const INTERACTIVE_ROLES = new Set([
+  'button', 'link', 'checkbox', 'radio', 'switch', 'tab', 'option', 'menuitem',
+  'menuitemcheckbox', 'menuitemradio',
+]);
+
+/**
+ * Does the key's target activate itself on Space/Enter? Pure over the element (no globals), so the
+ * dispatcher stays a decision over a snapshot while App and Reader share one definition.
+ */
+export function isInteractiveTarget(target: EventTarget | null | undefined): boolean {
+  const el = target as Element | null;
+  // A window-targeted key event has no element at all — that is the plain, non-interactive case.
+  if (!el || typeof el.getAttribute !== 'function') return false;
+  if (INTERACTIVE_TAGS.has(el.tagName)) return true;
+  const role = el.getAttribute('role');
+  return role !== null && INTERACTIVE_ROLES.has(role);
+}
 
 export type KeyAction =
   | { kind: 'undo'; preventDefault: boolean }
@@ -110,14 +138,26 @@ export function handleAppKey(e: KeyboardEventLike, ctx: KeyCtx): KeyAction | nul
       return { kind: 'study-focus-step', delta: -1, preventDefault: true };
     }
     if (ctx.studyFocus) {
-      // Space stays native scroll unless the focused card actually flips.
+      // A key with no surface on the focused card returns nothing at all, so the browser keeps
+      // whatever it would have done with it: Space scrolls, Enter and Space activate a control the
+      // reader has tabbed to, and a digit past the last option is simply not ours.
       if (e.key === 'f' || e.key === ' ') {
-        return ctx.focusedFlipCapable ? { kind: 'study-flip', preventDefault: true } : null;
+        if (!ctx.focusedFlipCapable) return null;
+        if (e.key === ' ' && ctx.targetInteractive) return null;
+        return { kind: 'study-flip', preventDefault: true };
       }
-      if (e.key === 'Enter') return { kind: 'study-submit', preventDefault: true };
-      if (e.key === 'x') return { kind: 'study-tick', preventDefault: true };
+      if (e.key === 'Enter') {
+        if (!ctx.focusedCanSubmit || ctx.targetInteractive) return null;
+        return { kind: 'study-submit', preventDefault: true };
+      }
+      if (e.key === 'x') {
+        return ctx.focusedCanTick ? { kind: 'study-tick', preventDefault: true } : null;
+      }
       if (/^[1-9]$/.test(e.key)) {
-        return { kind: 'study-choice', digit: Number(e.key), preventDefault: true };
+        const digit = Number(e.key);
+        return digit <= ctx.focusedChoiceOptions
+          ? { kind: 'study-choice', digit, preventDefault: true }
+          : null;
       }
     }
   }

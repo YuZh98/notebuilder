@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { handleAppKey, type KeyCtx, type KeyboardEventLike } from './keyboard';
+import { handleAppKey, isInteractiveTarget, type KeyCtx, type KeyboardEventLike } from './keyboard';
 
 function key(k: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventLike {
   return { key: k, metaKey: false, ctrlKey: false, shiftKey: false, ...mods };
@@ -19,14 +19,25 @@ function ctx(over: Partial<KeyCtx> = {}): KeyCtx {
     cardIdsOfSelectedSection: [],
     studyFocus: null,
     focusedFlipCapable: false,
+    focusedChoiceOptions: 0,
+    focusedCanSubmit: false,
+    focusedCanTick: false,
+    targetInteractive: false,
     helpOpen: false,
     ...over,
   };
 }
 
-/** Study context with a cursor already on a card. */
+/** Study context with a cursor on a card that can answer every study key. */
 function studying(over: Partial<KeyCtx> = {}): KeyCtx {
-  return ctx({ mode: 'study', studyFocus: 'c1', ...over });
+  return ctx({
+    mode: 'study',
+    studyFocus: 'c1',
+    focusedChoiceOptions: 3,
+    focusedCanSubmit: true,
+    focusedCanTick: true,
+    ...over,
+  });
 }
 
 describe('handleAppKey — bare Enter blurs single-line ce fields (v1 120:6)', () => {
@@ -311,7 +322,7 @@ describe('handleAppKey — study card keys', () => {
       digit: 1,
       preventDefault: true,
     });
-    expect(handleAppKey(key('9'), studying())!).toEqual({
+    expect(handleAppKey(key('9'), studying({ focusedChoiceOptions: 9 }))!).toEqual({
       kind: 'study-choice',
       digit: 9,
       preventDefault: true,
@@ -391,5 +402,76 @@ describe('handleAppKey — study bindings are Edit-mode and field inert', () => 
       expect(handleAppKey(key(k), field), k).toBeNull();
     }
     expect(handleAppKey(key('Escape'), field)!.kind).toBe('abort-or-blur');
+  });
+});
+
+describe('handleAppKey — a key with no surface on the focused card is not ours', () => {
+  it('a digit past the last option falls through', () => {
+    const three = studying({ focusedChoiceOptions: 3 });
+    expect(handleAppKey(key('3'), three)!.kind).toBe('study-choice');
+    expect(handleAppKey(key('4'), three)).toBeNull();
+  });
+
+  it('digits are inert on a card with no open choice slot (none, or all submitted)', () => {
+    expect(handleAppKey(key('1'), studying({ focusedChoiceOptions: 0 }))).toBeNull();
+  });
+
+  it('Enter is inert until a choice slot carries a selection', () => {
+    expect(handleAppKey(key('Enter'), studying({ focusedCanSubmit: false }))).toBeNull();
+  });
+
+  it('x is inert with no tickable checklist', () => {
+    expect(handleAppKey(key('x'), studying({ focusedCanTick: false }))).toBeNull();
+  });
+});
+
+describe('handleAppKey — a tab-focused control keeps Space and Enter', () => {
+  const onButton = studying({ focusedFlipCapable: true, targetInteractive: true });
+
+  it('Space and Enter go to the control, not the cursor', () => {
+    expect(handleAppKey(key(' '), onButton)).toBeNull();
+    expect(handleAppKey(key('Enter'), onButton)).toBeNull();
+  });
+
+  it('keys the control does not act on still reach the cursor', () => {
+    // A clicked button keeps DOM focus in Chromium; digits/x/f must not die with it.
+    expect(handleAppKey(key('1'), onButton)!.kind).toBe('study-choice');
+    expect(handleAppKey(key('x'), onButton)!.kind).toBe('study-tick');
+    expect(handleAppKey(key('f'), onButton)!.kind).toBe('study-flip');
+    expect(handleAppKey(key('j'), onButton)!.kind).toBe('study-focus-step');
+    expect(handleAppKey(key('?'), onButton)!.kind).toBe('study-help');
+  });
+});
+
+describe('isInteractiveTarget', () => {
+  function el(tag: string, role?: string): Element {
+    const node = document.createElement(tag);
+    if (role) node.setAttribute('role', role);
+    return node;
+  }
+
+  it('is true for controls the browser activates itself', () => {
+    for (const tag of ['button', 'a', 'summary', 'select']) {
+      expect(isInteractiveTarget(el(tag)), tag).toBe(true);
+    }
+    for (const role of ['button', 'link', 'checkbox', 'menuitem', 'tab', 'option']) {
+      expect(isInteractiveTarget(el('div', role)), role).toBe(true);
+    }
+  });
+
+  it('is false for plain content and for nothing at all', () => {
+    for (const tag of ['div', 'span', 'p', 'li']) {
+      expect(isInteractiveTarget(el(tag)), tag).toBe(false);
+    }
+    expect(isInteractiveTarget(el('div', 'presentation'))).toBe(false);
+    expect(isInteractiveTarget(null)).toBe(false);
+    expect(isInteractiveTarget(undefined)).toBe(false);
+  });
+});
+
+describe('isInteractiveTarget — non-element targets', () => {
+  it('a window-targeted key event is not interactive', () => {
+    expect(isInteractiveTarget(window)).toBe(false);
+    expect(isInteractiveTarget(document)).toBe(false);
   });
 });
