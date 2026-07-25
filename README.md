@@ -9,7 +9,7 @@
 
 **Study material that does something. Build notebooks from reactive cards, drill them in Study mode, and hand them to anyone as a single offline file.**
 
-Drag a slider and the formula, the prose, and the chart in that card recompute together; export the notebook and those same live cards keep running inside one offline `.html` file, where the answers and the progress belong to whoever opens it.
+Drag a slider, and the formula, the prose, and the chart in that card recompute together; export the notebook and those same live cards keep running inside one offline `.html` file, where nothing the reader answers ever comes back to you.
 
 NoteBuilder is a local-first macOS desktop app. Your notebooks live in a local SQLite database. No account, no cloud, no backend.
 
@@ -93,7 +93,7 @@ One SQLite file in your own account, written by the app itself:
 └── notebuilder.db     notebooks, card types, tags, reader state, preferences
 ```
 
-Delete it and NoteBuilder starts empty. Everything else NoteBuilder writes is a file you asked it to export, saved where you pointed the dialog. Run `npm run dev` in a browser instead of the desktop app and there is no database at all; the demo notebook lives only in memory.
+SQLite keeps its own `notebuilder.db-wal` and `notebuilder.db-shm` companion files next to it, so the folder shows three names for one database. Delete the database and NoteBuilder starts empty. Everything else NoteBuilder writes is a file you asked it to export, saved where you pointed the dialog. Run `npm run dev` in a browser instead of the desktop app and there is no database at all; the demo notebook lives only in memory.
 
 ## Built to last
 

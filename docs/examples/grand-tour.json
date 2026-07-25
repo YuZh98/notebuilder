@@ -76,7 +76,7 @@
               {
                 "type": "text",
                 "props": {
-                  "text": "### How a reactive card works\n\nInside a single card, slots share **variables**. Some slots *write* them, some *derive* new ones, some just *read*. NoteBuilder resolves the dependency graph by topological sort — cycles and missing writers are rejected at import, so a card can never wedge itself.\n\nThe next card is a working launch console:\n\n- two `slider` slots **write** $v_e$ (exhaust velocity) and $R$ (mass ratio),\n- two `compute` slots **derive** your $\\Delta v$ and your margin against Earth escape,\n- a `text` slot **quotes** the live values mid-sentence,\n- a `chart` slot **replots** itself on every drag.\n\nAnd one more thing: the card hides a **secret slot**. It reveals itself only when your $\\Delta v$ reaches **11.2 km/s** — Earth escape velocity. Go earn it."
+                  "text": "### How a reactive card works\n\nInside a single card, slots share **variables**. Some slots *write* them, some *derive* new ones, some just *read*. NoteBuilder resolves the dependency graph by topological sort — cycles and missing writers are caught at import, so a card can never wedge itself.\n\nThe next card is a working launch console:\n\n- two `slider` slots **write** $v_e$ (exhaust velocity) and $R$ (mass ratio),\n- two `compute` slots **derive** your $\\Delta v$ and your margin against Earth escape,\n- a `text` slot **quotes** the live values mid-sentence,\n- a `chart` slot **replots** itself on every drag.\n\nAnd one more thing: the card hides a **secret slot**. It reveals itself only when your $\\Delta v$ reaches **11.2 km/s** — Earth escape velocity. Go earn it."
                 }
               }
             ]
@@ -252,7 +252,7 @@
               {
                 "type": "text",
                 "props": {
-                  "text": "**A.** The variable graph is resolved by **topological sort**, and a cycle (or a read with no writer) is caught **at import time** — the notebook refuses to load broken wiring rather than spinning at runtime."
+                  "text": "**A.** The variable graph is resolved by **topological sort**, and a cycle (or a read with no writer) is caught **at import time**: a cycle refuses to load, a read with no writer loads with a warning, rather than either one spinning at runtime."
                 }
               }
             ]
