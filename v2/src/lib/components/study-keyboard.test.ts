@@ -365,3 +365,219 @@ describe('Reader — a tab-focused control keeps its own keys', () => {
     expect(options[2].className).toContain('selected');
   });
 });
+
+/**
+ * The order that matters: focus FIRST, then move the view under the cursor. Filtering first only
+ * proves the cursor cannot ENTER a hidden card; these prove it cannot STAY on one.
+ */
+describe('Reader — the view moving under the cursor drops it', () => {
+  it('collapse: the graded state of the hidden card is untouched (reviewer repro)', async () => {
+    const nb = sharedNotebook();
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    // Focus the quiz card while it is on screen.
+    await press('j');
+    expect(focused(container)).toBe('q');
+
+    // Now collapse the section out from under it.
+    session.collapsed[nb.sections[0].id] = true;
+    await tick();
+    expect(container.querySelector('.furn[data-card]')).toBeNull();
+    expect(container.querySelector('.furn.kfocus')).toBeNull();
+
+    // Keys aimed at the vanished card do nothing at all.
+    await press('2');
+    await press('Enter');
+    await press('x');
+    await press(' ');
+
+    // Un-hide: the quiz is exactly as the reader left it — unanswered and ungraded.
+    session.collapsed[nb.sections[0].id] = false;
+    await tick();
+    const quiz = container.querySelector('.furn[data-card="q"]') as HTMLElement;
+    expect(quiz).not.toBeNull();
+    expect(quiz.querySelector('.option.selected')).toBeNull();
+    expect(quiz.querySelector('.option.correct')).toBeNull();
+    expect(quiz.querySelector('.option.incorrect')).toBeNull();
+    expect(quiz.querySelector('.choice-explanation')).toBeNull();
+    expect(quiz.querySelector('.submit')).not.toBeNull();
+  });
+
+  it('search: a cursor on a card the search then hides is dropped', async () => {
+    const nb = sharedNotebook();
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    await press('j');
+    expect(focused(container)).toBe('q');
+
+    session.search[nb.sections[0].id] = 'second'; // matches only the checklist card
+    await tick();
+    expect(focused(container)).toBeNull();
+
+    await press('1');
+    await press('Enter');
+
+    session.search[nb.sections[0].id] = '';
+    await tick();
+    const quiz = container.querySelector('.furn[data-card="q"]') as HTMLElement;
+    expect(quiz.querySelector('.submit'), 'still unsubmitted').not.toBeNull();
+    for (const cls of ['selected', 'correct', 'incorrect', 'missed']) {
+      expect(quiz.querySelector(`.option.${cls}`), cls).toBeNull();
+    }
+  });
+
+  it('archive: archiving the focused card drops the cursor mid-session', async () => {
+    const nb = sharedNotebook();
+    nb.sections[0].services = { archive: true };
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    await press('j');
+    await press('j');
+    expect(focused(container)).toBe('l');
+
+    // Archive it with its own button — the card leaves the grid under the cursor.
+    await fireEvent.click(container.querySelector('.furn[data-card="l"] [data-act="arch"]')!);
+    await tick();
+    expect(container.querySelector('.furn[data-card="l"]')).toBeNull();
+    expect(focused(container)).toBeNull();
+
+    await press('x');
+
+    // Show the archive: the checklist never got ticked behind the reader's back.
+    session.showArch[nb.sections[0].id] = true;
+    await tick();
+    const boxes = [...container.querySelectorAll('.furn[data-card="l"] input[type=checkbox]')].map(
+      (b) => (b as HTMLInputElement).checked,
+    );
+    expect(boxes).toEqual([false, false]);
+  });
+
+  it('the cursor restarts from the first visible card after being dropped', async () => {
+    const nb = sharedNotebook();
+    const { container } = render(Reader, { props: { notebook: nb, shared: true } });
+    await tick();
+
+    await press('j');
+    await press('j');
+    expect(focused(container)).toBe('l');
+
+    session.search[nb.sections[0].id] = 'front'; // only the flashcard survives
+    await tick();
+    expect(focused(container)).toBeNull();
+
+    await press('j');
+    expect(focused(container)).toBe('fc');
+  });
+});
+
+describe('Reader — the coverage filter moving under the cursor drops it', () => {
+  /** Two sections and a tag, so the matrix has two qualifying axes and renders. */
+  function taggedNotebook(): Notebook {
+    const nb = sharedNotebook();
+    nb.cats = ['drill'];
+    nb.sections[0].cards[0].tags = ['drill'];
+    nb.sections.push({
+      id: 's2',
+      notebookId: 'nb_shared',
+      name: 'Later',
+      position: 1,
+      cards: [
+        {
+          id: 'z',
+          sectionId: 's2',
+          position: 0,
+          slots: [{ id: 'z1', type: 'text', props: { text: 'later card' } }],
+        },
+      ],
+    });
+    return nb;
+  }
+
+  it('a cell picked after focusing leaves the hidden card unanswered', async () => {
+    const { container } = render(Reader, { props: { notebook: taggedNotebook(), shared: true } });
+    await tick();
+
+    await press('j');
+    expect(focused(container)).toBe('q');
+
+    // Filter to the other section, which the focused quiz card is not in.
+    const cell = [...container.querySelectorAll('.mtx-cell')].find((b) =>
+      (b.getAttribute('title') ?? '').startsWith('Later'),
+    ) as HTMLElement;
+    expect(cell, 'the matrix should render for this notebook').toBeTruthy();
+    await fireEvent.click(cell);
+    await tick();
+
+    expect(container.querySelector('.furn[data-card="q"]')).toBeNull();
+    expect(focused(container)).toBeNull();
+
+    await press('1');
+    await press('Enter');
+    await press(' ');
+
+    // Escape clears the filter (no cursor is left to clear first): the quiz is untouched.
+    await press('Escape');
+    await tick();
+    const quiz = container.querySelector('.furn[data-card="q"]') as HTMLElement;
+    expect(quiz).not.toBeNull();
+    expect(quiz.querySelector('.option.selected')).toBeNull();
+    expect(quiz.querySelector('.choice-explanation')).toBeNull();
+  });
+});
+
+describe('Study keys and a focused <select>', () => {
+  it('a select keeps its own arrows, letters and Enter', async () => {
+    const { container } = render(App);
+    mode.set('study');
+    await tick();
+
+    await press('j');
+    expect(focused(container)).toBe('card_1');
+
+    // Any select on the page stands in for one inside a card (Study renders none by default).
+    const select = document.createElement('select');
+    select.innerHTML = '<option>a</option><option>b</option>';
+    container.appendChild(select);
+    select.focus();
+
+    await pressOn(select, 'ArrowRight');
+    await pressOn(select, 'j');
+    // The cursor never moved: the keys belonged to the select.
+    expect(focused(container)).toBe('card_1');
+    select.remove();
+  });
+});
+
+describe('App — the same confinement in the app shell', () => {
+  it('collapsing the focused card’s section drops the cursor and its keys', async () => {
+    const { container } = render(App);
+    mode.set('study');
+    await tick();
+
+    await press('j');
+    await press('j');
+    await press('j');
+    await press('j');
+    expect(focused(container)).toBe('card_4'); // the demo flashcard
+
+    // Collapse its section with the room's own ▾ control.
+    const room = container.querySelector('.furn[data-card="card_4"]')!.closest('.room')!;
+    await fireEvent.click(room.querySelector('.rcollapse')!);
+    await tick();
+    expect(container.querySelector('.furn[data-card="card_4"]')).toBeNull();
+    expect(container.querySelector('.furn.kfocus')).toBeNull();
+
+    // One flip key only — pressing both would flip twice and hide the bug behind a round trip.
+    await press(' ');
+
+    // Expand again: the flashcard was never flipped behind the reader's back.
+    await fireEvent.click(room.querySelector('.rcollapse')!);
+    await tick();
+    expect(
+      container.querySelector('.furn[data-card="card_4"] .fc')?.classList.contains('flipped'),
+    ).toBe(false);
+  });
+});

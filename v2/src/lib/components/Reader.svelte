@@ -35,7 +35,7 @@
     canRedo,
     type HistSnapshot,
   } from '../history.svelte';
-  import { handleAppKey, isInteractiveTarget, type KeyCtx } from '../keyboard';
+  import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from '../keyboard';
   import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
   import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
@@ -164,14 +164,25 @@
     }
   });
 
-  /** The focused card, and which study keys it can answer — null/none when there is no cursor. */
+  // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
+  const studyOrderIds = $derived(
+    $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
+  );
+
+  // A filter, a search, a collapse or an archive swap can pull the focused card off the page under
+  // the cursor; when that happens the cursor goes with it rather than acting on what nobody sees.
+  $effect(() => {
+    if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
+  });
+
+  /** The focused card — null unless the cursor is on a card the reader can actually see. */
   function focusedStudyCard(): Card | null {
-    return studyFocus ? (findCard(notebook, studyFocus) ?? null) : null;
+    if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
+    return findCard(notebook, studyFocus) ?? null;
   }
 
   function moveStudyFocus(delta: 1 | -1) {
-    const order = studyCards(notebook, (s) => sessionView(s.id), visibleCardIds);
-    const next = stepFocus(order, studyFocus, delta);
+    const next = stepFocus(studyOrderIds, studyFocus, delta);
     if (!next) return;
     studyFocus = next;
     document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -197,8 +208,7 @@
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
-    const inField =
-      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const inField = isFieldTarget(el);
     const focusedCard = focusedStudyCard();
     const surfaces = focusedCard
       ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { handleAppKey, isInteractiveTarget, type KeyCtx, type KeyboardEventLike } from './keyboard';
+import {
+  handleAppKey,
+  isFieldTarget,
+  isInteractiveTarget,
+  type KeyCtx,
+  type KeyboardEventLike,
+} from './keyboard';
 
 function key(k: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventLike {
   return { key: k, metaKey: false, ctrlKey: false, shiftKey: false, ...mods };
@@ -473,5 +479,32 @@ describe('isInteractiveTarget — non-element targets', () => {
   it('a window-targeted key event is not interactive', () => {
     expect(isInteractiveTarget(window)).toBe(false);
     expect(isInteractiveTarget(document)).toBe(false);
+  });
+});
+
+describe('isFieldTarget', () => {
+  function el(tag: string, over: (n: HTMLElement) => void = () => {}): Element {
+    const node = document.createElement(tag);
+    over(node);
+    return node;
+  }
+
+  it('counts input, textarea and select — a select owns its own arrows and Enter', () => {
+    for (const tag of ['input', 'textarea', 'select']) {
+      expect(isFieldTarget(el(tag)), tag).toBe(true);
+    }
+  });
+
+  it('counts contenteditable', () => {
+    // jsdom never computes isContentEditable, so the contract is asserted on a stand-in element.
+    const ce = { tagName: 'DIV', isContentEditable: true } as unknown as HTMLElement;
+    expect(isFieldTarget(ce)).toBe(true);
+  });
+
+  it('is false for plain content, buttons, and non-element targets', () => {
+    expect(isFieldTarget(el('div'))).toBe(false);
+    expect(isFieldTarget(el('button'))).toBe(false);
+    expect(isFieldTarget(window)).toBe(false);
+    expect(isFieldTarget(null)).toBe(false);
   });
 });

@@ -39,6 +39,18 @@ export type KeyCtx = {
   helpOpen: boolean;
 };
 
+const FIELD_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+
+/**
+ * Does the key belong to a form field? A `<select>` counts: arrows, letters and Enter are its own
+ * keyboard interface, so the app's bare-key bindings must keep their hands off it.
+ */
+export function isFieldTarget(target: EventTarget | null | undefined): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.tagName !== 'string') return false;
+  return FIELD_TAGS.has(el.tagName) || el.isContentEditable === true;
+}
+
 const INTERACTIVE_TAGS = new Set(['BUTTON', 'A', 'SUMMARY', 'SELECT']);
 const INTERACTIVE_ROLES = new Set([
   'button', 'link', 'checkbox', 'radio', 'switch', 'tab', 'option', 'menuitem',

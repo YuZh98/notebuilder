@@ -1,12 +1,14 @@
-import { shuffledCards, type SectionView } from './visible-cards';
-import type { Section, Card } from './types';
+import type { SectionView } from './visible-cards';
+import type { Section } from './types';
 import type { Scope } from './variable-graph';
 
 /**
  * D19 session study state, keyed by section id (`live` by card id). This is view-only,
  * per-session scratch state — shuffle order, search query, archive-view toggle, Study collapse,
  * and the session-layer slot values (v1 LIVE) — and is NEVER persisted or exported (no App.svelte
- * effect reads it). Mode and notebook switches wipe it via `resetSession`.
+ * effect reads it). Entering Study wipes the shuffle and live layers (`enterStudy`); search, the
+ * archive view and collapse survive that, as in v1. Switching or creating a notebook wipes
+ * everything via `resetSession`.
  */
 export const session: {
   shuf: Record<string, string[]>;
@@ -50,12 +52,7 @@ export function clearShuffle(sectionId: string): void {
   delete session.shuf[sectionId];
 }
 
-/** Section cards in study order — the shuffled order when one exists, else stored order. */
-export function studyOrder(section: Section): Card[] {
-  return shuffledCards(section, session.shuf[section.id] ?? null);
-}
-
-/** Wipe all session study state (mode / notebook switches). */
+/** Wipe all session study state (notebook switch / create). */
 export function resetSession(): void {
   session.shuf = {};
   session.search = {};
