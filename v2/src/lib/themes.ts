@@ -8,7 +8,7 @@ export const THEMES: ReadonlyArray<{ id: ThemeId; chip: string; name: string }> 
   { id: 'sketch', chip: 'Sketch', name: 'Sketch (paper)' },
   { id: 'aurora', chip: 'Aurora', name: 'Aurora (fantasy)' },
   { id: 'cyber', chip: 'Cyber', name: 'Cyberpunk (Arc-Flash)' },
-  { id: 'terminal', chip: 'Terminal', name: 'Terminal (phosphor)' },
+  { id: 'terminal', chip: 'Terminal', name: 'Cyberpunk (dark green)' },
 ];
 
 const LEGACY: Record<string, ThemeId> = { dark: '', light: 'plain' };

@@ -772,6 +772,7 @@
       }
       return [];
     }
+    let zoomLevel = 1;
     function handleKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
       const inField =
@@ -832,6 +833,12 @@
         case 'blur-single-line':
           el?.blur();
           break;
+        case 'zoom': {
+          zoomLevel = action.delta === 0 ? 1 : Math.round(Math.min(2, Math.max(0.5, zoomLevel + action.delta * 0.1)) * 10) / 10;
+          (document.body.style as CSSStyleDeclaration & { zoom: string }).zoom = String(zoomLevel);
+          toast(`zoom ${Math.round(zoomLevel * 100)}%`);
+          break;
+        }
       }
     }
     window.addEventListener('keydown', handleKey);

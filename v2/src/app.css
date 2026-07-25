@@ -489,6 +489,34 @@ body[data-theme="terminal"] .furn {
   border: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(8, 28, 19, 0.92), var(--panel) 45%);
   box-shadow: 0 0 14px rgba(39, 255, 158, 0.08);
+  transition:
+    border-color var(--t-base) var(--ease-out),
+    box-shadow var(--t-base) var(--ease-out),
+    transform var(--t-base) var(--ease-out);
+}
+body[data-theme="terminal"] .furn:hover {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 18px rgba(39, 255, 158, 0.28),
+    inset 0 0 22px rgba(39, 255, 158, 0.05);
+  transform: translateY(-2px);
+}
+body[data-theme="terminal"] .text-study b,
+body[data-theme="terminal"] .text-study strong {
+  color: var(--accent);
+}
+body[data-theme="terminal"] .text-study i,
+body[data-theme="terminal"] .text-study em {
+  color: var(--accent2);
+}
+body[data-theme="terminal"] .text-study code {
+  color: var(--good);
+  background: rgba(39, 255, 158, 0.08);
+  border: 1px solid var(--line);
+}
+body[data-theme="terminal"] .text-study s,
+body[data-theme="terminal"] .text-study del {
+  color: var(--warn);
 }
 body[data-theme="terminal"] .house-title,
 body[data-theme="terminal"] .room-title h1,

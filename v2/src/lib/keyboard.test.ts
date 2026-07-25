@@ -218,3 +218,21 @@ describe('handleAppKey — unhandled keys return null', () => {
     expect(handleAppKey(key('a', { metaKey: true }), ctx())).toBeNull();
   });
 });
+
+describe('handleAppKey — zoom', () => {
+  it('mod +/= zooms in, mod -/_ zooms out, mod 0 resets', () => {
+    expect(handleAppKey(key('=', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: 1, preventDefault: true });
+    expect(handleAppKey(key('+', { ctrlKey: true }), ctx())).toEqual({ kind: 'zoom', delta: 1, preventDefault: true });
+    expect(handleAppKey(key('-', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: -1, preventDefault: true });
+    expect(handleAppKey(key('_', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: -1, preventDefault: true });
+    expect(handleAppKey(key('0', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: 0, preventDefault: true });
+  });
+  it('works inside a field so zoom is never swallowed', () => {
+    expect(handleAppKey(key('=', { metaKey: true }), ctx({ inField: true }))).toEqual({ kind: 'zoom', delta: 1, preventDefault: true });
+  });
+  it('bare +/-/0 without a modifier are unbound', () => {
+    expect(handleAppKey(key('='), ctx())).toBeNull();
+    expect(handleAppKey(key('-'), ctx())).toBeNull();
+    expect(handleAppKey(key('0'), ctx())).toBeNull();
+  });
+});

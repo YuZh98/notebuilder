@@ -135,7 +135,11 @@
               }
             ]
           }
-        ]
+        ],
+        "services": {
+          "search": true,
+          "pin": true
+        }
       },
       {
         "name": "02 - FLASHCARDS",
@@ -224,7 +228,15 @@
               }
             ]
           }
-        ]
+        ],
+        "services": {
+          "search": true,
+          "shuffle": true,
+          "flipAll": true,
+          "reset": true,
+          "pin": true,
+          "archive": true
+        }
       },
       {
         "name": "03 - LAB",
@@ -415,7 +427,11 @@
               }
             ]
           }
-        ]
+        ],
+        "services": {
+          "pin": true,
+          "notes": true
+        }
       }
     ]
   }

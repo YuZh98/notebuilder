@@ -48,7 +48,7 @@ ten colour and surface tokens plus `--radius`; six of them also swap `--glow` an
 The ids and their display names live in [`v2/src/lib/themes.ts`](../v2/src/lib/themes.ts):
 `''` (Dark, the default), `plain` (Black and White, the light theme), `mono` (Graphite),
 `study` (Tomoé), `sketch` (Sketch), `aurora` (Aurora), `cyber` (Cyberpunk),
-`terminal` (Terminal).
+`terminal` (Cyberpunk dark green).
 
 Applying a theme is one line: `applyTheme` sets `document.body.dataset.theme`, or deletes the
 attribute for the default. `normalizeThemeId` maps the legacy ids `dark` and `light` onto `''`
@@ -100,13 +100,13 @@ hairlines and `0` need no comment.
 Tokens are enforced for new UI, not yet uniform across the whole tree.
 
 **Components are tokenised.** Across `v2/src/lib/components/*.svelte` and
-`v2/src/lib/slots/*.svelte` there are 88 `var(--space-*)` uses, 20 `var(--fs-*)` uses and 14
+`v2/src/lib/slots/*.svelte` there are 89 `var(--space-*)` uses, 21 `var(--fs-*)` uses and 15
 uses of the inner radii. Twenty nine of the forty four Svelte components carry their own scoped
 `<style>` block, and that is where the token discipline is applied.
 
-**`app.css` is not.** It is 2114 lines, most of it chrome ported wholesale from v1, and it
+**`app.css` is not.** It is 2140 lines, most of it chrome ported wholesale from v1, and it
 still writes those values as literals: zero `var(--space-*)`, zero `var(--fs-*)` and zero
-`var(--radius-sm|md|lg)` uses appear in it. It does use the motion tokens in seven places, and
+`var(--radius-sm|md|lg)` uses appear in it. It does use the motion tokens in ten places, and
 it uses the colour and surface tokens throughout, which is what makes the eight themes work at
 all. The spacing, type and inner radius families are, for now, tokens that the ported
 stylesheet does not yet consume.

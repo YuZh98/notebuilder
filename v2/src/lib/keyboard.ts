@@ -34,7 +34,8 @@ export type KeyAction =
   | { kind: 'select-section'; id: string; preventDefault: boolean }
   | { kind: 'select-card'; id: string; preventDefault: boolean }
   | { kind: 'toggle-mode'; preventDefault: boolean }
-  | { kind: 'blur-single-line'; preventDefault: boolean };
+  | { kind: 'blur-single-line'; preventDefault: boolean }
+  | { kind: 'zoom'; delta: 1 | -1 | 0; preventDefault: boolean };
 
 function step(ids: string[], current: string, delta: number): string | null {
   const i = ids.indexOf(current);
@@ -63,6 +64,16 @@ export function handleAppKey(e: KeyboardEventLike, ctx: KeyCtx): KeyAction | nul
     return e.shiftKey
       ? { kind: 'redo', preventDefault: true }
       : { kind: 'undo', preventDefault: true };
+  }
+  // Cmd/Ctrl +/-/0 adjust the app zoom, in or out of fields, like a browser.
+  if (mod && (e.key === '=' || e.key === '+')) {
+    return { kind: 'zoom', delta: 1, preventDefault: true };
+  }
+  if (mod && (e.key === '-' || e.key === '_')) {
+    return { kind: 'zoom', delta: -1, preventDefault: true };
+  }
+  if (mod && e.key === '0') {
+    return { kind: 'zoom', delta: 0, preventDefault: true };
   }
   // In a field: Escape aborts the edit or blurs; every other key is swallowed (v1 120:12-14).
   if (ctx.inField) {
