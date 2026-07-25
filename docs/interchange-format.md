@@ -28,8 +28,9 @@ Validation requires `cards` on every section including dividers, but never check
 
 ## Card
 
-Required: `slots` (array). Optional: `verbs` (`{ flip?, bare? }`), `back` (a second slot array,
-the reverse face), `tags` (string array), `accent` (string), `w` (number), `archived` (boolean).
+Required: `slots` (array). Optional: `typeId` (string), `verbs` (`{ flip?, bare? }`), `back` (a
+second slot array, the reverse face), `tags` (string array), `accent` (string), `w` (number),
+`archived` (boolean).
 
 - `flip` gives the card two faces; `back` holds the reverse. Both faces share one variable
   scope, which is why the import time graph check spans them together.
@@ -37,10 +38,10 @@ the reverse face), `tags` (string array), `accent` (string), `w` (number), `arch
 - `w` is the card's width in twelfths of the section grid. Validation rejects anything outside
   `[3, 12]`; the resize engine snaps to 0.05 of a column within that range.
 - `archived` hides the card from the study grid unless the archive view is toggled on.
-
-`Card.typeId`, the link back to the Factory card type a card was stamped from, is **not**
-currently written by `exportNotebook`, so it does not survive a round trip even though it is
-persisted locally in `cards.type_id`. That is a known bug, not a design decision.
+- `typeId` records which Factory card type stamped the card, and is persisted locally in
+  `cards.type_id`. It travels as an opaque id: the card types themselves are not exported, so a
+  recipient who has no type with that id reads the card as untyped, which puts it in the `∅`
+  bucket of the coverage matrix's product axis. Nothing else about the card changes.
 
 ## Slot
 
@@ -103,8 +104,7 @@ scope smell, not corruption, so the import proceeds.
 
 ## What is not exported
 
-`exportNotebook` writes the document layer only. All of this is left behind by design, except
-the last entry.
+`exportNotebook` writes the document layer only. All of this is left behind by design.
 
 - **Identity and ordering.** `notebook.id`, `createdAt`, `updatedAt`; `section.id`,
   `notebookId`, `position`; `card.id`, `sectionId`, `position`; `slot.id`. On import these are
@@ -115,7 +115,8 @@ the last entry.
 - **Annotations.** Reader notes and highlights live in the `annotations` table.
 - **Session state.** Shuffle order, per section search text, the archive toggle and the session
   layer slot values are in memory only and are wiped on mode and notebook switches.
-- **`card.typeId`.** Dropped, as described above. This one is a bug.
+- **Card type definitions.** The Factory types live in the `card_types` table. A card carries
+  only its `typeId`, so an id the recipient does not know reads as untyped.
 
 ## Worked example
 

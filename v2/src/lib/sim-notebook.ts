@@ -23,6 +23,8 @@ const IMAGE_SRCS = [
   'file:///tmp/c.png',
 ];
 const LANGS = ['js', 'python', 'r', ''];
+/** Factory card-type ids a generated card can be stamped from. */
+const TYPE_IDS = ['ct_flash', 'ct_note', 'ct_cheatsheet', 'ct_code'];
 const LIST_STYLES = ['bullets', 'numbered', 'check'] as const;
 const PROGRESS_SCOPES = ['section', 'chapter', 'notebook'] as const;
 
@@ -234,8 +236,7 @@ function genCard(r: Rng, sectionId: string, position: number, opts: CardOpts = {
     sectionId,
     position,
     slots,
-    // typeId is deliberately never generated: exportNotebook drops it, so a card
-    // carrying one cannot round-trip through the interchange format.
+    ...(r.bool(0.35) && { typeId: r.pick(TYPE_IDS) }),
     ...((flip || r.bool(0.2)) && { verbs: { ...(flip && { flip: true }), ...(r.bool(0.3) && { bare: true }) } }),
     ...(flip && { back }),
     ...(r.bool(0.6) && { tags }),
@@ -327,6 +328,7 @@ export function canonicalNotebook(nb: Notebook): unknown {
       svcW: s.svcW,
       cards: s.cards.map((c) => ({
         slots: c.slots.map(canonicalSlot),
+        typeId: c.typeId,
         verbs: c.verbs,
         back: c.back?.map(canonicalSlot),
         tags: c.tags && c.tags.length > 0 ? c.tags : undefined,

@@ -489,6 +489,22 @@ describe('tags round-trip', () => {
   });
 });
 
+describe('typeId round-trip', () => {
+  it('exports and re-imports the card type binding', () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.sections[0].cards[0].typeId = 'ct_flash';
+    const json = exportNotebook(nb);
+    expect(json.notebook.sections[0].cards[0].typeId).toBe('ct_flash');
+    expect(importNotebook(json).sections[0].cards[0].typeId).toBe('ct_flash');
+  });
+
+  it('omits the key entirely on an unstamped card', () => {
+    const json = exportNotebook(sampleNotebook);
+    expect(json.notebook.sections[0].cards[0]).not.toHaveProperty('typeId');
+    expect(importNotebook(json).sections[0].cards[0]).not.toHaveProperty('typeId');
+  });
+});
+
 describe('service / archive fields round-trip', () => {
   it('exports and re-imports section services/svcOrder/svcW and card archived', () => {
     const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
