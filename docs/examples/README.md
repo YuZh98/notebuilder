@@ -10,6 +10,11 @@ Drop-in notebooks you can import to see NoteBuilder in action.
 
 ## Files
 
+- [`grand-tour.json`](grand-tour.json) — the tutorial notebook: every one of the eleven slot
+  types, live, in one rocket mission. Sliders drive the Tsiolkovsky equation, a hidden slot
+  reveals itself at escape velocity, flashcards flip, quizzes grade themselves, a checklist and
+  flight log feed a notebook-wide progress meter, and the final section documents the notebook's
+  own JSON from inside itself. Start here.
 - [`compound-interest.json`](compound-interest.json) — a reactive explainer. One card holds two
   sliders ($P$ and $r$), two computed values, prose that quotes the live numbers, and a chart of
   $A(t) = P(1 + r/100)^t$; drag a slider in Study and everything reacts. Ends with a quiz and a
