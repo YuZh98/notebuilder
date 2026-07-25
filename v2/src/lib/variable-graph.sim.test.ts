@@ -64,16 +64,41 @@ function injectCycle(r: Rng, g: SimGraph): string[] {
   return idx.map((i) => g.decls[i].id);
 }
 
-/** Add reads of variables nobody writes. Returns the ghost variable names. */
+/**
+ * Add reads of variables nobody writes. Each ghost is attached to 1-3 distinct
+ * declarations: `findGraphIssues` must still report it once, so the fan-out is
+ * what makes its de-duplication observable.
+ */
 function injectMissing(r: Rng, g: SimGraph, count: number): string[] {
   const ghosts: string[] = [];
   for (let i = 0; i < count; i++) {
     const ghost = `ghost${i}`;
-    const d = g.decls[r.int(g.decls.length)];
-    if (!d.reads.includes(ghost)) d.reads.push(ghost);
+    for (const d of r.sample(g.decls, r.between(1, 3))) {
+      if (!d.reads.includes(ghost)) d.reads.push(ghost);
+    }
     ghosts.push(ghost);
   }
   return ghosts;
+}
+
+/** Longest read -> writer chain in a decl set. Memoised, and cycle-safe. */
+function longestChain(decls: GraphDecl[]): number {
+  const writers = new Map<string, GraphDecl>();
+  for (const d of decls) for (const w of d.writes) writers.set(w, d);
+  const memo = new Map<string, number>();
+  const go = (d: GraphDecl): number => {
+    const hit = memo.get(d.id);
+    if (hit !== undefined) return hit;
+    memo.set(d.id, 0);
+    let best = 0;
+    for (const key of d.reads) {
+      const dep = writers.get(key);
+      if (dep && dep !== d) best = Math.max(best, 1 + go(dep));
+    }
+    memo.set(d.id, best);
+    return best;
+  };
+  return decls.reduce((m, d) => Math.max(m, go(d)), 0);
 }
 
 const cycleIssues = (issues: string[]): string[] => issues.filter((s) => s.startsWith('cycle detected'));
@@ -242,4 +267,63 @@ describe.each(SEEDS)('buildCardScope simulation (seed %i)', (seed) => {
       }
     }
   });
+});
+
+/**
+ * Guards the suite against a degenerate generator. Every property above is
+ * vacuously true for edge-free graphs, so if `genDag` ever stopped emitting
+ * reads — or `injectMissing` stopped sharing a ghost between declarations —
+ * the suite would stay green while testing nothing.
+ */
+it('generates graphs with the structure the properties rely on', () => {
+  let nodes = 0;
+  let edges = 0;
+  let withReads = 0;
+  let maxChain = 0;
+  let maxGhostFanout = 0;
+  let maxRing = 0;
+  let scopeSlots = 0;
+  let computesReadingAKey = 0;
+
+  for (const seed of SEEDS) {
+    const r = makeRng(seed);
+    for (let c = 0; c < CASES; c++) {
+      const dag = genDag(r, r.between(1, 12));
+      nodes += dag.decls.length;
+      for (const d of dag.decls) {
+        edges += d.reads.length;
+        if (d.reads.length > 0) withReads++;
+      }
+      maxChain = Math.max(maxChain, longestChain(dag.decls));
+
+      const ringed = genDag(r, r.between(2, 12));
+      maxRing = Math.max(maxRing, injectCycle(r, ringed).length);
+
+      const ghosted = genDag(r, r.between(1, 10));
+      for (const ghost of injectMissing(r, ghosted, r.between(1, 3))) {
+        const fanout = ghosted.decls.filter((d) => d.reads.includes(ghost)).length;
+        maxGhostFanout = Math.max(maxGhostFanout, fanout);
+      }
+
+      const slots = genScopeSlots(r);
+      scopeSlots += slots.length;
+      const keys = slots.map((s) => String(s.props.key ?? s.props.out));
+      for (const slot of slots) {
+        if (slot.type !== 'compute') continue;
+        const expr = String(slot.props.expr);
+        if (keys.some((k) => k !== slot.props.out && new RegExp(`\\b${k}\\b`).test(expr))) {
+          computesReadingAKey++;
+        }
+      }
+    }
+  }
+
+  expect(nodes, 'no nodes generated').toBeGreaterThan(1000);
+  expect(edges / nodes, 'mean in-degree collapsed — graphs are edge-free').toBeGreaterThan(0.5);
+  expect(withReads / nodes, 'too few nodes have any dependency').toBeGreaterThan(0.4);
+  expect(maxChain, 'no graph reached a dependency depth of 2').toBeGreaterThanOrEqual(2);
+  expect(maxRing, 'injected cycles never exceeded length 2').toBeGreaterThanOrEqual(3);
+  expect(maxGhostFanout, 'no ghost was read by two declarations — dedup is untested').toBeGreaterThanOrEqual(2);
+  expect(scopeSlots, 'no card-scope slots generated').toBeGreaterThan(500);
+  expect(computesReadingAKey, 'no compute slot ever read another slot’s key').toBeGreaterThan(50);
 });
