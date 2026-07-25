@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { THEMES, normalizeThemeId, applyTheme } from './themes';
 
 describe('THEMES registry', () => {
-  it('contains the seven v1 themes in v1 order', () => {
-    expect(THEMES.map((t) => t.id)).toEqual(['', 'plain', 'mono', 'study', 'sketch', 'aurora', 'cyber']);
+  it('contains the seven v1 themes in v1 order, then terminal', () => {
+    expect(THEMES.map((t) => t.id)).toEqual([
+      '', 'plain', 'mono', 'study', 'sketch', 'aurora', 'cyber', 'terminal',
+    ]);
     expect(THEMES[0].name).toBe('Dark (default)');
     expect(THEMES[1].chip).toBe('B&W');
+    expect(THEMES[7].chip).toBe('Terminal');
   });
 });
 

@@ -455,6 +455,76 @@ body[data-theme="sketch"] .house-title {
 body[data-theme="sketch"] .ceview {
   border-radius: 8px;
 }
+/* TERMINAL — phosphor trading-terminal look (near-black green · grid + scanlines · mono headers · neon glow) */
+body[data-theme="terminal"] {
+  --bg: #03100a;
+  --panel: #071a12;
+  --panel2: #061b12;
+  --ink: #bff7d9;
+  --muted: #5fa985;
+  --line: rgba(39, 255, 158, 0.22);
+  --accent: #27ff9e;
+  --accent2: #19e6ff;
+  --good: #00ffa3;
+  --warn: #ff2d95;
+  --radius: 14px;
+  --font: "Rajdhani", "Chakra Petch", "Avenir Next Condensed", system-ui, sans-serif;
+  --glow: 0 0 14px rgba(39, 255, 158, 0.35);
+  background:
+    radial-gradient(900px 600px at 22% -8%, rgba(0, 255, 163, 0.1), transparent 60%),
+    radial-gradient(720px 520px at 92% 108%, rgba(25, 230, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    linear-gradient(rgba(57, 255, 140, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 255, 140, 0.055) 1px, transparent 1px),
+    var(--bg);
+  background-size:
+    auto,
+    auto,
+    auto,
+    38px 38px,
+    38px 38px;
+  background-attachment: fixed;
+}
+body[data-theme="terminal"] .furn {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(8, 28, 19, 0.92), var(--panel) 45%);
+  box-shadow: 0 0 14px rgba(39, 255, 158, 0.08);
+}
+body[data-theme="terminal"] .house-title,
+body[data-theme="terminal"] .room-title h1,
+body[data-theme="terminal"] .room-title h2,
+body[data-theme="terminal"] .room-title h3 {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-shadow: var(--glow);
+}
+body[data-theme="terminal"] .room-title h1::before,
+body[data-theme="terminal"] .room-title h2::before,
+body[data-theme="terminal"] .room-title h3::before {
+  content: "// ";
+  color: var(--muted);
+  text-shadow: none;
+}
+body[data-theme="terminal"] .btn,
+body[data-theme="terminal"] .chip,
+body[data-theme="terminal"] .pchip {
+  font-family: var(--mono);
+  border-radius: 999px;
+}
+body[data-theme="terminal"] .btn.on,
+body[data-theme="terminal"] .btn.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: transparent;
+  box-shadow: var(--glow);
+}
+body[data-theme="terminal"] input:focus,
+body[data-theme="terminal"] textarea:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
 
 * {
   margin: 0;

@@ -1,0 +1,422 @@
+{
+  "version": 2,
+  "notebook": {
+    "name": "QUANT://prep_terminal",
+    "subtitle": "Offline cockpit for quant interviews: cheatsheets, flashcards, and a payoff lab. A NoteBuilder rebuild of the quant-prep-terminal layout.",
+    "cats": [
+      "calculus",
+      "probability",
+      "options & vol",
+      "pricing / sde",
+      "reported"
+    ],
+    "sections": [
+      {
+        "name": "// link established",
+        "cards": [
+          {
+            "tags": [],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "## QUANT PREP TERMINAL\n\n`// LINK ESTABLISHED - OFFLINE - ZERO CLOUD - ONE FILE`\n\nYour offline cockpit for quant interviews: **cheatsheets** for learning, a **simulation lab** for experimenting, **flashcards** for drilling. Pin your weak points with tags, then read the coverage matrix.\n\nSwitch this notebook to the **Terminal** theme (palette button, top bar) for the full phosphor look."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "01 - CHEATSHEETS",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Cheatsheets",
+        "title": "01 - Cheatsheets",
+        "subtitle": "Didactic, example-filled references. Two samples of the card format; a full build carries a topic per section.",
+        "cards": [
+          {
+            "tags": [
+              "calculus"
+            ],
+            "w": 6,
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Derivative Rules\n\nThe derivative is the instantaneous rate of change, the slope of the tangent."
+                }
+              },
+              {
+                "type": "table",
+                "props": {
+                  "rows": [
+                    [
+                      "RULE",
+                      "FORMULA"
+                    ],
+                    [
+                      "Power",
+                      "`d/dx x^n = n*x^(n-1)`"
+                    ],
+                    [
+                      "Product",
+                      "`(fg)' = f'g + fg'`"
+                    ],
+                    [
+                      "Quotient",
+                      "`(f/g)' = (f'g - fg')/g^2`"
+                    ],
+                    [
+                      "Chain",
+                      "`(f(g(x)))' = f'(g(x)) * g'(x)`"
+                    ]
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "> **Example.** `d/dx (3x+1)^5 = 5(3x+1)^4 * 3 = 15(3x+1)^4` (chain). Quotient mnemonic: low d-high minus high d-low, over low squared."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "calculus"
+            ],
+            "w": 6,
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Key Derivatives\n\nMemorize these cold. They appear in almost every problem."
+                }
+              },
+              {
+                "type": "table",
+                "props": {
+                  "rows": [
+                    [
+                      "f(x)",
+                      "f'(x)"
+                    ],
+                    [
+                      "`e^x`",
+                      "`e^x`"
+                    ],
+                    [
+                      "`ln x`",
+                      "`1/x`"
+                    ],
+                    [
+                      "`sin x`",
+                      "`cos x`"
+                    ],
+                    [
+                      "`cos x`",
+                      "`-sin x`"
+                    ],
+                    [
+                      "`tan x`",
+                      "`sec^2 x`"
+                    ]
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "> **Example.** `d/dx ln(x^2+1) = 2x/(x^2+1)` (chain with ln). $e^x$ is the only function that is its own derivative, up to scale."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "02 - FLASHCARDS",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Flashcards",
+        "title": "02 - Flashcards",
+        "subtitle": "Filter by tag, click to flip, drill out loud. The reported tag marks questions seen in real quant interviews.",
+        "cards": [
+          {
+            "tags": [
+              "probability",
+              "reported"
+            ],
+            "w": 4,
+            "verbs": {
+              "flip": true
+            },
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "`PROBABILITY · REPORTED`\n\n**E[flips to get HH]? vs HT? Why different?**"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**6 vs 4.** After a failure, HH restarts from scratch but HT keeps partial progress: a tails that breaks HT is itself a fresh start for the T. Overlapping patterns wait longer."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "probability"
+            ],
+            "w": 4,
+            "verbs": {
+              "flip": true
+            },
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "`PROBABILITY`\n\n**Monty Hall: switch or stay?**"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Switch.** Staying wins iff the first pick was right: $1/3$. Switching wins the other $2/3$. The host opening a goat door moves no probability onto your original door."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "options & vol",
+              "reported"
+            ],
+            "w": 4,
+            "verbs": {
+              "flip": true
+            },
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "`OPTIONS & VOL · REPORTED`\n\n**Why is gamma largest at the money near expiry?**"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "Delta must travel from about $0$ to about $1$ across the strike; less time compresses that transition into a narrower spot band, so its slope, gamma, spikes at $K$."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "03 - LAB",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Lab",
+        "title": "03 - Lab",
+        "subtitle": "Build intuition by simulating. Pick strikes, tune the credit, read breakeven and max profit and loss live.",
+        "cards": [
+          {
+            "tags": [
+              "options & vol",
+              "pricing / sde"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Payoff explorer: iron butterfly\n\nShort a straddle at $K_0$, buy wings $W$ away, collect net credit $C$. The three sliders write the card scope; everything below derives from it."
+                }
+              },
+              {
+                "type": "slider",
+                "props": {
+                  "key": "K0",
+                  "value": 100,
+                  "min": 80,
+                  "max": 120,
+                  "step": 5
+                },
+                "w": 4,
+                "verbs": {
+                  "hint": {
+                    "content": "`K0` is the short straddle strike, the tent pole."
+                  }
+                }
+              },
+              {
+                "type": "slider",
+                "props": {
+                  "key": "W",
+                  "value": 10,
+                  "min": 5,
+                  "max": 25,
+                  "step": 5
+                },
+                "w": 4,
+                "verbs": {
+                  "hint": {
+                    "content": "`W` is the wing width: the long put sits at K0 - W, the long call at K0 + W."
+                  }
+                }
+              },
+              {
+                "type": "slider",
+                "props": {
+                  "key": "C",
+                  "value": 3.5,
+                  "min": 1,
+                  "max": 8,
+                  "step": 0.25
+                },
+                "w": 4,
+                "verbs": {
+                  "hint": {
+                    "content": "`C` is the net credit collected up front. In a full pricer it would come from Black-Scholes; here you set it."
+                  }
+                }
+              },
+              {
+                "type": "compute",
+                "props": {
+                  "expr": "C",
+                  "out": "maxProfit",
+                  "note": "max profit"
+                },
+                "w": 3
+              },
+              {
+                "type": "compute",
+                "props": {
+                  "expr": "C - W",
+                  "out": "maxLoss",
+                  "note": "max loss"
+                },
+                "w": 3
+              },
+              {
+                "type": "compute",
+                "props": {
+                  "expr": "K0 - C",
+                  "out": "beLow",
+                  "note": "breakeven low"
+                },
+                "w": 3
+              },
+              {
+                "type": "compute",
+                "props": {
+                  "expr": "K0 + C",
+                  "out": "beHigh",
+                  "note": "breakeven high"
+                },
+                "w": 3
+              },
+              {
+                "type": "chart",
+                "props": {
+                  "fn": "C - max(K0 - x, 0) - max(x - K0, 0) + max(K0 - W - x, 0) + max(x - K0 - W, 0)",
+                  "label": "P&L at expiry vs spot",
+                  "x0": 60,
+                  "x1": 140,
+                  "y0": -25,
+                  "y1": 10,
+                  "xticks": 8,
+                  "yticks": 7,
+                  "hover": true
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "Profit tent peaks at **{{maxProfit}}** on $K_0 = {{K0}}$, floors at **{{maxLoss}}** beyond the wings, and crosses zero at **{{beLow}}** and **{{beHigh}}**. Widen $W$ and the floor drops; fatten $C$ and the tent grows."
+                },
+                "verbs": {
+                  "glow": true
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "pricing / sde"
+            ],
+            "w": 6,
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Python sandbox\n\nThe original terminal runs this in the browser; here the card carries the exact script for your own REPL."
+                }
+              },
+              {
+                "type": "code",
+                "props": {
+                  "lang": "python",
+                  "code": "import numpy as np\n\ndef mc_call(s0=100, k=100, vol=0.2, t=0.25, r=0.0, n=100_000, seed=7):\n    rng = np.random.default_rng(seed)\n    z = rng.standard_normal(n)\n    st = s0 * np.exp((r - 0.5 * vol**2) * t + vol * np.sqrt(t) * z)\n    return np.exp(-r * t) * np.maximum(st - k, 0).mean()\n\nprint(f\"MC call: {mc_call():.4f}\")  # ~4.00 at these params"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "probability"
+            ],
+            "w": 6,
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Session\n\nDrill loop: read one cheatsheet, flip every flashcard out loud, then push the lab sliders until the numbers stop surprising you."
+                }
+              },
+              {
+                "type": "list",
+                "props": {
+                  "items": [
+                    "Read both cheatsheet cards",
+                    "Flip all three flashcards",
+                    "Find the credit that makes max loss exactly -10"
+                  ],
+                  "style": "check"
+                }
+              },
+              {
+                "type": "progress",
+                "props": {
+                  "scope": "notebook",
+                  "label": "session progress",
+                  "show": {
+                    "mn": true,
+                    "pct": true,
+                    "bar": true
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

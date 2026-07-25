@@ -7,7 +7,7 @@ value genuinely cannot be a token, and the honest state of adoption today.
 
 ## Why tokens at all
 
-NoteBuilder ships seven themes and a self-contained Reader file that a stranger opens on an
+NoteBuilder ships eight themes and a self-contained Reader file that a stranger opens on an
 unknown machine. Three goals follow:
 
 1. **A theme is a token swap, not a rewrite.** Switching from Dark to Sketch must change
@@ -34,7 +34,7 @@ All of these are declared once, in `:root` in `v2/src/app.css`.
 | Motion | `--t-quick`, `--t-base`, `--t-slow`, `--ease-out` | 0.12s, 0.15s, 0.35s, `cubic-bezier(0.2, 0.8, 0.2, 1)` |
 
 The split in that table is the important part. The first four are theme surface: every theme
-redefines the colour and surface tokens and `--radius`; five also swap `--glow` and `--font`.
+redefines the colour and surface tokens and `--radius`; six also swap `--glow` and `--font`.
 `--mono` is declared once and no theme swaps it. The last four families are structure: they are
 declared exactly once, in `:root`, and no theme block touches them. The inner radii exist
 precisely so that small chrome corners stay put while the theme swapped `--radius` changes the
@@ -42,12 +42,13 @@ shape of panels around them.
 
 ## Theming
 
-The `:root` block is itself the default Dark theme. The six alternates are plain sibling
+The `:root` block is itself the default Dark theme. The seven alternates are plain sibling
 selectors of the form `body[data-theme="<id>"]` in the same file, and they redefine the same
-ten colour and surface tokens plus `--radius`; five of them also swap `--glow` and `--font`.
+ten colour and surface tokens plus `--radius`; six of them also swap `--glow` and `--font`.
 The ids and their display names live in [`v2/src/lib/themes.ts`](../v2/src/lib/themes.ts):
 `''` (Dark, the default), `plain` (Black and White, the light theme), `mono` (Graphite),
-`study` (Tomoé), `sketch` (Sketch), `aurora` (Aurora), `cyber` (Cyberpunk).
+`study` (Tomoé), `sketch` (Sketch), `aurora` (Aurora), `cyber` (Cyberpunk),
+`terminal` (Terminal).
 
 Applying a theme is one line: `applyTheme` sets `document.body.dataset.theme`, or deletes the
 attribute for the default. `normalizeThemeId` maps the legacy ids `dark` and `light` onto `''`
@@ -103,10 +104,10 @@ Tokens are enforced for new UI, not yet uniform across the whole tree.
 uses of the inner radii. Twenty nine of the forty four Svelte components carry their own scoped
 `<style>` block, and that is where the token discipline is applied.
 
-**`app.css` is not.** It is 2044 lines, most of it chrome ported wholesale from v1, and it
+**`app.css` is not.** It is 2114 lines, most of it chrome ported wholesale from v1, and it
 still writes those values as literals: zero `var(--space-*)`, zero `var(--fs-*)` and zero
 `var(--radius-sm|md|lg)` uses appear in it. It does use the motion tokens in seven places, and
-it uses the colour and surface tokens throughout, which is what makes the seven themes work at
+it uses the colour and surface tokens throughout, which is what makes the eight themes work at
 all. The spacing, type and inner radius families are, for now, tokens that the ported
 stylesheet does not yet consume.
 

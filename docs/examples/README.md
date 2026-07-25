@@ -15,6 +15,11 @@ Drop-in notebooks you can import to see NoteBuilder in action.
   reveals itself at escape velocity, flashcards flip, quizzes grade themselves, a checklist and
   flight log feed a notebook-wide progress meter, and the final section documents the notebook's
   own JSON from inside itself. Start here.
+- [`quant-terminal.json`](quant-terminal.json) — a style rebuild of the
+  [quant-prep-terminal](https://github.com/YuZh98/quant-prep-terminal) study cockpit: numbered
+  chapter dividers, cheatsheet cards with rule tables, tagged flashcards, and a Lab section
+  whose iron-butterfly payoff explorer derives breakevens and max profit and loss from three
+  sliders. Pair it with the **Terminal** theme for the phosphor look.
 - [`compound-interest.json`](compound-interest.json) — a reactive explainer. One card holds two
   sliders ($P$ and $r$), two computed values, prose that quotes the live numbers, and a chart of
   $A(t) = P(1 + r/100)^t$; drag a slider in Study and everything reacts. Ends with a quiz and a

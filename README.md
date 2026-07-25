@@ -84,9 +84,9 @@ Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags wi
 
 *The [`regression-drill`](docs/examples/regression-drill.json) example mid-study: the quiz has been answered and explains itself, two checklist items are done, and the notebook-wide progress meter sits at 2/4.*
 
-### Seven themes, one picker
+### Eight themes, one picker
 
-Every screenshot above uses the default dark theme. Six more ship with the app, switched from the palette button in the top bar; here are four of them on the same demo notebook.
+Every screenshot above uses the default dark theme. Seven more ship with the app, switched from the palette button in the top bar; here are four of them on the same demo notebook.
 
 | ![The demo notebook in the Tomoé theme: cream stationery background, serif headings, ruled card margins](docs/screenshots/v0.2.0/theme-tomoe.png) | ![The demo notebook in the Sketch theme: graph paper background with wobbly hand-drawn card frames and marker lettering](docs/screenshots/v0.2.0/theme-sketch.png) |
 | --- | --- |
