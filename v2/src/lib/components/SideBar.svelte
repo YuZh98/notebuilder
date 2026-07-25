@@ -165,7 +165,7 @@
         {#if section}<span class="muted sm">{section.name}</span>{/if}
       </h4>
       {#if !secOpsFolded}
-        <div class="palette" style="margin:6px 0">
+        <div class="palette" style="margin:var(--space-3) 0">
           {#each SERVICE_ORDER as key (key)}
             {@const cap = svcCap(key)}
             <button

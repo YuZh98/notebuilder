@@ -220,7 +220,7 @@
   >
     {@render roomGrip()}
     {#if !studying && sectionTools}{@render sectionTools(section)}{/if}
-    <div class="row" style="align-items:flex-start;gap:6px">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
       <span
         class="rcollapse"
         role="button"

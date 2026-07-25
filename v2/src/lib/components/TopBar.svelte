@@ -213,11 +213,11 @@
         <button class="btn sm" title="Add a chapter divider" onclick={onaddchapter}>＋ chapter</button>
       {/if}
     {/if}
-    <span style="width:10px;display:inline-block"></span>
+    <span style="width:var(--space-5);display:inline-block"></span>
     <button class="btn sm" title="Undo" disabled={!canUndo} onclick={() => onundo()}>↶</button>
     <button class="btn sm" title="Redo" disabled={!canRedo} onclick={() => onredo()}>↷</button>
     {#if place !== 'factory'}
-      <span style="width:8px;display:inline-block"></span>
+      <span style="width:var(--space-4);display:inline-block"></span>
       <button
         class="btn primary share-btn"
         title="Save this notebook as one living HTML file — opens anywhere, fully interactive, no app needed"
