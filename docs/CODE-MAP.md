@@ -383,10 +383,13 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 
 1. **Drag engine** (`drag/engine.ts` + `kinds.ts`) — unified pointer engine with `DRAG_KINDS` registry
    (9 kinds: card, section, qopt, product, slot, bench, tag, svc, svcattach). Same FLIP approach as
-   v1, but with **no native-drag path at all** (WKWebView blocks custom dataTransfer types — see the
-   `text/nb-svc` sweep test). A kind's `laneSel` makes arbitrary elements drop targets: tag → card
-   applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches / dustbin detaches.
-   Separate header-drag for matrix axis reorder. Drop handlers split by context (notebook vs factory).
+   v1. The pointer engine drives every notebook and study surface; the Factory inventory chips still
+   use native HTML5 drag (`SideFactory.svelte`). A sweep test in `svc-attach.test.ts` checks that no
+   component source contains the old `text/nb-svc` MIME type (WKWebView blocks custom dataTransfer
+   types, which is why that native path was removed). A kind's `laneSel` makes arbitrary elements drop
+   targets: tag → card applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches /
+   dustbin detaches. Separate header-drag for matrix axis reorder. Drop handlers split by context
+   (notebook vs factory).
 
 2. **Variable graph** (`variable-graph.ts`) — topological-sort evaluator. Each slot declares reads/
    writes; `resolveGraph` orders by dependency and evaluates once. `findGraphIssues` does static
@@ -445,8 +448,11 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
   (sweep-tested in `state-layer.test.ts`); every change flows through `onUpdate`/`onState` callbacks
   to the owner.
 - **One tag write path** — all `card.tags`/`Notebook.cats` mutations go through `tags.ts`.
-- **No native HTML5 drag** — every gesture rides `drag/engine.ts` (sweep-tested; WKWebView breaks
-  custom dataTransfer MIME types).
+- **Pointer engine for notebook/study, native drag in the Factory** — `drag/engine.ts` drives every
+  notebook and study gesture; the Factory inventory chips still use native HTML5 drag
+  (`SideFactory.svelte`). WKWebView blocks custom dataTransfer MIME types, so that native path can't
+  extend past the Factory. A sweep test in `svc-attach.test.ts` checks that no component source
+  contains the old `text/nb-svc` MIME type.
 - **Undo keeps live selections** — `restoreHistory` clears a selection only when the restored
   snapshot no longer contains it (D25 revised).
 

@@ -29,7 +29,7 @@ Staged for the next release once a desktop verification pass signs it off.
 - **Styled DMG** — the disk image opens as a proper installer window with a
   drag-to-Applications layout; `docs/install-macos.md` documents the build.
 - **Simulation test tier** — seeded generative suites cover variable-graph resolution,
-  interchange round-trips, progress semantics, and expression evaluation (1477 tests total).
+  interchange round-trips, progress semantics, and expression evaluation (1487 tests total).
 - **Card type binding survives export** — a card stamped from a Factory type now carries its
   `typeId` through JSON export and import, so the coverage matrix keeps its product dimension on
   a round trip. A recipient without that type reads the card as untyped.
