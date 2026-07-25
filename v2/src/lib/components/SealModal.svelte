@@ -166,7 +166,7 @@
 
     <div class="muted sm" style="margin-top:var(--space-3)">Varieties:</div>
     {#each draft.varieties as v, i (i)}
-      <div class="row seal-var" style="gap:var(--space-3);margin:3px 0 /* token-exempt: 3px sits off the 2px scale; snapping it would reflow the variety rows */">
+      <div class="row seal-var" style="gap:var(--space-3);margin:3px 0; /* token-exempt: 3px sits off the 2px scale; snapping it would reflow the variety rows */">
         <input
           data-seal="varname"
           value={v.name}

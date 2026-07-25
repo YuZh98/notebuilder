@@ -661,10 +661,10 @@
         <button class="btn sm" onclick={() => { pushHistory(); addSection(notebook); }}>＋ section</button>
         <button class="btn sm" title="Add a chapter divider" onclick={() => { pushHistory(); addChapter(notebook); }}>＋ chapter</button>
       {/if}
-      <span style="width:10px;display:inline-block"></span>
+      <span style="width:var(--space-5);display:inline-block"></span>
       <button class="btn sm" title="Undo" disabled={!undoable} onclick={() => toast(histUndo() ? 'undo' : 'nothing to undo')}>↶</button>
       <button class="btn sm" title="Redo" disabled={!redoable} onclick={() => toast(histRedo() ? 'redo' : 'nothing to redo')}>↷</button>
-      <span style="width:10px;display:inline-block"></span>
+      <span style="width:var(--space-5);display:inline-block"></span>
       <button class="btn sm" title="Export notebook as JSON" data-act="export" onclick={exportJson}>⤓</button>
       <button class="btn sm" title="Import a notebook JSON file" data-act="import" onclick={() => fileInput?.click()}>⤒</button>
       <input
@@ -841,24 +841,24 @@
 <style>
   .brand-nb {
     font-weight: 600;
-    padding: 0 6px;
+    padding: 0 var(--space-3);
     opacity: 0.9;
   }
   .section-head {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 12px;
-    padding-right: 26px;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+    padding-right: 26px; /* token-exempt: one-off gutter that clears the section controls */
   }
   .section-name {
     flex: 1;
-    font-size: 16px;
+    font-size: var(--fs-lg);
     background: transparent;
     color: inherit;
     border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
   }
   .section-name:hover,
   .section-name:focus {
@@ -870,9 +870,9 @@
     border: none;
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.5;
-    padding: 2px 4px;
+    padding: var(--space-1) var(--space-2);
   }
   .section-head button:hover {
     opacity: 1;
@@ -881,12 +881,12 @@
   .add-section {
     background: none;
     border: 1px dashed var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.6;
-    padding: 4px 10px;
+    padding: var(--space-2) var(--space-5);
   }
   .add-card:hover,
   .add-section:hover {
@@ -895,17 +895,18 @@
   }
   .add-row {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
   }
   .add-card {
     flex: 1;
   }
   .gallery {
     display: grid;
+    /* token-exempt: 160px is a grid track floor, not a spacing step */
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
   }
   .gallery-item {
     position: relative;
@@ -914,26 +915,26 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-2);
     align-items: flex-start;
     text-align: left;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
-    padding: 10px;
+    font-size: var(--fs-sm);
+    padding: var(--space-5);
   }
   .gallery-stamp:hover {
     border-color: var(--accent, #7c3aed);
   }
   .gallery-stamp span {
     opacity: 0.6;
-    font-size: 11px;
+    font-size: var(--fs-xs);
   }
   .add-section {
     width: 100%;
-    padding: 8px;
+    padding: var(--space-4);
   }
 </style>
