@@ -84,6 +84,16 @@ Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags wi
 
 *The [`regression-drill`](docs/examples/regression-drill.json) example mid-study: the quiz has been answered and explains itself, two checklist items are done, and the notebook-wide progress meter sits at 2/4.*
 
+### Seven themes, one picker
+
+Every screenshot above uses the default dark theme. Six more ship with the app, switched from the palette button in the top bar; here are four of them on the same demo notebook.
+
+| ![The demo notebook in the Tomoé theme: cream stationery background, serif headings, ruled card margins](docs/screenshots/v0.2.0/theme-tomoe.png) | ![The demo notebook in the Sketch theme: graph paper background with wobbly hand-drawn card frames and marker lettering](docs/screenshots/v0.2.0/theme-sketch.png) |
+| --- | --- |
+| *Tomoé: stationery. Cream paper, serif headings, ruled margins on every card.* | *Sketch: graph paper, wobbly ink frames, marker lettering.* |
+| ![The demo notebook in the Aurora theme: deep blue night background with glowing teal card borders and a mint chart line](docs/screenshots/v0.2.0/theme-aurora.png) | ![The demo notebook in the Cyberpunk theme: near-black background, amber wireframe cards, uppercase chrome](docs/screenshots/v0.2.0/theme-cyber.png) |
+| *Aurora: fantasy night sky, cards that glow at the edges.* | *Cyberpunk: amber wireframes and uppercase everything.* |
+
 ## Where your data lives
 
 One SQLite file in your own account, written by the app itself:
