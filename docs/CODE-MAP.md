@@ -224,7 +224,7 @@ v2/
       types.ts           Core type definitions (Slot, Card, Section, Notebook — incl. Notebook.cats)
       card-types.ts      CardType, stampCard, placeType, builtinCardTypes
       bench.svelte.ts    Factory workbench state (Svelte 5 $state rune)
-      session.svelte.ts  Study session state (shuffle, search, archive toggle, live control values)
+      session.svelte.ts  Study session state (shuffle, search, archive toggle, collapse, live values)
       notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, duplicateCard, etc.
       tags.ts            The ONE tag write path: apply/remove/rename/delete/create/reorder + cats upkeep
       coverage-matrix.ts Matrix axes, cell matching, same 3-axis model as v1
@@ -248,6 +248,9 @@ v2/
       annotations.ts     Reader annotations (local-only)
       history.svelte.ts  Undo/redo stacks: pushHistory/pushSnapshot/beginEdit (focus-coalesced)
       history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
+      keyboard.ts        Pure key dispatcher: the v1 shortcut map as a decision over a KeyCtx
+      study-keys.ts      Study cursor: focus order, stepping, per-key reader-state effect
+      visible-cards.ts   The one render order: sections/cards the Stage shows (and the cursor walks)
       shell.ts           Shell/container styling logic
       slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, stateLayer, render*
       progress.ts        Notebook/section/chapter progress computation
@@ -283,6 +286,7 @@ v2/
         CoverageMatrix.svelte  3-axis matrix grid (same v1 concept)
         ServiceBar.svelte  Per-section feature/action bar
         SealModal.svelte  Seal product: name, icon, store, varieties
+        ShortcutHelp.svelte  Study shortcut overlay (toggled by ?)
         ProductDetail.svelte  Product info + fork/place
         StoreLane.svelte  Store shelf in sidebar
         SlotConfig.svelte  Slot field editor + verb builder
