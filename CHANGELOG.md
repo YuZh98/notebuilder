@@ -7,6 +7,11 @@ interchange format is versioned separately and migrated on import.
 
 Staged for the next release once a desktop verification pass signs it off.
 
+- **Keyboard-first Study** — a whole study session runs from the keyboard: `j`/`k` (or the arrow
+  keys) move a focus ring from card to card, space or `f` flips, `1`-`9` pick an answer option,
+  `Enter` submits, `x` ticks the next checklist item, and `Escape` clears the focus. `?` opens a
+  shortcut overlay and Study carries a one-line hint under the notebook. The same bindings work
+  in a shared Reader file.
 - **Cyberpunk (dark green) theme** — phosphor green on near-black with a fixed grid, scanlines,
   neon card glow, hover lift, and mono uppercase headers. Bold, italic, inline code and
   strikethrough take accent colors in Study text under this theme.

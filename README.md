@@ -78,7 +78,7 @@ Export a notebook as JSON for another NoteBuilder, or as a self-contained Reader
 
 ### And the comforts
 
-Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, native print.
+Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags with a coverage matrix, themes, GFM markdown with `$KaTeX$` math, native print. A whole Study session runs from the keyboard (`j`/`k` to move, space to flip, `1`-`9` to answer, `x` to tick), in the app and in a shared file alike, with `?` listing every shortcut.
 
 ![Study mode of a regression drill: an answered quiz with its explanation, a checklist with two items struck through, and a half-full progress bar](docs/screenshots/v0.2.0/drill-practice.png)
 
