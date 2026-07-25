@@ -52,6 +52,7 @@
     showArch = false,
     onpin,
     onarchive,
+    kfocus = false,
   }: {
     card: Card;
     surface: 'bench' | 'notebook' | 'read';
@@ -98,6 +99,8 @@
     showArch?: boolean;
     onpin?: () => void;
     onarchive?: () => void;
+    /** The Study keyboard cursor is on this card — draws the focus ring (`.sel` is Edit-only). */
+    kfocus?: boolean;
   } = $props();
 
   let newSlotType = $state('text');
@@ -470,6 +473,7 @@
   bind:this={furnEl}
   class="furn"
   class:sel={selected && !studying}
+  class:kfocus={kfocus && studying}
   class:bare={card.verbs?.bare}
   class:done
   class:dragging={resizing}

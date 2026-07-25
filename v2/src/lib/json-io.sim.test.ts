@@ -191,6 +191,7 @@ it('generates every structural feature the round-trip properties rely on', () =>
           if (card.archived) seen.add('archived');
           if (card.accent !== undefined) seen.add('accent');
           if (card.w !== undefined) seen.add('card-w');
+          if (card.typeId !== undefined) seen.add('typeId');
           for (const slot of [...card.slots, ...(card.back ?? [])]) {
             seen.add(`slot:${slot.type}`);
             if (slot.verbs?.reveal) seen.add('reveal');
@@ -204,7 +205,7 @@ it('generates every structural feature the round-trip properties rely on', () =>
   const required = [
     'cats-absent', 'cats-present', 'nb-subtitle', 'nb-width',
     'divider', 'folded', 'services', 'svcOrder', 'svcW', 'locked',
-    'flip', 'bare', 'back', 'tags-empty', 'tags-nonempty', 'archived', 'accent', 'card-w',
+    'flip', 'bare', 'back', 'tags-empty', 'tags-nonempty', 'archived', 'accent', 'card-w', 'typeId',
     'reveal', 'fuse', 'fuseW',
     ...SLOT_TYPES.map((t) => `slot:${t}`),
   ];

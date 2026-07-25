@@ -7,6 +7,11 @@ interchange format is versioned separately and migrated on import.
 
 Staged for the next release once a desktop verification pass signs it off.
 
+- **Keyboard-first Study** — a whole study session runs from the keyboard: `j`/`k` (or the arrow
+  keys) move a focus ring from card to card, space or `f` flips, `1`-`9` pick an answer option,
+  `Enter` submits, `x` ticks the next checklist item, and `Escape` clears the focus. `?` opens a
+  shortcut overlay and Study carries a one-line hint under the notebook. The same bindings work
+  in a shared Reader file.
 - **Cyberpunk (dark green) theme** — phosphor green on near-black with a fixed grid, scanlines,
   neon card glow, hover lift, and mono uppercase headers. Bold, italic, inline code and
   strikethrough take accent colors in Study text under this theme.
@@ -24,7 +29,10 @@ Staged for the next release once a desktop verification pass signs it off.
 - **Styled DMG** — the disk image opens as a proper installer window with a
   drag-to-Applications layout; `docs/install-macos.md` documents the build.
 - **Simulation test tier** — seeded generative suites cover variable-graph resolution,
-  interchange round-trips, progress semantics, and expression evaluation (1378 tests total).
+  interchange round-trips, progress semantics, and expression evaluation (1487 tests total).
+- **Card type binding survives export** — a card stamped from a Factory type now carries its
+  `typeId` through JSON export and import, so the coverage matrix keeps its product dimension on
+  a round trip. A recipient without that type reads the card as untyped.
 - **Design tokens** — spacing, type, radius and motion tokens with a written governance rule;
   components consolidated onto them with zero visual change.
 

@@ -224,7 +224,7 @@ v2/
       types.ts           Core type definitions (Slot, Card, Section, Notebook — incl. Notebook.cats)
       card-types.ts      CardType, stampCard, placeType, builtinCardTypes
       bench.svelte.ts    Factory workbench state (Svelte 5 $state rune)
-      session.svelte.ts  Study session state (shuffle, search, archive toggle, live control values)
+      session.svelte.ts  Study session state (shuffle, search, archive toggle, collapse, live values)
       notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, duplicateCard, etc.
       tags.ts            The ONE tag write path: apply/remove/rename/delete/create/reorder + cats upkeep
       coverage-matrix.ts Matrix axes, cell matching, same 3-axis model as v1
@@ -248,6 +248,9 @@ v2/
       annotations.ts     Reader annotations (local-only)
       history.svelte.ts  Undo/redo stacks: pushHistory/pushSnapshot/beginEdit (focus-coalesced)
       history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
+      keyboard.ts        Pure key dispatcher: the v1 shortcut map as a decision over a KeyCtx
+      study-keys.ts      Study cursor: focus order, stepping, per-key reader-state effect
+      visible-cards.ts   The one render order: sections/cards the Stage shows (and the cursor walks)
       shell.ts           Shell/container styling logic
       slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, stateLayer, render*
       progress.ts        Notebook/section/chapter progress computation
@@ -283,6 +286,7 @@ v2/
         CoverageMatrix.svelte  3-axis matrix grid (same v1 concept)
         ServiceBar.svelte  Per-section feature/action bar
         SealModal.svelte  Seal product: name, icon, store, varieties
+        ShortcutHelp.svelte  Study shortcut overlay (toggled by ?)
         ProductDetail.svelte  Product info + fork/place
         StoreLane.svelte  Store shelf in sidebar
         SlotConfig.svelte  Slot field editor + verb builder
@@ -346,8 +350,9 @@ CardType = { id, name, description?, verbs?, slots: SlotTemplate[], back?, accen
 **Same invariants as v1:**
 - Variables are **card-scoped** (front + back share one scope, never cross card boundaries).
 - Study state: document (exported) · progress (persisted locally, never exported) · **session**
-  (`session.svelte.ts` — shuffle/search/archive-view plus `session.live`, the per-card control
-  values keyed by variable name; wiped on every Study entry, never persisted).
+  (`session.svelte.ts` — shuffle/search/archive-view/collapse plus `session.live`, the per-card
+  control values keyed by variable name; never persisted. Entering Study wipes shuffle and live;
+  search, archive view and collapse survive until the notebook changes).
 - A slot declares which layer its Study writes belong to via `SlotType.stateLayer`
   (`'progress'` default → readerState by slot id; `'session'` → `session.live` by variable name —
   slider is the one session-layer slot).
@@ -378,10 +383,13 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 
 1. **Drag engine** (`drag/engine.ts` + `kinds.ts`) — unified pointer engine with `DRAG_KINDS` registry
    (9 kinds: card, section, qopt, product, slot, bench, tag, svc, svcattach). Same FLIP approach as
-   v1, but with **no native-drag path at all** (WKWebView blocks custom dataTransfer types — see the
-   `text/nb-svc` sweep test). A kind's `laneSel` makes arbitrary elements drop targets: tag → card
-   applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches / dustbin detaches.
-   Separate header-drag for matrix axis reorder. Drop handlers split by context (notebook vs factory).
+   v1. The pointer engine drives every notebook and study surface; the Factory inventory chips still
+   use native HTML5 drag (`SideFactory.svelte`). A sweep test in `svc-attach.test.ts` checks that no
+   component source contains the old `text/nb-svc` MIME type (WKWebView blocks custom dataTransfer
+   types, which is why that native path was removed). A kind's `laneSel` makes arbitrary elements drop
+   targets: tag → card applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches /
+   dustbin detaches. Separate header-drag for matrix axis reorder. Drop handlers split by context
+   (notebook vs factory).
 
 2. **Variable graph** (`variable-graph.ts`) — topological-sort evaluator. Each slot declares reads/
    writes; `resolveGraph` orders by dependency and evaluates once. `findGraphIssues` does static
@@ -430,7 +438,8 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 - **Card-scoped variables** — reads/writes never cross card boundaries. `findGraphIssues` enforces.
 - **SlotType contract** — every slot type must declare `variables()` and provide both render components.
 - **SQLite parameterized queries** — no string interpolation of user data in SQL.
-- **Session state (`session.svelte.ts`)** is never persisted or exported — mode/notebook switches reset it.
+- **Session state (`session.svelte.ts`)** is never persisted or exported — entering Study wipes
+  shuffle and live, and switching notebooks wipes all of it (`resetSession`).
 - **`folded` is local-only** — never included in JSON export (fold state is per-reader).
 - **Tauri-guard pattern** — `isTauri()` gates all native calls so lib modules run in unit tests.
 - **Structural immutability of placed cards** — slot add/remove only in the Factory bench; placed cards
@@ -439,8 +448,11 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
   (sweep-tested in `state-layer.test.ts`); every change flows through `onUpdate`/`onState` callbacks
   to the owner.
 - **One tag write path** — all `card.tags`/`Notebook.cats` mutations go through `tags.ts`.
-- **No native HTML5 drag** — every gesture rides `drag/engine.ts` (sweep-tested; WKWebView breaks
-  custom dataTransfer MIME types).
+- **Pointer engine for notebook/study, native drag in the Factory** — `drag/engine.ts` drives every
+  notebook and study gesture; the Factory inventory chips still use native HTML5 drag
+  (`SideFactory.svelte`). WKWebView blocks custom dataTransfer MIME types, so that native path can't
+  extend past the Factory. A sweep test in `svc-attach.test.ts` checks that no component source
+  contains the old `text/nb-svc` MIME type.
 - **Undo keeps live selections** — `restoreHistory` clears a selection only when the restored
   snapshot no longer contains it (D25 revised).
 

@@ -35,7 +35,9 @@
     canRedo,
     type HistSnapshot,
   } from '../history.svelte';
-  import { handleAppKey, type KeyCtx } from '../keyboard';
+  import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from '../keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
+  import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
   import { clampSideW } from '../shell';
@@ -53,7 +55,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
-  import { session, shuffleSection, clearShuffle } from '../session.svelte';
+  import { session, sessionView, shuffleSection, clearShuffle } from '../session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
@@ -91,6 +93,10 @@
   let selCard: string | null = $state(null);
   let selProd: string | null = $state(null);
   let selVariety: Variety | null = $state(null);
+
+  // Study cursor + its shortcut overlay: session-transient, exactly as in the app.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
 
   let mtxRow: MatrixAxis | null = $state(null);
   let mtxCol: MatrixAxis | null = $state(null);
@@ -149,6 +155,47 @@
     };
   });
 
+  // Reading this derived is what arms the effect: a mode switch or an import drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
+  const studyOrderIds = $derived(
+    $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
+  );
+
+  // A filter, a search, a collapse or an archive swap can pull the focused card off the page under
+  // the cursor; when that happens the cursor goes with it rather than acting on what nobody sees.
+  $effect(() => {
+    if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
+  });
+
+  /** The focused card — null unless the cursor is on a card the reader can actually see. */
+  function focusedStudyCard(): Card | null {
+    if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
+    return findCard(notebook, studyFocus) ?? null;
+  }
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyOrderIds, studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = focusedStudyCard();
+    if (!card) return;
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
+
   function sectionCardsOf(cardId: string | null): string[] {
     if (!cardId) return [];
     for (const s of notebook.sections) {
@@ -161,8 +208,11 @@
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
-    const inField =
-      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const inField = isFieldTarget(el);
+    const focusedCard = focusedStudyCard();
+    const surfaces = focusedCard
+      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+      : NO_SURFACES;
     const ctx: KeyCtx = {
       inField,
       singleLineField: false,
@@ -174,6 +224,13 @@
       selProd,
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
+      studyFocus,
+      focusedFlipCapable: surfaces.flip,
+      focusedChoiceOptions: surfaces.choiceOptions,
+      focusedCanSubmit: surfaces.canSubmit,
+      focusedCanTick: surfaces.canTick,
+      targetInteractive: isInteractiveTarget(el),
+      helpOpen,
     };
     const action = handleAppKey(e, ctx);
     if (!action) return;
@@ -216,6 +273,23 @@
         break;
       case 'blur-single-line':
         el?.blur();
+        break;
+      case 'study-focus-step':
+        moveStudyFocus(action.delta);
+        break;
+      case 'study-focus-clear':
+        studyFocus = null;
+        break;
+      case 'study-flip':
+      case 'study-submit':
+      case 'study-tick':
+        applyStudyKey(e.key);
+        break;
+      case 'study-choice':
+        applyStudyKey(String(action.digit));
+        break;
+      case 'study-help':
+        helpOpen = !helpOpen;
         break;
     }
   }
@@ -745,6 +819,7 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -770,6 +845,8 @@
 {#snippet stageFooter()}
   {#if $mode === 'edit'}
     <button class="add-section" onclick={() => { pushHistory(); addSection(notebook); }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
 {/snippet}
 
@@ -833,6 +910,10 @@
   title={sideCollapsed ? 'show the panel' : 'hide the panel'}
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
+
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
 
 <MdBar />
 <Toast />
@@ -936,5 +1017,9 @@
   .add-section {
     width: 100%;
     padding: var(--space-4);
+  }
+  .kb-hint {
+    padding: var(--space-2) var(--space-1);
+    opacity: 0.6;
   }
 </style>

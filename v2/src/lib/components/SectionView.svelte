@@ -6,8 +6,9 @@
   import { startEdgeResize } from '../drag/resize';
   import { clampRoomW } from '../drag/geometry';
   import { captureNow, pushSnapshot, pushHistory } from '../history.svelte';
-  import { session, studyOrder } from '../session.svelte';
-  import { visibleCards, archivedCount } from '../service-ops';
+  import { session, sessionView } from '../session.svelte';
+  import { visibleSectionCards } from '../visible-cards';
+  import { archivedCount } from '../service-ops';
   import { svcBarItems, reorderSvc, flipAllApplicable, type ServiceKey } from '../services';
   import CeText from './CeText.svelte';
   import ServiceBar from './ServiceBar.svelte';
@@ -55,18 +56,10 @@
   const q = $derived(session.search[section.id] ?? '');
   const showArch = $derived(session.showArch[section.id] === true);
 
-  // Study grid = shuffle order ∩ archive/search filter ∩ matrix filter (v1 60-stage.js:159-160).
-  // Edit applies only the matrix filter — search/archive/shuffle are Study-only.
-  const cards = $derived.by(() => {
-    if (!studying) {
-      if (visibleCardIds === null) return section.cards;
-      return section.cards.filter((c) => visibleCardIds.has(c.id));
-    }
-    const ids = new Set(visibleCards(section, showArch, q).map((c) => c.id));
-    let list = studyOrder(section).filter((c) => ids.has(c.id));
-    if (visibleCardIds !== null) list = list.filter((c) => visibleCardIds.has(c.id));
-    return list;
-  });
+  // The one render-order function — the study keyboard cursor walks this same list.
+  const cards = $derived(
+    visibleSectionCards(section, studying, sessionView(section.id), visibleCardIds),
+  );
 
   const svcState = $derived({
     q,

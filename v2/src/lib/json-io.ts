@@ -34,6 +34,7 @@ type SectionJSON = {
 
 type CardJSON = {
   slots: SlotJSON[];
+  typeId?: string;
   verbs?: { flip?: boolean; bare?: boolean };
   back?: SlotJSON[];
   tags?: string[];
@@ -72,6 +73,7 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
         ...(s.svcW !== undefined && { svcW: s.svcW }),
         cards: s.cards.map((c) => ({
           slots: c.slots.map(exportSlot),
+          ...(c.typeId !== undefined && { typeId: c.typeId }),
           ...(c.verbs && { verbs: c.verbs }),
           ...(c.back && { back: c.back.map(exportSlot) }),
           ...(c.tags && c.tags.length > 0 && { tags: c.tags }),
@@ -111,6 +113,7 @@ export function importNotebook(json: NotebookJSON): Notebook {
       sectionId,
       position: ci,
       slots: c.slots.map(importSlot),
+      ...(c.typeId !== undefined && { typeId: c.typeId }),
       ...(c.verbs && { verbs: c.verbs }),
       ...(c.back && { back: c.back.map(importSlot) }),
       ...(c.tags && { tags: c.tags }),

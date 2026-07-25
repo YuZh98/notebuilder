@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { session, shuffleSection, clearShuffle, studyOrder, resetSession } from './session.svelte';
+import { session, sessionView, shuffleSection, clearShuffle, resetSession } from './session.svelte';
 import type { Section, Card } from './types';
 
 function card(id: string): Card {
@@ -20,40 +20,54 @@ describe('shuffleSection', () => {
     expect([...order].sort()).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('studyOrder follows the stored shuffle', () => {
-    const s = section([card('a'), card('b'), card('c')]);
+  it('hands the order to the render view', () => {
     session.shuf['s1'] = ['c', 'a', 'b'];
-    expect(studyOrder(s).map((c) => c.id)).toEqual(['c', 'a', 'b']);
-  });
-});
-
-describe('studyOrder without a shuffle', () => {
-  it('returns stored card order', () => {
-    const s = section([card('a'), card('b')]);
-    expect(studyOrder(s).map((c) => c.id)).toEqual(['a', 'b']);
+    expect(sessionView('s1').shuffle).toEqual(['c', 'a', 'b']);
   });
 });
 
 describe('clearShuffle', () => {
-  it('drops the shuffle so studyOrder reverts to stored order', () => {
-    const s = section([card('a'), card('b')]);
+  it('drops the shuffle, so the view falls back to stored order', () => {
     session.shuf['s1'] = ['b', 'a'];
     clearShuffle('s1');
     expect(session.shuf['s1']).toBeUndefined();
-    expect(studyOrder(s).map((c) => c.id)).toEqual(['a', 'b']);
+    expect(sessionView('s1').shuffle).toBeNull();
+  });
+});
+
+describe('sessionView', () => {
+  it('reads the four per-section fields, with defaults for an untouched section', () => {
+    expect(sessionView('s1')).toEqual({
+      search: '',
+      showArch: false,
+      shuffle: null,
+      collapsed: false,
+    });
+    session.search['s1'] = 'beta';
+    session.showArch['s1'] = true;
+    session.collapsed['s1'] = true;
+    session.shuf['s1'] = ['b', 'a'];
+    expect(sessionView('s1')).toEqual({
+      search: 'beta',
+      showArch: true,
+      shuffle: ['b', 'a'],
+      collapsed: true,
+    });
   });
 });
 
 describe('resetSession', () => {
-  it('wipes all four maps', () => {
+  it('wipes all five maps', () => {
     session.shuf['s1'] = ['a'];
     session.search['s1'] = 'q';
     session.showArch['s1'] = true;
+    session.collapsed['s1'] = true;
     session.live['c1'] = { rate: 80 };
     resetSession();
     expect(session.shuf).toEqual({});
     expect(session.search).toEqual({});
     expect(session.showArch).toEqual({});
+    expect(session.collapsed).toEqual({});
     expect(session.live).toEqual({});
   });
 });

@@ -7,6 +7,7 @@
   import Stage from './lib/components/Stage.svelte';
   import Factory from './lib/components/Factory.svelte';
   import SealModal from './lib/components/SealModal.svelte';
+  import ShortcutHelp from './lib/components/ShortcutHelp.svelte';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -56,7 +57,8 @@
     canRedo,
     type HistSnapshot,
   } from './lib/history.svelte';
-  import { handleAppKey, type KeyCtx } from './lib/keyboard';
+  import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from './lib/keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
@@ -76,7 +78,7 @@
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
-  import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
+  import { session, sessionView, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
@@ -178,6 +180,51 @@
   let selProd: string | null = $state(null);
   // Session-picked variety for the open product; drops stamp this (v1 90:94), else the default.
   let selVariety: Variety | null = $state(null);
+
+  // Study cursor + its shortcut overlay: session-transient, never persisted, never undoable.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
+
+  // Reading this derived is what arms the effect: a mode switch or a notebook swap drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
+  const studyOrderIds = $derived(
+    $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
+  );
+
+  // A filter, a search, a collapse or an archive swap can pull the focused card off the page under
+  // the cursor; when that happens the cursor goes with it rather than acting on what nobody sees.
+  $effect(() => {
+    if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
+  });
+
+  /** The focused card — null unless the cursor is on a card the reader can actually see. */
+  function focusedStudyCard(): Card | null {
+    if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
+    return findCard(notebook, studyFocus) ?? null;
+  }
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyOrderIds, studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = focusedStudyCard();
+    if (!card) return;
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
 
   function selectSection(id: string | null) {
     selSection = id;
@@ -784,9 +831,12 @@
     let zoomLevel = 1;
     function handleKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
-      const inField =
-        !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      const inField = isFieldTarget(el);
       const cur = get(place);
+      const focusedCard = focusedStudyCard();
+      const surfaces = focusedCard
+        ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+        : NO_SURFACES;
       const ctx: KeyCtx = {
         inField,
         // CeText owns bare-Enter blur for single-line fields; the window handler never re-does it.
@@ -799,6 +849,13 @@
         selProd,
         sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
         cardIdsOfSelectedSection: sectionCardsOf(selCard),
+        studyFocus,
+        focusedFlipCapable: surfaces.flip,
+        focusedChoiceOptions: surfaces.choiceOptions,
+        focusedCanSubmit: surfaces.canSubmit,
+        focusedCanTick: surfaces.canTick,
+        targetInteractive: isInteractiveTarget(el),
+        helpOpen,
       };
       const action = handleAppKey(e, ctx);
       if (!action) return;
@@ -848,6 +905,23 @@
           toast(`zoom ${Math.round(zoomLevel * 100)}%`);
           break;
         }
+        case 'study-focus-step':
+          moveStudyFocus(action.delta);
+          break;
+        case 'study-focus-clear':
+          studyFocus = null;
+          break;
+        case 'study-flip':
+        case 'study-submit':
+        case 'study-tick':
+          applyStudyKey(e.key);
+          break;
+        case 'study-choice':
+          applyStudyKey(String(action.digit));
+          break;
+        case 'study-help':
+          helpOpen = !helpOpen;
+          break;
       }
     }
     window.addEventListener('keydown', handleKey);
@@ -1028,6 +1102,7 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -1071,6 +1146,8 @@
         pushHistory();
         addSection(notebook);
       }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
 {/snippet}
 
@@ -1150,6 +1227,10 @@
   title={sideCollapsed ? 'show the panel' : 'hide the panel'}
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
+
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
 
 {#if sealBench}
   <SealModal
@@ -1273,5 +1354,9 @@
   .add-section {
     width: 100%;
     padding: 8px;
+  }
+  .kb-hint {
+    padding: 4px 2px;
+    opacity: 0.6;
   }
 </style>
