@@ -123,6 +123,23 @@ export function templateSlot(s: Slot): SlotTemplate {
   };
 }
 
+/**
+ * Builtin ids that existed before the seeded-builtins ledger was introduced.
+ * A DB that has card types but no ledger preference was seeded from exactly
+ * this set, so treating it as the ledger keeps old deletions deleted while
+ * still letting every later builtin seed itself on next launch.
+ */
+export const LEGACY_SEEDED_BUILTINS: readonly string[] = [
+  'ct_flashcard', 'ct_quiz', 'ct_note', 'ct_tracker', 'ct_mastery',
+  'ct_sliderlab', 'ct_gaussian', 'ct_payoff', 'ct_compound', 'ct_quizcard',
+];
+
+/** Builtins absent from the seeded ledger — what a boot still needs to seed. */
+export function unseededBuiltins(seededIds: Iterable<string>): CardType[] {
+  const seen = new Set(seededIds);
+  return builtinCardTypes.filter((b) => !seen.has(b.id));
+}
+
 export const builtinCardTypes: CardType[] = [
   { id: 'ct_flashcard', name: 'Flashcard', store: 'practice', accent: '#6ea8fe', w: 6,
     verbs: { flip: true },

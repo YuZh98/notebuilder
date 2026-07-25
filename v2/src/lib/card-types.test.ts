@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES, templateSlot, stampSlot } from './card-types';
+import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES, templateSlot, stampSlot, LEGACY_SEEDED_BUILTINS, unseededBuiltins } from './card-types';
 import type { CardType } from './card-types';
 import { getSlot } from './slots/registry';
 import type { Card } from './types';
@@ -243,5 +243,19 @@ describe('slot width survives sealing and stamping (E)', () => {
     const t = templateSlot({ id: 'sl1', type: 'text', props: {} });
     expect('w' in t).toBe(false);
     expect('w' in stampSlot(t)).toBe(false);
+  });
+});
+
+describe('unseededBuiltins', () => {
+  it('returns only builtins missing from the ledger', () => {
+    const fresh = unseededBuiltins(LEGACY_SEEDED_BUILTINS);
+    expect(fresh.map((b) => b.id)).toEqual(['ct_cheatsheet', 'ct_ironfly', 'ct_codecard']);
+  });
+  it('returns nothing when every builtin is in the ledger', () => {
+    expect(unseededBuiltins(builtinCardTypes.map((b) => b.id))).toEqual([]);
+  });
+  it('legacy ledger covers no ids that are not real builtins', () => {
+    const ids = new Set(builtinCardTypes.map((b) => b.id));
+    for (const id of LEGACY_SEEDED_BUILTINS) expect(ids.has(id)).toBe(true);
   });
 });

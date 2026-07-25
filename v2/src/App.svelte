@@ -40,7 +40,7 @@
     setPreference,
   } from './lib/db';
   import { uid } from './lib/uid';
-  import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, LEGACY_SEEDED_BUILTINS, unseededBuiltins, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, typeToBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
   import {
@@ -753,12 +753,21 @@
         readerState = await loadReaderState();
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
-        // Seed built-in card types once; after that the DB is the source of truth.
+        // Seed built-in card types the DB has never seen; the ledger preference
+        // remembers what was seeded so user deletions of builtins stay deleted.
         const types = await listCardTypes();
         if (types.length === 0) {
           for (const ct of builtinCardTypes) await saveCardType(ct);
+          await setPreference('seeded_builtins', JSON.stringify(builtinCardTypes.map((b) => b.id)));
         } else {
-          cardTypes = types;
+          const raw = await getPreference('seeded_builtins');
+          const seeded: string[] = raw ? JSON.parse(raw) : [...LEGACY_SEEDED_BUILTINS];
+          const fresh = unseededBuiltins(seeded);
+          for (const ct of fresh) await saveCardType(ct);
+          cardTypes = [...types, ...fresh];
+          if (fresh.length || !raw) {
+            await setPreference('seeded_builtins', JSON.stringify([...seeded, ...fresh.map((b) => b.id)]));
+          }
         }
       })();
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
