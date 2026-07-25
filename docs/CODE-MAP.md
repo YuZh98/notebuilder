@@ -350,8 +350,9 @@ CardType = { id, name, description?, verbs?, slots: SlotTemplate[], back?, accen
 **Same invariants as v1:**
 - Variables are **card-scoped** (front + back share one scope, never cross card boundaries).
 - Study state: document (exported) · progress (persisted locally, never exported) · **session**
-  (`session.svelte.ts` — shuffle/search/archive-view plus `session.live`, the per-card control
-  values keyed by variable name; wiped on every Study entry, never persisted).
+  (`session.svelte.ts` — shuffle/search/archive-view/collapse plus `session.live`, the per-card
+  control values keyed by variable name; never persisted. Entering Study wipes shuffle and live;
+  search, archive view and collapse survive until the notebook changes).
 - A slot declares which layer its Study writes belong to via `SlotType.stateLayer`
   (`'progress'` default → readerState by slot id; `'session'` → `session.live` by variable name —
   slider is the one session-layer slot).
@@ -434,7 +435,8 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 - **Card-scoped variables** — reads/writes never cross card boundaries. `findGraphIssues` enforces.
 - **SlotType contract** — every slot type must declare `variables()` and provide both render components.
 - **SQLite parameterized queries** — no string interpolation of user data in SQL.
-- **Session state (`session.svelte.ts`)** is never persisted or exported — mode/notebook switches reset it.
+- **Session state (`session.svelte.ts`)** is never persisted or exported — entering Study wipes
+  shuffle and live, and switching notebooks wipes all of it (`resetSession`).
 - **`folded` is local-only** — never included in JSON export (fold state is per-reader).
 - **Tauri-guard pattern** — `isTauri()` gates all native calls so lib modules run in unit tests.
 - **Structural immutability of placed cards** — slot add/remove only in the Factory bench; placed cards
