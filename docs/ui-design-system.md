@@ -1,9 +1,9 @@
 # UI design system
 
-Every visual constant in NoteBuilder v2 is a CSS custom property declared in one place:
-the `:root` block at the top of [`v2/src/app.css`](../v2/src/app.css). This page describes the
-token families, the rule that keeps them authoritative, the escape hatch when a value genuinely
-cannot be a token, and the honest state of adoption today.
+The rule in NoteBuilder v2 is that every visual constant is a CSS custom property declared in
+one place: the `:root` block at the top of [`v2/src/app.css`](../v2/src/app.css). This page
+describes the token families, the rule that keeps them authoritative, the escape hatch when a
+value genuinely cannot be a token, and the honest state of adoption today.
 
 ## Why tokens at all
 
@@ -26,17 +26,19 @@ All of these are declared once, in `:root` in `v2/src/app.css`.
 |---|---|---|
 | Colour and surface | `--bg`, `--panel`, `--panel2`, `--ink`, `--muted`, `--line`, `--accent`, `--accent2`, `--good`, `--warn` | per theme |
 | Shape | `--radius` | per theme (14px in the default) |
-| Type family | `--font`, `--mono` | per theme; `--mono` defaults to a system mono stack |
+| Type family | `--font`, `--mono` | `--font` per theme; `--mono` fixed (a system mono stack) |
 | Elevation | `--glow` | per theme |
 | Spacing | `--space-1` … `--space-6` | 2, 4, 6, 8, 10, 12px |
 | Type roles | `--fs-2xs`, `--fs-xs`, `--fs-sm`, `--fs-md`, `--fs-lg` | 10, 11, 12, 13, 16px |
 | Inner radii | `--radius-sm`, `--radius-md`, `--radius-lg` | 4, 6, 10px |
 | Motion | `--t-quick`, `--t-base`, `--t-slow`, `--ease-out` | 0.12s, 0.15s, 0.35s, `cubic-bezier(0.2, 0.8, 0.2, 1)` |
 
-The split in that table is the important part. The first four families are theme surface: every
-theme redefines them. The last four are structure: they are declared exactly once, in `:root`,
-and no theme block touches them. The inner radii exist precisely so that small chrome corners
-stay put while the theme swapped `--radius` changes the shape of panels around them.
+The split in that table is the important part. The first four are theme surface: every theme
+redefines the colour and surface tokens and `--radius`; five also swap `--glow` and `--font`.
+`--mono` is declared once and no theme swaps it. The last four families are structure: they are
+declared exactly once, in `:root`, and no theme block touches them. The inner radii exist
+precisely so that small chrome corners stay put while the theme swapped `--radius` changes the
+shape of panels around them.
 
 ## Theming
 

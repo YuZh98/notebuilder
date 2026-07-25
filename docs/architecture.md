@@ -5,9 +5,9 @@ fine grained file by file map, see Part B of [`CODE-MAP.md`](CODE-MAP.md); this 
 repeat it.
 
 v2 is a Svelte 5 (runes) plus TypeScript front end running inside a Tauri 2 Rust shell, backed
-by SQLite. The versions are pinned in [`v2/package.json`](../v2/package.json): `svelte` 5.34.7,
-`vite` 6.3.5, `typescript` 5.8.3, and the `@tauri-apps/*` packages including
-`@tauri-apps/plugin-sql` 2.4.0.
+by SQLite. [`v2/package.json`](../v2/package.json) pins the toolchain to exact versions
+(`svelte` 5.34.7, `vite` 6.3.5, `typescript` 5.8.3, `@tauri-apps/plugin-sql` 2.4.0) and takes
+the remaining `@tauri-apps/*` packages on caret ranges.
 
 ## The layer split
 
@@ -21,8 +21,8 @@ Every slot type ships exactly two components, one for Edit and one for Study.
 where the actual behaviour lives: the variable graph, the expression evaluator, import and
 export, tags, progress, history, markdown, keyboard routing, services. Only three modules in
 the whole library reach for the native shell: `db.ts`, `share.ts` and `print.ts` are the only
-files under `v2/src/lib/` that import `@tauri-apps/*`. Everything else runs unchanged in a
-browser, in the Reader bundle, and in Node tests.
+non-test files under `v2/src/lib/` that import `@tauri-apps/*`. Everything else runs unchanged
+in a browser, in the Reader bundle, and in Node tests.
 
 **Slot registry (`v2/src/lib/slots/registry.ts`, `v2/src/lib/slot-contract.ts`).** A slot type
 is a value implementing the `SlotType` interface: a `type` string, a `kind`
@@ -31,7 +31,8 @@ props, `variables(props)` declaring reads and writes, optional `evaluate`, `isDo
 `validate` and `migrate`, and the two Svelte components. `registry.ts` keeps a `Map` from type
 string to slot type and registers eleven of them at module load: text, slider, compute, chart,
 code, image, table, text-input, choice, list, progress. Adding a twelfth means writing one file
-and one `registerSlot` call; nothing else in the app enumerates slot types by hand.
+and one `registerSlot` call; nothing else needs registering (a hand kept icon map in
+`CardView.svelte` falls back to a default glyph).
 (`slots/plot.ts` is not a slot type. It is the SVG plotting helper `ChartStudy.svelte` uses.)
 
 **Tauri shell (`v2/src-tauri/`).** `src/lib.rs` builds the Tauri app: it registers the log,
