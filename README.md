@@ -122,7 +122,7 @@ The long-form guides:
 
 ```text
 v2/src/lib/slots/      slot primitives: one Edit + one Study component per slot, one contract
-v2/src/lib/drag/       a single pointer-based drag engine; no native HTML5 drag anywhere
+v2/src/lib/drag/       a single pointer-based drag engine for notebook and study surfaces; the Factory inventory chips still use native HTML5 drag
 v2/src/lib/            variable graph, history, tags, import/export, themes, markdown
 v2/src-tauri/          Rust shell: SQLite (migrations in lib.rs), native print, dialogs
 ```
@@ -130,7 +130,7 @@ v2/src-tauri/          Rust shell: SQLite (migrations in lib.rs), native print, 
 - **State layers.** Document state persists and exports; reader state (answers, ticks, progress) persists locally and never exports; session state is transient. The separation is what makes a shared file safe to open.
 - **Migrations always.** A persisted-shape change ships a SQLite migration; an interchange change bumps the JSON schema version and ships an import migration. Old files keep loading.
 - **Security posture.** No `eval` on user content; formulas run through a small own-keys-only expression evaluator. All user text is escaped before markdown or KaTeX markup is applied. Parameterized SQL throughout. See [SECURITY.md](SECURITY.md).
-- **Guard tests.** Source-level sweep tests lock invariants: no props mutation in Edit components, no native drag, Reader/App prop parity. Regressions fail loudly.
+- **Guard tests.** Source-level sweep tests lock invariants: no props mutation in Edit components, no native drag outside the Factory inventory chips, Reader/App prop parity. Regressions fail loudly.
 
 Architecture map: [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Product spec: [`docs/spec/v2-spec.md`](docs/spec/v2-spec.md). Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 

@@ -40,4 +40,4 @@ literal. A literal that genuinely cannot be a token must carry a trailing
   Reader `.html` with the same payload embedded.
 
 Two rules worth knowing before editing: variables are **card-scoped** (never cross a card boundary),
-and every drag rides the **one pointer engine** in `src/lib/drag/` — no native HTML5 drag anywhere.
+and the **one pointer engine** in `src/lib/drag/` drives every notebook and study surface; the Factory inventory chips still use native HTML5 drag.
