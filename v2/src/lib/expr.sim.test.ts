@@ -105,6 +105,33 @@ function print(z: Node): string {
   }
 }
 
+/** The precedence table, verbatim from expr.ts. */
+const PR: Record<string, number> = {
+  '||': 1, '&&': 2, '==': 3, '!=': 3, '<': 4, '<=': 4, '>': 4, '>=': 4,
+  '+': 5, '-': 5, '*': 6, '/': 6, '%': 6, '//': 6, '^': 7,
+};
+
+/**
+ * Rebuild the tree expr.ts's parser would produce for a flat `atom op atom ...`
+ * chain — a mirror of its precedence climb, including `^` binding right.
+ */
+function climb(atoms: Node[], ops: string[]): Node {
+  let a = 0;
+  let o = 0;
+  const ex = (m: number): Node => {
+    let L = atoms[a++];
+    for (;;) {
+      const op = ops[o];
+      if (op === undefined || PR[op] < m) break;
+      o++;
+      const R = ex(op === '^' ? PR[op] : PR[op] + 1);
+      L = { k: 'bin', o: op, l: L, r: R };
+    }
+    return L;
+  };
+  return ex(0);
+}
+
 function genNode(r: Rng, depth: number): Node {
   if (depth <= 0) {
     return r.bool(0.5) ? { k: 'lit', v: r.pick(LITERALS) } : { k: 'id', v: r.pick(IDS) };
@@ -160,6 +187,22 @@ describe.each(SEEDS)('evalExpr simulation (seed %i)', (seed) => {
       const scope = genScope(r);
       const src = print(node);
       const expected = evalNode(node, scope);
+      const actual = evalExpr(src, scope);
+      expect(same(actual, expected), `seed ${seed} case ${c}: ${src} -> ${actual} != ${expected}`).toBe(true);
+    }
+  });
+
+  it('honours the precedence table on unparenthesised chains', () => {
+    const r = makeRng(seed);
+    for (let c = 0; c < CASES; c++) {
+      const n = r.between(2, 6);
+      const atoms: Node[] = Array.from({ length: n }, () =>
+        r.bool(0.5) ? { k: 'lit', v: r.pick(LITERALS) } : { k: 'id', v: r.pick(IDS) },
+      );
+      const ops = Array.from({ length: n - 1 }, () => r.pick([...BIN, ...LOGIC]));
+      const src = atoms.map(print).reduce((s, a, i) => (i === 0 ? a : `${s} ${ops[i - 1]} ${a}`), '');
+      const scope = genScope(r);
+      const expected = evalNode(climb(atoms, ops), scope);
       const actual = evalExpr(src, scope);
       expect(same(actual, expected), `seed ${seed} case ${c}: ${src} -> ${actual} != ${expected}`).toBe(true);
     }

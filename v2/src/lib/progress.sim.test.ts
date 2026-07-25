@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasCompletableSlot } from './card-done';
+import { hasCompletableSlot, isCardDone } from './card-done';
 import { chapterOf } from './notebook-ops';
 import { computeProgress, progressScopeCards } from './progress';
 import { completionSequence, genNotebook, resetSimIds, TAG_POOL } from './sim-notebook';
@@ -60,22 +60,28 @@ describe.each(SEEDS)('progress simulation (seed %i)', (seed) => {
     const r = makeRng(seed);
     for (let c = 0; c < CASES; c++) {
       const nb = genNotebook(r, OPTS);
-      const steps = completionSequence(r, allCards(nb));
-      const state = steps[r.int(steps.length)];
+      const cards = allCards(nb);
+      const steps = completionSequence(r, cards);
       const where = `seed ${seed} case ${c}`;
 
+      // Scope membership is structural — it holds once, for every section.
       for (const section of nb.sections) {
-        const inSection = progressScopeCards(nb, section, 'section');
-        expect(inSection, `${where} section scope`).toEqual(section.cards);
-        expect(computeProgress(inSection, state).total, `${where} section total`).toBe(
-          countable(section.cards).length,
-        );
+        expect(progressScopeCards(nb, section, 'section'), `${where} section scope`).toEqual(section.cards);
+        expect(progressScopeCards(nb, section, 'notebook'), `${where} notebook scope`).toEqual(cards);
+      }
 
-        const inNotebook = progressScopeCards(nb, section, 'notebook');
-        expect(inNotebook, `${where} notebook scope`).toEqual(allCards(nb));
-        expect(computeProgress(inNotebook, state).total, `${where} notebook total`).toBe(
-          countable(allCards(nb)).length,
-        );
+      // The counts are state-dependent, so they are checked at every step.
+      const scopes = [...nb.sections.map((s) => s.cards), cards];
+      for (let i = 0; i < steps.length; i++) {
+        const state = steps[i];
+        for (const scope of scopes) {
+          const p = computeProgress(scope, state);
+          const counted = countable(scope);
+          expect(p.total, `${where} step ${i} total`).toBe(counted.length);
+          expect(p.done, `${where} step ${i} done`).toBe(
+            counted.filter((card) => isCardDone(card, state[card.id] ?? {})).length,
+          );
+        }
       }
     }
   });
