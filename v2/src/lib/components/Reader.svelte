@@ -36,6 +36,8 @@
     type HistSnapshot,
   } from '../history.svelte';
   import { handleAppKey, type KeyCtx } from '../keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, isFlipCapable } from '../study-keys';
+  import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
   import { clampSideW } from '../shell';
@@ -91,6 +93,10 @@
   let selCard: string | null = $state(null);
   let selProd: string | null = $state(null);
   let selVariety: Variety | null = $state(null);
+
+  // Study cursor + its shortcut overlay: session-transient, exactly as in the app.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
 
   let mtxRow: MatrixAxis | null = $state(null);
   let mtxCol: MatrixAxis | null = $state(null);
@@ -149,6 +155,30 @@
     };
   });
 
+  // Reading this derived is what arms the effect: a mode switch or an import drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyCards(notebook), studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = studyFocus ? findCard(notebook, studyFocus) : null;
+    if (!card) return;
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
+
   function sectionCardsOf(cardId: string | null): string[] {
     if (!cardId) return [];
     for (const s of notebook.sections) {
@@ -174,6 +204,9 @@
       selProd,
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
+      studyFocus,
+      focusedFlipCapable: isFlipCapable(studyFocus ? findCard(notebook, studyFocus) : null),
+      helpOpen,
     };
     const action = handleAppKey(e, ctx);
     if (!action) return;
@@ -216,6 +249,23 @@
         break;
       case 'blur-single-line':
         el?.blur();
+        break;
+      case 'study-focus-step':
+        moveStudyFocus(action.delta);
+        break;
+      case 'study-focus-clear':
+        studyFocus = null;
+        break;
+      case 'study-flip':
+      case 'study-submit':
+      case 'study-tick':
+        applyStudyKey(e.key);
+        break;
+      case 'study-choice':
+        applyStudyKey(String(action.digit));
+        break;
+      case 'study-help':
+        helpOpen = !helpOpen;
         break;
     }
   }
@@ -745,6 +795,7 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -770,6 +821,8 @@
 {#snippet stageFooter()}
   {#if $mode === 'edit'}
     <button class="add-section" onclick={() => { pushHistory(); addSection(notebook); }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
 {/snippet}
 
@@ -833,6 +886,10 @@
   title={sideCollapsed ? 'show the panel' : 'hide the panel'}
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
+
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
 
 <MdBar />
 <Toast />
@@ -936,5 +993,9 @@
   .add-section {
     width: 100%;
     padding: var(--space-4);
+  }
+  .kb-hint {
+    padding: var(--space-2) var(--space-1);
+    opacity: 0.6;
   }
 </style>

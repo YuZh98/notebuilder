@@ -1425,6 +1425,16 @@ body[data-theme] .room.edit .furn.bare {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.3);
 }
+/* Study keyboard cursor. `.sel` is the Edit-mode selection and stays edit-only, so the cursor
+   carries its own ring: the outline reads under every theme (themes may restyle the halo away). */
+.furn.kfocus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow:
+    inset 3px 0 0 var(--cardc),
+    var(--glow),
+    0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .furn .grip {
   position: absolute;
   top: 6px;

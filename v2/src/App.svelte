@@ -7,6 +7,7 @@
   import Stage from './lib/components/Stage.svelte';
   import Factory from './lib/components/Factory.svelte';
   import SealModal from './lib/components/SealModal.svelte';
+  import ShortcutHelp from './lib/components/ShortcutHelp.svelte';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -57,6 +58,7 @@
     type HistSnapshot,
   } from './lib/history.svelte';
   import { handleAppKey, type KeyCtx } from './lib/keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, isFlipCapable } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
@@ -178,6 +180,34 @@
   let selProd: string | null = $state(null);
   // Session-picked variety for the open product; drops stamp this (v1 90:94), else the default.
   let selVariety: Variety | null = $state(null);
+
+  // Study cursor + its shortcut overlay: session-transient, never persisted, never undoable.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
+
+  // Reading this derived is what arms the effect: a mode switch or a notebook swap drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyCards(notebook), studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = studyFocus ? findCard(notebook, studyFocus) : null;
+    if (!card) return;
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
 
   function selectSection(id: string | null) {
     selSection = id;
@@ -799,6 +829,9 @@
         selProd,
         sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
         cardIdsOfSelectedSection: sectionCardsOf(selCard),
+        studyFocus,
+        focusedFlipCapable: isFlipCapable(studyFocus ? findCard(notebook, studyFocus) : null),
+        helpOpen,
       };
       const action = handleAppKey(e, ctx);
       if (!action) return;
@@ -848,6 +881,23 @@
           toast(`zoom ${Math.round(zoomLevel * 100)}%`);
           break;
         }
+        case 'study-focus-step':
+          moveStudyFocus(action.delta);
+          break;
+        case 'study-focus-clear':
+          studyFocus = null;
+          break;
+        case 'study-flip':
+        case 'study-submit':
+        case 'study-tick':
+          applyStudyKey(e.key);
+          break;
+        case 'study-choice':
+          applyStudyKey(String(action.digit));
+          break;
+        case 'study-help':
+          helpOpen = !helpOpen;
+          break;
       }
     }
     window.addEventListener('keydown', handleKey);
@@ -1028,6 +1078,7 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -1071,6 +1122,8 @@
         pushHistory();
         addSection(notebook);
       }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
 {/snippet}
 
@@ -1150,6 +1203,10 @@
   title={sideCollapsed ? 'show the panel' : 'hide the panel'}
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
+
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
 
 {#if sealBench}
   <SealModal
@@ -1273,5 +1330,9 @@
   .add-section {
     width: 100%;
     padding: 8px;
+  }
+  .kb-hint {
+    padding: 4px 2px;
+    opacity: 0.6;
   }
 </style>
