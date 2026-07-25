@@ -17,8 +17,16 @@ function ctx(over: Partial<KeyCtx> = {}): KeyCtx {
     selProd: null,
     sectionIds: [],
     cardIdsOfSelectedSection: [],
+    studyFocus: null,
+    focusedFlipCapable: false,
+    helpOpen: false,
     ...over,
   };
+}
+
+/** Study context with a cursor already on a card. */
+function studying(over: Partial<KeyCtx> = {}): KeyCtx {
+  return ctx({ mode: 'study', studyFocus: 'c1', ...over });
 }
 
 describe('handleAppKey — bare Enter blurs single-line ce fields (v1 120:6)', () => {
@@ -234,5 +242,154 @@ describe('handleAppKey — zoom', () => {
     expect(handleAppKey(key('='), ctx())).toBeNull();
     expect(handleAppKey(key('-'), ctx())).toBeNull();
     expect(handleAppKey(key('0'), ctx())).toBeNull();
+  });
+});
+
+describe('handleAppKey — study cursor movement (v0.3.0 keyboard-first Study)', () => {
+  it('j / ArrowRight step forward, k / ArrowLeft step back', () => {
+    for (const k of ['j', 'ArrowRight']) {
+      expect(handleAppKey(key(k), studying()), k).toEqual({
+        kind: 'study-focus-step',
+        delta: 1,
+        preventDefault: true,
+      });
+    }
+    for (const k of ['k', 'ArrowLeft']) {
+      expect(handleAppKey(key(k), studying()), k).toEqual({
+        kind: 'study-focus-step',
+        delta: -1,
+        preventDefault: true,
+      });
+    }
+  });
+
+  it('steps with no cursor yet — the first j starts the session', () => {
+    expect(handleAppKey(key('j'), ctx({ mode: 'study' }))).toEqual({
+      kind: 'study-focus-step',
+      delta: 1,
+      preventDefault: true,
+    });
+  });
+
+  it('Escape clears the cursor before its Edit-mode meanings', () => {
+    expect(handleAppKey(key('Escape'), studying({ filterActive: true, selProd: 'p1' }))).toEqual({
+      kind: 'study-focus-clear',
+      preventDefault: false,
+    });
+  });
+
+  it('Escape with no cursor falls through to the filter/selection meanings', () => {
+    expect(handleAppKey(key('Escape'), ctx({ mode: 'study', filterActive: true }))!.kind).toBe(
+      'clear-filter',
+    );
+  });
+});
+
+describe('handleAppKey — study card keys', () => {
+  it('f flips a flip-capable card', () => {
+    expect(handleAppKey(key('f'), studying({ focusedFlipCapable: true }))).toEqual({
+      kind: 'study-flip',
+      preventDefault: true,
+    });
+  });
+
+  it('Space flips a flip-capable card', () => {
+    expect(handleAppKey(key(' '), studying({ focusedFlipCapable: true }))).toEqual({
+      kind: 'study-flip',
+      preventDefault: true,
+    });
+  });
+
+  it('Space falls through to native scroll when the card cannot flip', () => {
+    expect(handleAppKey(key(' '), studying())).toBeNull();
+    expect(handleAppKey(key('f'), studying())).toBeNull();
+  });
+
+  it('1-9 carry the digit; 0 is unbound', () => {
+    expect(handleAppKey(key('1'), studying())).toEqual({
+      kind: 'study-choice',
+      digit: 1,
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('9'), studying())!).toEqual({
+      kind: 'study-choice',
+      digit: 9,
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('0'), studying())).toBeNull();
+  });
+
+  it('Enter submits and x ticks', () => {
+    expect(handleAppKey(key('Enter'), studying())).toEqual({
+      kind: 'study-submit',
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('x'), studying())).toEqual({
+      kind: 'study-tick',
+      preventDefault: true,
+    });
+  });
+
+  it('card keys are inert with no cursor', () => {
+    const none = ctx({ mode: 'study', focusedFlipCapable: true });
+    for (const k of [' ', 'f', 'x', '1', 'Enter']) {
+      expect(handleAppKey(key(k), none), k).toBeNull();
+    }
+  });
+
+  it('Cmd/Ctrl+Enter still toggles mode rather than submitting', () => {
+    expect(handleAppKey(key('Enter', { metaKey: true }), studying())!.kind).toBe('toggle-mode');
+  });
+
+  it('modifier combos never reach the study bindings', () => {
+    expect(handleAppKey(key('j', { metaKey: true }), studying())).toBeNull();
+    expect(handleAppKey(key('x', { ctrlKey: true }), studying())).toBeNull();
+  });
+});
+
+describe('handleAppKey — shortcut overlay', () => {
+  it('? toggles it open and closed', () => {
+    expect(handleAppKey(key('?', { shiftKey: true }), ctx({ mode: 'study' }))).toEqual({
+      kind: 'study-help',
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('?'), studying({ helpOpen: true }))!.kind).toBe('study-help');
+  });
+
+  it('Escape closes the overlay before it touches the cursor', () => {
+    expect(handleAppKey(key('Escape'), studying({ helpOpen: true }))).toEqual({
+      kind: 'study-help',
+      preventDefault: true,
+    });
+  });
+});
+
+describe('handleAppKey — study bindings are Edit-mode and field inert', () => {
+  it('every study key is unbound in Edit mode', () => {
+    const edit = ctx({ studyFocus: 'c1', focusedFlipCapable: true, helpOpen: true });
+    for (const k of ['j', 'k', ' ', 'f', 'x', '1', '?', 'Enter']) {
+      expect(handleAppKey(key(k), edit), k).toBeNull();
+    }
+  });
+
+  it('Edit-mode ArrowLeft/Right still move the card selection, not the cursor', () => {
+    expect(
+      handleAppKey(key('ArrowRight'), ctx({ selCard: 'c1', cardIdsOfSelectedSection: ['c1', 'c2'] })),
+    ).toEqual({ kind: 'select-card', id: 'c2', preventDefault: true });
+  });
+
+  it('the factory has no study cursor (its stage shows benches, not the notebook)', () => {
+    const fac = studying({ place: 'factory', focusedFlipCapable: true });
+    for (const k of ['j', 'k', ' ', 'x', '1', '?']) {
+      expect(handleAppKey(key(k), fac), k).toBeNull();
+    }
+  });
+
+  it('study keys are swallowed inside a text field', () => {
+    const field = studying({ inField: true, focusedFlipCapable: true });
+    for (const k of ['j', 'k', ' ', 'x', '1', '?']) {
+      expect(handleAppKey(key(k), field), k).toBeNull();
+    }
+    expect(handleAppKey(key('Escape'), field)!.kind).toBe('abort-or-blur');
   });
 });

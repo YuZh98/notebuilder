@@ -22,6 +22,12 @@ export type KeyCtx = {
   sectionIds: string[];
   /** Card ids of the section containing the selected card (ArrowLeft/Right nav). */
   cardIdsOfSelectedSection: string[];
+  /** Study cursor: the keyboard-focused card id, or null when the session has no cursor yet. */
+  studyFocus: string | null;
+  /** The focused card can flip — Space only flips (and only preventDefaults) when it can. */
+  focusedFlipCapable: boolean;
+  /** The shortcut overlay is open — `?` and Escape close it before anything else. */
+  helpOpen: boolean;
 };
 
 export type KeyAction =
@@ -35,7 +41,14 @@ export type KeyAction =
   | { kind: 'select-card'; id: string; preventDefault: boolean }
   | { kind: 'toggle-mode'; preventDefault: boolean }
   | { kind: 'blur-single-line'; preventDefault: boolean }
-  | { kind: 'zoom'; delta: 1 | -1 | 0; preventDefault: boolean };
+  | { kind: 'zoom'; delta: 1 | -1 | 0; preventDefault: boolean }
+  | { kind: 'study-focus-step'; delta: 1 | -1; preventDefault: boolean }
+  | { kind: 'study-focus-clear'; preventDefault: boolean }
+  | { kind: 'study-flip'; preventDefault: boolean }
+  | { kind: 'study-choice'; digit: number; preventDefault: boolean }
+  | { kind: 'study-submit'; preventDefault: boolean }
+  | { kind: 'study-tick'; preventDefault: boolean }
+  | { kind: 'study-help'; preventDefault: boolean };
 
 function step(ids: string[], current: string, delta: number): string | null {
   const i = ids.indexOf(current);
@@ -79,6 +92,34 @@ export function handleAppKey(e: KeyboardEventLike, ctx: KeyCtx): KeyAction | nul
   if (ctx.inField) {
     if (e.key === 'Escape') return { kind: 'abort-or-blur', preventDefault: true };
     return null;
+  }
+  // Keyboard-first Study (v0.3.0): the study cursor owns the bare-key namespace while studying —
+  // Edit mode never sees these bindings. Escape peels one layer at a time: overlay, then cursor,
+  // then the Edit-mode meanings below.
+  if (ctx.mode === 'study' && ctx.place === 'house' && !mod) {
+    if (e.key === '?' || (ctx.helpOpen && e.key === 'Escape')) {
+      return { kind: 'study-help', preventDefault: true };
+    }
+    if (e.key === 'Escape' && ctx.studyFocus) {
+      return { kind: 'study-focus-clear', preventDefault: false };
+    }
+    if (e.key === 'j' || e.key === 'ArrowRight') {
+      return { kind: 'study-focus-step', delta: 1, preventDefault: true };
+    }
+    if (e.key === 'k' || e.key === 'ArrowLeft') {
+      return { kind: 'study-focus-step', delta: -1, preventDefault: true };
+    }
+    if (ctx.studyFocus) {
+      // Space stays native scroll unless the focused card actually flips.
+      if (e.key === 'f' || e.key === ' ') {
+        return ctx.focusedFlipCapable ? { kind: 'study-flip', preventDefault: true } : null;
+      }
+      if (e.key === 'Enter') return { kind: 'study-submit', preventDefault: true };
+      if (e.key === 'x') return { kind: 'study-tick', preventDefault: true };
+      if (/^[1-9]$/.test(e.key)) {
+        return { kind: 'study-choice', digit: Number(e.key), preventDefault: true };
+      }
+    }
   }
   // Escape outside a field: clear the matrix filter, else clear selection (v1 120:15).
   if (e.key === 'Escape') {
