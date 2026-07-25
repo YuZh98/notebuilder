@@ -1,13 +1,15 @@
 # NoteBuilder
 
 [![CI](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-1202-brightgreen)](v2/)
+[![Tests](https://img.shields.io/badge/tests-1367-brightgreen)](v2/)
 [![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](v2/package.json)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](v2/src-tauri/)
 [![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)](v2/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Study material that does something. Build notebooks from reactive cards, drill them in Study mode, and hand them to anyone as a single offline file.**
+
+Drag a slider, and the formula, the prose, and the chart in that card recompute together; export the notebook and those same live cards keep running inside one offline `.html` file, where nothing the reader answers ever comes back to you.
 
 NoteBuilder is a local-first macOS desktop app. Your notebooks live in a local SQLite database. No account, no cloud, no backend.
 
@@ -46,21 +48,19 @@ npm run tauri dev
 
 That is the full desktop app, with SQLite persistence and native print. `npm run tauri build` produces an app bundle. For UI work without the native shell, `npm run dev` serves the app in a browser with a demo notebook (persistence no-ops there).
 
-First thing to try: import an example from [`docs/examples/`](docs/examples/) with the **⤒** button and hit **Study**.
+To package that build as a macOS disk image and install it like any other app, follow [`docs/install-macos.md`](docs/install-macos.md).
+
+First thing to try: import [`grand-tour.json`](docs/examples/grand-tour.json) with the **⤒** button and hit **Study**. It is a rocket mission that puts every slot type to work in one notebook. The rest of the examples live in [`docs/examples/`](docs/examples/).
 
 ## How it works
 
 ### Cards are built from slots
 
-A card is a small stack of primitives arranged on a 12-column grid: text, slider, formula, chart, choice, table, code, image, checklist, progress. Slots in the same card share variables and react to each other. Variables are strictly card-scoped; dependencies resolve by topological sort, and cycles or missing writers are caught at import. Nothing leaks across cards.
+A card is a small stack of primitives arranged on a 12-column grid: text, slider, formula, chart, choice, table, text input, code, image, checklist, progress. Slots in the same card share variables and react to each other. Variables are strictly card-scoped; dependencies resolve by topological sort, and cycles or missing writers are caught at import. Nothing leaks across cards.
 
 ### Edit and Study are hard-separated
 
 Edit shows structure and configuration. Study *is* the rendered, interactive result. `Cmd+Enter` flips between them. There is no half-live preview to fight with; Study mode is the preview.
-
-![Edit mode: the same compound-interest notebook as slot configuration fields, with the tags, section ops, and card-type store in the sidebar](docs/screenshots/v0.2.0/edit-mode.png)
-
-*The same notebook in Edit mode: every slot becomes its configuration fields, and the sidebar holds tags, section operations, and the card-type store.*
 
 ### The Factory stamps card types
 
@@ -70,9 +70,11 @@ Design a slot arrangement once, seal it as a card type, then stamp independent c
 
 Export a notebook as JSON for another NoteBuilder, or as a self-contained Reader `.html` that opens in any browser, offline. The recipient reads and interacts; their quiz answers and progress stay on their machine. A shared file carries only that notebook, never the rest of your library.
 
-![A shared Reader file open in a plain browser: locked chrome with only a Remix button, quiz unanswered because reader state starts fresh](docs/screenshots/v0.2.0/reader.png)
+### The two ends of a notebook
 
-*A shared `.html` open in a plain browser: authoring chrome is gone, a single **Remix** unlocks editing, and the quiz is unanswered because the reader's state is their own.*
+| ![Edit mode: the same compound-interest notebook as slot configuration fields, with the tags, section ops, and card-type store in the sidebar](docs/screenshots/v0.2.0/edit-mode.png) | ![A shared Reader file open in a plain browser: locked chrome with only a Remix button, quiz unanswered because reader state starts fresh](docs/screenshots/v0.2.0/reader.png) |
+| --- | --- |
+| *Edit mode: every slot becomes its configuration fields, and the sidebar holds tags, section operations, and the card-type store.* | *The shared `.html` in a plain browser: authoring chrome is gone, a single **Remix** unlocks editing, and the quiz is unanswered because the reader's state is their own.* |
 
 ### And the comforts
 
@@ -82,9 +84,26 @@ Full undo/redo, drag-and-drop everything (cards, slots, tags, services), tags wi
 
 *The [`regression-drill`](docs/examples/regression-drill.json) example mid-study: the quiz has been answered and explains itself, two checklist items are done, and the notebook-wide progress meter sits at 2/4.*
 
+## Where your data lives
+
+One SQLite file in your own account, written by the app itself:
+
+```text
+~/Library/Application Support/com.notebuilder.app/
+└── notebuilder.db     notebooks, card types, tags, reader state, preferences
+```
+
+SQLite keeps its own `notebuilder.db-wal` and `notebuilder.db-shm` companion files next to it, so the folder shows three names for one database. Delete the database and NoteBuilder starts empty. Everything else NoteBuilder writes is a file you asked it to export, saved where you pointed the dialog. Run `npm run dev` in a browser instead of the desktop app and there is no database at all; the demo notebook lives only in memory.
+
 ## Built to last
 
-1202 tests across 87 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
+1367 tests across 91 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
+
+The long-form guides:
+
+- [Architecture](docs/architecture.md): the v2 layer split, where your data lives at runtime, and the two build targets.
+- [UI design system](docs/ui-design-system.md): the `app.css` design tokens, theming, and the rule that keeps them authoritative.
+- [Interchange format](docs/interchange-format.md): the version 2 notebook JSON, slot by slot, with a worked example.
 
 <details>
 <summary><strong>Engineering deep-dive</strong></summary>

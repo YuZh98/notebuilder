@@ -180,7 +180,7 @@
         type="color"
         value={b.accent || '#6ea8fe'}
         title="custom colour"
-        style="width:26px;height:26px;padding:0;border-radius:6px"
+        style="width:26px;height:26px;padding:0;border-radius:var(--radius-md); /* token-exempt: 26px square sizes the native colour swatch */"
         onchange={(e) => setColor(e.currentTarget.value)}
       />
     </div>

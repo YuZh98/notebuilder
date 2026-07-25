@@ -1,5 +1,16 @@
 # Contributing to NoteBuilder
 
+## Scope
+
+NoteBuilder is one repo, two apps: the **v1 prototype** at the root (frozen, bug fixes only) and the
+**v2 product** in `v2/` (Svelte 5 + TypeScript + Tauri 2, active development).
+
+In scope: v2 app quality, interchange/Reader fidelity, tests, and docs accuracy.
+
+Out of scope: anything that adds a network call, telemetry, or an account system (NoteBuilder is
+local-first and stays that way); changes to the v1 root beyond bug fixes; features not grounded in an
+open issue.
+
 Thanks for helping. Active development happens in **`v2/`** (Svelte 5 + TypeScript + Tauri 2); the
 repository root is the legacy single-file prototype, kept building but not evolving.
 

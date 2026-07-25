@@ -142,7 +142,7 @@
       <div
         class="mtx"
         bind:this={mtxEl}
-        style="grid-template-columns:minmax(80px,auto) repeat({cols.length},minmax(42px,1fr))"
+        style="grid-template-columns:minmax(80px,auto) repeat({cols.length},minmax(42px,1fr)); /* token-exempt: matrix grid track floors, not spacing steps */"
       >
         <button
           class="mtx-c mtx-corner"

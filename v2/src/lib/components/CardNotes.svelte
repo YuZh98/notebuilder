@@ -45,19 +45,19 @@
 
 <style>
   .notes {
-    margin-top: 10px;
-    padding-top: 8px;
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
     border-top: 1px dashed var(--line);
-    font-size: 13px;
+    font-size: var(--fs-md);
   }
   .note {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 4px;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--accent, #7c3aed) 8%, transparent);
-    margin-bottom: 6px;
+    margin-bottom: var(--space-3);
   }
   .note p {
     flex: 1;
@@ -68,13 +68,13 @@
   .note .del {
     background: none;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     line-height: 1;
     opacity: 0.55;
-    padding: 3px 6px;
+    padding: 3px var(--space-3); /* token-exempt: 3px sits off the 2px scale; snapping it would resize the hit area */
   }
   .note:hover .del,
   .note .del:focus-visible {
@@ -86,7 +86,7 @@
   }
   .composer {
     display: flex;
-    gap: 8px;
+    gap: var(--space-4);
     align-items: flex-end;
   }
   textarea {
@@ -94,20 +94,20 @@
     background: var(--bg);
     color: inherit;
     border: 1px solid var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font: inherit;
-    font-size: 12px;
-    padding: 6px 8px;
+    font-size: var(--fs-sm);
+    padding: var(--space-3) var(--space-4);
     resize: vertical;
   }
   .composer button {
     background: none;
     border: 1px solid var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
-    padding: 4px 10px;
+    font-size: var(--fs-sm);
+    padding: var(--space-2) var(--space-5);
   }
   .composer button:not(:disabled):hover {
     border-color: var(--accent, #7c3aed);

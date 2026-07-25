@@ -15,6 +15,32 @@
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   --glow: 0 0 0 1px rgba(110, 168, 254, 0);
+
+  /* spacing scale (2px step — the grid the ported v1 chrome is actually built on) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+
+  /* type roles */
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 16px;
+
+  /* inner-chrome radii — unlike --radius these are fixed, themes do NOT swap them */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* motion */
+  --t-quick: 0.12s;
+  --t-base: 0.15s;
+  --t-slow: 0.35s;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 body[data-theme="plain"] {
   --bg: #f6f7f9;
@@ -158,7 +184,7 @@ body[data-theme="mono"] .furn::before {
   background: var(--accent);
   transform: scaleY(0);
   transform-origin: top;
-  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--t-slow) var(--ease-out);
 }
 body[data-theme="mono"] .furn:hover::before {
   transform: scaleY(1);
@@ -1260,7 +1286,7 @@ body.side-collapsed #main {
   box-shadow:
     inset 3px 0 0 var(--cardc),
     var(--glow);
-  transition: flex-basis 0.12s ease;
+  transition: flex-basis var(--t-quick) ease;
 }
 .furn.dragging {
   transition: none;
@@ -1310,7 +1336,7 @@ body[data-theme] .room.edit .furn.bare {
   font-size: 13px;
   user-select: none;
   opacity: 0;
-  transition: 0.15s;
+  transition: var(--t-base);
 }
 .furn:hover .grip {
   opacity: 0.8;
@@ -1445,7 +1471,7 @@ body[data-theme] .room.edit .furn.bare {
   /* hidden row still hit-tests (opacity<1 stacks above the positioned .grip) and would
      swallow the grip's pointerdown, killing card drag — dead to the pointer until revealed */
   pointer-events: none;
-  transition: 0.15s;
+  transition: var(--t-base);
 }
 .furn:hover .cardtools,
 .cardtools:focus-within {
@@ -1652,7 +1678,7 @@ body[data-theme] .room.edit .furn.bare {
   position: relative;
   min-height: 46px;
   cursor: pointer;
-  transition: flex-basis 0.12s ease;
+  transition: flex-basis var(--t-quick) ease;
 }
 .benchslot.dragging {
   transition: none;
@@ -1817,8 +1843,8 @@ body[data-theme] .room.edit .furn.bare {
   overflow: hidden;
   text-overflow: ellipsis;
   transition:
-    background 0.12s,
-    color 0.12s,
+    background var(--t-quick),
+    color var(--t-quick),
     transform 0.08s;
 }
 .mtx-c:hover {

@@ -142,7 +142,7 @@
     {/each}
   {/each}
 
-  <div class="row" style="margin-top:10px">
+  <div class="row" style="margin-top:var(--space-5)">
     <b class="sm">Live preview</b>
     <span class="spacer"></span>
     <div class="palette">
@@ -161,23 +161,25 @@
   </div>
 
   {#if ct.varieties?.length}
-    <div class="kv" style="margin-top:6px">
+    <div class="kv" style="margin-top:var(--space-3)">
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label>Variety</label>
-      <span class="palette" style="display:inline-flex;gap:4px">
+      <span class="palette" style="display:inline-flex;gap:var(--space-2)">
         {#each ct.varieties as v (v.name)}
           <button
             class="chip"
             class:on={variety?.name === v.name}
             data-variety={v.name}
-            style={v.accent ? `box-shadow:inset 3px 0 0 ${v.accent}` : ''}
+            style={v.accent
+              ? /* token-exempt: 3px repeats the app.css .furn accent stripe width */ `box-shadow:inset 3px 0 0 ${v.accent}`
+              : ''}
             onclick={() => pickVariety(v)}>{v.name}</button>
         {/each}
       </span>
     </div>
   {/if}
 
-  <div style="margin-top:8px">
+  <div style="margin-top:var(--space-4)">
     <button class="btn primary" data-act="placeprod" onclick={place}>＋ Place</button>
     <span class="muted sm">adds to the current section</span>
   </div>

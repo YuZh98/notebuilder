@@ -69,7 +69,7 @@
   </h4>
   {#if !folded}
     {#if tags.length > 0}
-      <div class="palette tag-grid" style="margin:6px 0">
+      <div class="palette tag-grid" style="margin:var(--space-3) 0">
         {#each tags as tag (tag)}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <span
@@ -98,7 +98,7 @@
         {/each}
       </div>
     {:else}
-      <div class="muted sm" style="margin:6px 0">none yet</div>
+      <div class="muted sm" style="margin:var(--space-3) 0">none yet</div>
     {/if}
     <div class="row tag-add">
       <input
@@ -117,16 +117,16 @@
   .tagchip {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-1);
     cursor: grab;
   }
   .taginput {
     background: transparent;
     border: none;
     color: inherit;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     width: auto;
-    padding: 0 2px;
+    padding: 0 var(--space-1);
   }
   .taginput:disabled {
     opacity: 0.7;
@@ -136,17 +136,17 @@
     border: none;
     color: inherit;
     cursor: pointer;
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     opacity: 0.5;
-    padding: 0 2px;
+    padding: 0 var(--space-1);
   }
   .tagx:hover {
     opacity: 1;
   }
   .tag-add {
     display: flex;
-    gap: 6px;
-    margin-top: 6px;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
   }
   .tag-add input {
     flex: 1;

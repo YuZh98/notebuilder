@@ -1,0 +1,558 @@
+{
+  "version": 2,
+  "notebook": {
+    "name": "The Grand Tour",
+    "subtitle": "Every NoteBuilder slot, one rocket mission",
+    "cats": [
+      "learn",
+      "play",
+      "drill",
+      "check"
+    ],
+    "sections": [
+      {
+        "name": "Part I · Ignition",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Welcome Aboard",
+        "title": "Welcome aboard",
+        "subtitle": "This notebook teaches NoteBuilder by using every slot type on itself.",
+        "cards": [
+          {
+            "tags": [
+              "learn"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "## Your mission\n\nBy the end of this tour you will have **launched a rocket**, and along the way met **all eleven slot types** and most of the tricks that make them interesting: shared variables, hidden slots that unlock, flashcards with backs, quizzes that grade themselves, and a progress meter that only moves when *you* do.\n\nA card is a 12-column grid of **slots**. This paragraph is a `text` slot: GitHub-flavored markdown plus KaTeX, inline like $\\Delta v = v_e \\ln R$ or displayed:\n\n$$\\Delta v = v_e \\ln\\!\\left(\\frac{m_0}{m_f}\\right)$$\n\nThat is the Tsiolkovsky rocket equation, and it is the engine of this whole notebook.\n\n> **Tip:** `Cmd+Enter` flips between **Edit** and **Study**. Everything below is meant to be *used* in Study mode — and taken apart in Edit mode. Peeking behind the curtain is the point."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "learn"
+            ],
+            "accent": "#e4572e",
+            "slots": [
+              {
+                "type": "image",
+                "props": {
+                  "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNjAgMjAwIj48cmVjdCB3aWR0aD0iMTYwIiBoZWlnaHQ9IjIwMCIgcng9IjEyIiBmaWxsPSIjMGIxMDI2Ii8+PGNpcmNsZSBjeD0iMTI4IiBjeT0iMzIiIHI9IjEwIiBmaWxsPSIjZjVlNjYzIi8+PGNpcmNsZSBjeD0iMzAiIGN5PSIxNTAiIHI9IjEuNiIgZmlsbD0iI2ZmZiIvPjxjaXJjbGUgY3g9IjUyIiBjeT0iMjQiIHI9IjEuMyIgZmlsbD0iI2ZmZiIvPjxjaXJjbGUgY3g9IjE0MCIgY3k9IjEyMCIgcj0iMS40IiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iMjAiIGN5PSI2MCIgcj0iMS4yIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iMTA1IiBjeT0iMTcwIiByPSIxLjUiIGZpbGw9IiNmZmYiLz48Y2lyY2xlIGN4PSI3MCIgY3k9IjE4NSIgcj0iMS4xIiBmaWxsPSIjZmZmIi8+PGcgdHJhbnNmb3JtPSJyb3RhdGUoMjAgODAgMTAwKSI+PHBhdGggZD0iTTgwIDMwIEM5NSA1NSA5NSA5NSA5MCAxMjAgTDcwIDEyMCBDNjUgOTUgNjUgNTUgODAgMzAgWiIgZmlsbD0iI2U4ZTRkYyIvPjxwYXRoIGQ9Ik04MCAzMCBDODcgNDIgOTEgNTUgOTIgNjggTDY4IDY4IEM2OSA1NSA3MyA0MiA4MCAzMCBaIiBmaWxsPSIjZTQ1NzJlIi8+PGNpcmNsZSBjeD0iODAiIGN5PSI4NSIgcj0iOSIgZmlsbD0iIzJhM2Q2NiIgc3Ryb2tlPSIjOWZiNGQ4IiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNNzAgMTA1IEw1NiAxMzAgTDcwIDEyMiBaIiBmaWxsPSIjZTQ1NzJlIi8+PHBhdGggZD0iTTkwIDEwNSBMMTA0IDEzMCBMOTAgMTIyIFoiIGZpbGw9IiNlNDU3MmUiLz48cGF0aCBkPSJNNzQgMTIyIEw4MCAxNDggTDg2IDEyMiBaIiBmaWxsPSIjZjVhNjIzIi8+PHBhdGggZD0iTTc3IDEyMiBMODAgMTM2IEw4MyAxMjIgWiIgZmlsbD0iI2Y1ZTY2MyIvPjwvZz48L3N2Zz4K",
+                  "alt": "A small orange-finned rocket climbing across a starfield"
+                },
+                "w": 4
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Meet `image` — and the grid\n\nOn your left: an `image` slot. It takes a `data:` URI (this rocket is an inline SVG, so the notebook stays a single self-contained file), an `https:` URL, or a local file.\n\nNotice the layout: the image is **4 columns** wide and this text is **8**. Any slot can claim a width `w` on the card's 12-column grid, so slots sit side by side and form little dashboards.\n\nThis card also has an **accent color** — the stripe you're seeing is set per card, one hex value."
+                },
+                "w": 8
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Part II · The Reactive Core",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "The Δv Lab",
+        "title": "The Δv lab",
+        "subtitle": "Sliders write, computes derive, prose quotes the numbers, charts move. One card, one scope.",
+        "cards": [
+          {
+            "tags": [
+              "learn"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### How a reactive card works\n\nInside a single card, slots share **variables**. Some slots *write* them, some *derive* new ones, some just *read*. NoteBuilder resolves the dependency graph by topological sort — cycles and missing writers are caught at import, so a card can never wedge itself.\n\nThe next card is a working launch console:\n\n- two `slider` slots **write** $v_e$ (exhaust velocity) and $R$ (mass ratio),\n- two `compute` slots **derive** your $\\Delta v$ and your margin against Earth escape,\n- a `text` slot **quotes** the live values mid-sentence,\n- a `chart` slot **replots** itself on every drag.\n\nAnd one more thing: the card hides a **secret slot**. It reveals itself only when your $\\Delta v$ reaches **11.2 km/s** — Earth escape velocity. Go earn it."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "play"
+            ],
+            "slots": [
+              {
+                "type": "slider",
+                "props": {
+                  "key": "ve",
+                  "value": 3,
+                  "min": 1,
+                  "max": 5,
+                  "step": 0.1
+                },
+                "w": 6,
+                "verbs": {
+                  "hint": {
+                    "content": "Real engines for scale: kerosene/LOX ≈ 3.0 km/s, hydrogen/LOX ≈ 4.4 km/s. `ve` is exhaust velocity."
+                  }
+                }
+              },
+              {
+                "type": "slider",
+                "props": {
+                  "key": "R",
+                  "value": 4,
+                  "min": 2,
+                  "max": 15,
+                  "step": 0.5
+                },
+                "w": 6,
+                "verbs": {
+                  "hint": {
+                    "content": "`R` is the mass ratio: full rocket over empty rocket. R = 15 means 14 parts fuel for every 1 part rocket."
+                  }
+                }
+              },
+              {
+                "type": "compute",
+                "props": {
+                  "expr": "round(ve * log(R) * 10) / 10",
+                  "out": "dv",
+                  "note": "Your Δv (km/s):"
+                },
+                "w": 6
+              },
+              {
+                "type": "compute",
+                "props": {
+                  "expr": "round((ve * log(R) - 11.2) * 10) / 10",
+                  "out": "margin",
+                  "note": "Margin vs Earth escape (km/s):"
+                },
+                "w": 6
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "Right now your rocket manages **{{dv}} km/s**. Earth escape costs **11.2 km/s**, so your margin is **{{margin}} km/s**. This sentence is an ordinary `text` slot — the `{{dv}}` and `{{margin}}` templates re-render on every drag."
+                }
+              },
+              {
+                "type": "chart",
+                "props": {
+                  "fn": "ve * log(x)",
+                  "label": "Δv as a function of mass ratio R, at your current engine",
+                  "x0": 1,
+                  "x1": 15,
+                  "y0": 0,
+                  "y1": 14,
+                  "xticks": 7,
+                  "yticks": 7,
+                  "hover": true
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "🌍 → 🌌 **ESCAPE VELOCITY REACHED.** You are leaving Earth.\n\nThis slot was here the whole time, carrying a `reveal` verb: *show me only when* `dv >= 11.2`. Reveal conditions read the same card scope as everything else — use them for spoilers, staged hints, or little rewards like this one."
+                },
+                "verbs": {
+                  "reveal": {
+                    "key": "dv",
+                    "op": ">=",
+                    "val": 11.2
+                  },
+                  "glow": true,
+                  "emphasis": true
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "learn"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### What you just used\n\nDid you notice $\\Delta v$ grows with the **logarithm** of $R$? Piling on fuel helps less and less — the curve bends over. That one insight is why rockets have stages, and you got it by *dragging*, not by reading a paragraph three times.\n\nVariables are strictly **card-scoped**: `ve`, `R`, `dv`, `margin` exist only inside the console card above. Nothing leaks between cards, so every card is a self-contained little machine you can rearrange freely.\n\nAlso: both sliders carry a **hint** verb — the small marker next to them hides real-world engine numbers. Hints are for context you want available but not shouting."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Part III · Drill & Debrief",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "Flip School",
+        "title": "Flip school",
+        "subtitle": "A flashcard is just a card with a back.",
+        "cards": [
+          {
+            "tags": [
+              "drill"
+            ],
+            "verbs": {
+              "flip": true
+            },
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Q.** You double your rocket's mass ratio $R$. Why doesn't your $\\Delta v$ double?\n\n*Think, then flip the card.*"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**A.** Because $\\Delta v = v_e \\ln R$, and the logarithm is a flattery-proof function: doubling $R$ only *adds* $v_e \\ln 2 \\approx 0.69\\,v_e$."
+                }
+              },
+              {
+                "type": "list",
+                "props": {
+                  "items": [
+                    "Fuel also has to lift fuel — that's the whole tragedy.",
+                    "Gains come from better engines ($v_e$) or staging, not just bigger tanks.",
+                    "A card back can hold **several slots** — this checklist-style list slot is riding along with the answer."
+                  ],
+                  "style": "bullets"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "drill"
+            ],
+            "verbs": {
+              "flip": true
+            },
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Q.** Meta-question about the app itself: a slider *writes* a variable, a compute *derives* one, a chart *reads* them. What stops a card from computing in circles forever?"
+                }
+              }
+            ],
+            "back": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "**A.** The variable graph is resolved by **topological sort**, and a cycle (or a read with no writer) is caught **at import time**: a cycle refuses to load, a read with no writer loads with a warning, rather than either one spinning at runtime."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Check Yourself",
+        "title": "Check yourself",
+        "subtitle": "Interactive slots remember the reader — never the author.",
+        "cards": [
+          {
+            "tags": [
+              "check"
+            ],
+            "slots": [
+              {
+                "type": "choice",
+                "props": {
+                  "q": "Your rocket has $v_e = 3$ km/s and mass ratio $R = e^2 \\approx 7.4$. What is your $\\Delta v$?",
+                  "options": [
+                    "3 km/s",
+                    "6 km/s",
+                    "9 km/s",
+                    "11.2 km/s"
+                  ],
+                  "answer": [
+                    1
+                  ],
+                  "multi": false,
+                  "explanation": "$\\Delta v = v_e \\ln R = 3 \\times \\ln(e^2) = 3 \\times 2 = 6$ km/s. This `choice` slot grades itself and shows this explanation either way — right or wrong."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "check"
+            ],
+            "slots": [
+              {
+                "type": "choice",
+                "props": {
+                  "q": "Which slot types can **write** a variable into a card's scope? *(select all that apply — this is a multi-select `choice`)*",
+                  "options": [
+                    "`slider` — the reader drags a value in",
+                    "`compute` — its `out` becomes a new variable",
+                    "`chart` — it plots the function",
+                    "`text` — it quotes `{{variables}}`"
+                  ],
+                  "answer": [
+                    0,
+                    1
+                  ],
+                  "multi": true,
+                  "explanation": "Sliders and computes are the writers. Charts and text templates are pure readers — they react but never feed back."
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "check"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Flight log — `text-input`\n\nIn one or two sentences: what would you *build* with a reactive card? A `text-input` slot collects free-form words and counts toward progress once you've written something."
+                }
+              },
+              {
+                "type": "text-input",
+                "props": {
+                  "placeholder": "Commander's log, stardate today…"
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "✅ Logged. Notice this confirmation only appeared **after** you wrote — it carries a `sequential` verb, which keeps a slot hidden until every completable slot above it is done. And your words live in **reader state**: export this notebook and the file stays clean of them."
+                },
+                "verbs": {
+                  "sequential": true
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "check"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Pre-flight checklist — `list`, style `check`\n\nA `list` slot has three styles: bullets (you met one on a flashcard back), numbered (waiting in the last section), and **check** — where every tick is the reader's own progress."
+                }
+              },
+              {
+                "type": "list",
+                "props": {
+                  "items": [
+                    "Dragged a slider and watched prose + chart react",
+                    "Unlocked the hidden escape-velocity slot",
+                    "Flipped both flashcards in Flip School",
+                    "Answered both quizzes (single and multi-select)",
+                    "Wrote a flight log entry"
+                  ],
+                  "style": "check"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "check"
+            ],
+            "accent": "#2a9d8f",
+            "slots": [
+              {
+                "type": "progress",
+                "props": {
+                  "scope": "notebook",
+                  "label": "Mission completion",
+                  "show": {
+                    "mn": true,
+                    "pct": true,
+                    "bar": true
+                  }
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "The `progress` slot counts every **completable** slot in its scope — here, the whole notebook: quizzes answered, checklists fully ticked, logs written. It can also scope to a single section or chapter. Nothing here moves because the author says so; it moves because *you* did the work."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Part IV · Under the Hood",
+        "kind": "divider",
+        "cards": []
+      },
+      {
+        "name": "The Reference Deck",
+        "title": "The reference deck",
+        "subtitle": "The tour, documented by itself.",
+        "cards": [
+          {
+            "tags": [
+              "learn"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### All eleven slots — a `table` slot, tabling itself\n\nEvery row below is a slot type; every one of them appears live somewhere in this notebook. (Yes, including this table.)"
+                }
+              },
+              {
+                "type": "table",
+                "props": {
+                  "rows": [
+                    [
+                      "Slot",
+                      "Kind",
+                      "What it does",
+                      "Where you met it"
+                    ],
+                    [
+                      "`text`",
+                      "write",
+                      "Markdown + KaTeX prose; reads `{{vars}}`",
+                      "Everywhere"
+                    ],
+                    [
+                      "`image`",
+                      "write",
+                      "Picture from data/https/file URI",
+                      "The rocket, Part I"
+                    ],
+                    [
+                      "`slider`",
+                      "interact",
+                      "Writes a number into card scope",
+                      "$v_e$ and $R$, the Δv lab"
+                    ],
+                    [
+                      "`compute`",
+                      "compute",
+                      "Derives a value from an expression",
+                      "`dv` and `margin`"
+                    ],
+                    [
+                      "`chart`",
+                      "compute",
+                      "Plots `f(x)` over live variables",
+                      "Δv vs mass ratio"
+                    ],
+                    [
+                      "`choice`",
+                      "interact",
+                      "Self-grading quiz, single or multi",
+                      "Check Yourself"
+                    ],
+                    [
+                      "`text-input`",
+                      "interact",
+                      "Free-form reader entry",
+                      "The flight log"
+                    ],
+                    [
+                      "`list`",
+                      "write",
+                      "Bullets / numbered / check styles",
+                      "Flashcard back + checklist"
+                    ],
+                    [
+                      "`table`",
+                      "write",
+                      "Rows and columns of markdown",
+                      "You are reading it"
+                    ],
+                    [
+                      "`code`",
+                      "write",
+                      "Syntax-highlighted code block",
+                      "Next card down"
+                    ],
+                    [
+                      "`progress`",
+                      "track",
+                      "Counts completables in a scope",
+                      "Mission completion"
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "learn"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### The `code` slot — holding up a mirror\n\nEvery card in this notebook is just JSON. Here is (a trimmed version of) **the launch console you played with in Part II** — export this notebook with **⇩** and you'll find the real thing:"
+                }
+              },
+              {
+                "type": "code",
+                "props": {
+                  "lang": "json",
+                  "code": "{\n  \"tags\": [\"play\"],\n  \"slots\": [\n    { \"type\": \"slider\",\n      \"props\": { \"key\": \"ve\", \"value\": 3, \"min\": 1, \"max\": 5, \"step\": 0.1 },\n      \"w\": 6 },\n    { \"type\": \"compute\",\n      \"props\": { \"expr\": \"round(ve * log(R) * 10) / 10\", \"out\": \"dv\" },\n      \"w\": 6 },\n    { \"type\": \"chart\",\n      \"props\": { \"fn\": \"ve * log(x)\", \"x0\": 1, \"x1\": 15 } },\n    { \"type\": \"text\",\n      \"props\": { \"text\": \"ESCAPE VELOCITY REACHED.\" },\n      \"verbs\": { \"reveal\": { \"key\": \"dv\", \"op\": \">=\", \"val\": 11.2 } } }\n  ]\n}"
+                }
+              }
+            ]
+          },
+          {
+            "tags": [
+              "learn"
+            ],
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "### Where to fly next"
+                }
+              },
+              {
+                "type": "list",
+                "props": {
+                  "items": [
+                    "**The Factory** — seal the Δv console as a card *type*, then stamp fresh copies into any notebook. Stamps are copies, never references.",
+                    "**Tags & coverage** — this notebook tags every card `learn`/`play`/`drill`/`check`; open the coverage matrix in Study to see the whole map at a glance.",
+                    "**Share it** — export as a Reader `.html`: one file, opens offline in any browser, your reader's ticks and answers stay on *their* machine.",
+                    "**Break it on purpose** — in Edit mode, point a compute at a variable nobody writes, and watch the import validator catch you."
+                  ],
+                  "style": "numbered"
+                }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "*End of tour. Eleven slots, six verbs, one rocket — and every trick in this file is now yours. `Cmd+Enter` and go build something.* 🚀"
+                },
+                "verbs": {
+                  "emphasis": true
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
