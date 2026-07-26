@@ -41,7 +41,7 @@
     setPreference,
   } from './lib/db';
   import { uid } from './lib/uid';
-  import { stampCard, placeType, cardToType, builtinCardTypes, LEGACY_SEEDED_BUILTINS, unseededBuiltins, STORES, type CardType, type Variety } from './lib/card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, LEGACY_SEEDED_BUILTINS, unseededBuiltins, parseSeededLedger, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, typeToBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
   import {
@@ -810,19 +810,22 @@
         for (const a of anns) annotations = addAnnotation(annotations, a);
         // Seed built-in card types the DB has never seen; the ledger preference
         // remembers what was seeded so user deletions of builtins stay deleted.
+        // A present ledger always wins over an empty table: a table emptied by
+        // deliberate deletion must not resurrect those deletions on next boot.
+        // Only a genuinely absent ledger falls back to "seed everything" (fresh
+        // install) or the pre-ledger legacy set (table already had rows).
         const types = await listCardTypes();
-        if (types.length === 0) {
-          for (const ct of builtinCardTypes) await saveCardType(ct);
-          await setPreference('seeded_builtins', JSON.stringify(builtinCardTypes.map((b) => b.id)));
-        } else {
+        try {
           const raw = await getPreference('seeded_builtins');
-          const seeded: string[] = raw ? JSON.parse(raw) : [...LEGACY_SEEDED_BUILTINS];
+          const seeded = raw ? parseSeededLedger(raw) : types.length === 0 ? [] : [...LEGACY_SEEDED_BUILTINS];
           const fresh = unseededBuiltins(seeded);
           for (const ct of fresh) await saveCardType(ct);
           cardTypes = [...types, ...fresh];
           if (fresh.length || !raw) {
             await setPreference('seeded_builtins', JSON.stringify([...seeded, ...fresh.map((b) => b.id)]));
           }
+        } catch {
+          cardTypes = types;
         }
       })();
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));

@@ -140,6 +140,21 @@ export function unseededBuiltins(seededIds: Iterable<string>): CardType[] {
   return builtinCardTypes.filter((b) => !seen.has(b.id));
 }
 
+/**
+ * Parse the seeded_builtins ledger preference. Garbage JSON or valid JSON of
+ * the wrong shape (a number, an object, an array of non-strings) falls back
+ * to the legacy set rather than throwing and aborting boot hydration.
+ */
+export function parseSeededLedger(raw: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')) return parsed;
+  } catch {
+    // garbage JSON: fall through to the legacy fallback below
+  }
+  return [...LEGACY_SEEDED_BUILTINS];
+}
+
 export const builtinCardTypes: CardType[] = [
   { id: 'ct_flashcard', name: 'Flashcard', store: 'practice', accent: '#6ea8fe', w: 6,
     verbs: { flip: true },
