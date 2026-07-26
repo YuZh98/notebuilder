@@ -61,6 +61,25 @@ export function highlightCode(code: string, lang?: string): CodeToken[] {
       i += str[0].length;
       continue;
     }
+    // Unterminated quote: the STRING regex above already tried and failed to
+    // find a closing quote, at O(remaining-line-length) cost. Left alone,
+    // every later quote char on the line would re-trigger that same scan —
+    // O(n) failures on an O(n)-length line is O(n^2). Terminate deterministically
+    // instead, in one step, so the rest of the line is never rescanned.
+    if (code[i] === '"' || code[i] === "'") {
+      flush();
+      let j = i + 1;
+      while (j < code.length && code[j] !== '\n') j += 1;
+      out.push({ text: code.slice(i, j), cls: 'str' });
+      i = j;
+      continue;
+    }
+    if (code[i] === '`') {
+      flush();
+      out.push({ text: code.slice(i), cls: 'str' });
+      i = code.length;
+      continue;
+    }
     NUMBER.lastIndex = i;
     const num = NUMBER.exec(code);
     if (num) {
