@@ -90,7 +90,8 @@
   import { startPointerDrag } from './lib/drag/engine';
   import { makeNotebookDropCallbacks } from './lib/drag/notebook-drop';
   import { makeFactoryDropCallbacks } from './lib/drag/factory-drop';
-  import { clampSideW, parseSideWidthPref } from './lib/shell';
+  import { parseSideWidthPref, sideWidthAt } from './lib/shell';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from './lib/zoom';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
@@ -273,13 +274,13 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) {
           sideW = startW;
         } else if (moved && !sideCollapsed) {
-          sideW = clampSideW(mv.clientX);
+          sideW = sideWidthAt(mv.clientX, effectiveZoom());
           if (isTauri()) void setPreference('side_width', String(sideW));
         } else {
           toggleSide();
@@ -907,12 +908,11 @@
         case 'blur-single-line':
           el?.blur();
           break;
-        case 'zoom': {
-          zoomLevel = action.delta === 0 ? 1 : Math.round(Math.min(2, Math.max(0.5, zoomLevel + action.delta * 0.1)) * 10) / 10;
-          (document.body.style as CSSStyleDeclaration & { zoom: string }).zoom = String(zoomLevel);
-          toast(`zoom ${Math.round(zoomLevel * 100)}%`);
+        case 'zoom':
+          zoomLevel = nextZoom(zoomLevel, action.delta);
+          applyZoom(zoomLevel);
+          toast(zoomLabel(zoomLevel));
           break;
-        }
         case 'study-focus-step':
           moveStudyFocus(action.delta);
           break;

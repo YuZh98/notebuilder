@@ -40,7 +40,8 @@
   import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
-  import { clampSideW } from '../shell';
+  import { sideWidthAt } from '../shell';
+  import { effectiveZoom } from '../zoom';
   import {
     addSection,
     addChapter,
@@ -394,11 +395,11 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) sideW = startW;
-        else if (moved && !sideCollapsed) sideW = clampSideW(mv.clientX);
+        else if (moved && !sideCollapsed) sideW = sideWidthAt(mv.clientX, effectiveZoom());
         else toggleSide();
       },
     );

@@ -1,0 +1,94 @@
+import { describe, it, expect, afterEach } from 'vitest';
+import { nextZoom, zoomLabel, applyZoom, effectiveZoom, toZoomedSpace } from './zoom';
+
+const zoomOf = (el: HTMLElement) => (el.style as CSSStyleDeclaration & { zoom?: string }).zoom;
+
+afterEach(() => {
+  applyZoom(1);
+});
+
+describe('nextZoom', () => {
+  it('steps by a tenth in each direction', () => {
+    expect(nextZoom(1, 1)).toBe(1.1);
+    expect(nextZoom(1, -1)).toBe(0.9);
+  });
+
+  it('resets to 1 on delta 0 whatever the current level', () => {
+    expect(nextZoom(0.5, 0)).toBe(1);
+    expect(nextZoom(2, 0)).toBe(1);
+  });
+
+  it('clamps to 0.5–2', () => {
+    expect(nextZoom(2, 1)).toBe(2);
+    expect(nextZoom(0.5, -1)).toBe(0.5);
+  });
+
+  it('stays on the tenths grid after repeated steps', () => {
+    let z = 1;
+    for (let i = 0; i < 7; i++) z = nextZoom(z, 1);
+    expect(z).toBe(1.7);
+    for (let i = 0; i < 12; i++) z = nextZoom(z, -1);
+    expect(z).toBe(0.5);
+  });
+});
+
+describe('zoomLabel', () => {
+  it('reads as a whole percentage', () => {
+    expect(zoomLabel(1)).toBe('zoom 100%');
+    expect(zoomLabel(1.5)).toBe('zoom 150%');
+    expect(zoomLabel(0.5)).toBe('zoom 50%');
+  });
+});
+
+describe('applyZoom / effectiveZoom', () => {
+  it('round-trips the level through the body style', () => {
+    applyZoom(1.5);
+    expect(zoomOf(document.body)).toBe('1.5');
+    expect(effectiveZoom()).toBe(1.5);
+  });
+
+  it('reads 1 from an untouched element', () => {
+    expect(effectiveZoom(document.createElement('div'))).toBe(1);
+  });
+
+  it('reads a percentage form', () => {
+    const el = document.createElement('div');
+    (el.style as CSSStyleDeclaration & { zoom?: string }).zoom = '150%';
+    expect(effectiveZoom(el)).toBe(1.5);
+  });
+
+  it('falls back to 1 for keywords, junk and non-positive values', () => {
+    const el = document.createElement('div');
+    const style = el.style as CSSStyleDeclaration & { zoom?: string };
+    for (const raw of ['normal', 'reset', 'nonsense', '0', '-1.5', 'NaN', '']) {
+      style.zoom = raw;
+      expect(effectiveZoom(el), `zoom: ${raw}`).toBe(1);
+    }
+  });
+
+  it('falls back to 1 when there is no element to read', () => {
+    expect(effectiveZoom(null)).toBe(1);
+  });
+});
+
+describe('toZoomedSpace', () => {
+  it('is the identity at zoom 1', () => {
+    expect(toZoomedSpace(300, 1)).toBe(300);
+  });
+
+  it('divides viewport pixels by the zoom factor', () => {
+    expect(toZoomedSpace(450, 1.5)).toBe(300);
+    expect(toZoomedSpace(1039 - 18, 1.5)).toBeCloseTo(680.67, 2);
+  });
+
+  it('round-trips: a written value renders back at the cursor', () => {
+    for (const zoom of [0.5, 0.8, 1, 1.3, 2]) {
+      expect(toZoomedSpace(742, zoom) * zoom).toBeCloseTo(742, 6);
+    }
+  });
+
+  it('leaves pixels alone for a nonsense factor rather than dividing by zero', () => {
+    expect(toZoomedSpace(300, 0)).toBe(300);
+    expect(toZoomedSpace(300, Number.NaN)).toBe(300);
+  });
+});

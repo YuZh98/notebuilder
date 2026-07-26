@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { startPointerDrag, isDragging, flipGrid, _setElementFromPoint } from './engine';
 import type { DragSource, EngineCallbacks } from './engine';
 import { dustState } from './dust.svelte';
+import { applyZoom } from '../zoom';
 
 // jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
 function pev(type: string, x: number, y = 0, init: MouseEventInit = {}): PointerEvent {
@@ -418,5 +419,50 @@ describe('flipGrid', () => {
     expect(x.style.transition).toBe('none');
     expect(y.style.transform).toBe(''); // same rect → untouched
     expect(p.style.transform).toBe(''); // placeholder excluded
+  });
+});
+
+// Under app zoom the fly is a fixed child of a zoomed <body>: a px it writes renders `zoom` times
+// bigger, while clientX/Y and client rects are already viewport px. Every such write divides.
+describe('zoomed space', () => {
+  afterEach(() => applyZoom(1));
+
+  it('positions the fly under the cursor at 150%', () => {
+    applyZoom(1.5);
+    const { a } = cardSetup();
+    startPointerDrag(cardSrc(a), pev('pointerdown', 0, 0), callbacks());
+    document.dispatchEvent(pev('pointermove', 1039, 500));
+    const f = fly();
+    // written × zoom is where it renders: 1039-18 across, 500-14 down.
+    expect(parseFloat(f?.style.left ?? '') * 1.5).toBeCloseTo(1021, 6);
+    expect(parseFloat(f?.style.top ?? '') * 1.5).toBeCloseTo(486, 6);
+  });
+
+  it('keeps the fly the same rendered width as the card it clones', () => {
+    applyZoom(1.5);
+    const { a } = cardSetup(); // a is stubbed 120px wide in viewport px
+    startPointerDrag(cardSrc(a), pev('pointerdown', 0, 0), callbacks());
+    document.dispatchEvent(pev('pointermove', 50, 50));
+    expect(parseFloat(fly()?.style.width ?? '') * 1.5).toBeCloseTo(120, 6);
+  });
+
+  it('glides FLIP children by the rendered distance, not 1.5× it', () => {
+    applyZoom(1.5);
+    const grid = document.createElement('div');
+    const x = mkFurn('x');
+    grid.append(x);
+    document.body.appendChild(grid);
+    stubRect(x, { left: 100, top: 0, width: 50, height: 20 });
+    flipGrid(grid, '.furn', () => stubRect(x, { left: 160, top: 30, width: 50, height: 20 }));
+    expect(x.style.transform).toBe('translate(-40px,-20px)'); // (-60,-30) viewport px ÷ 1.5
+  });
+
+  it('is unchanged at zoom 1', () => {
+    const { a } = cardSetup();
+    startPointerDrag(cardSrc(a), pev('pointerdown', 0, 0), callbacks());
+    document.dispatchEvent(pev('pointermove', 120, 20));
+    expect(fly()?.style.left).toBe('102px');
+    expect(fly()?.style.top).toBe('6px');
+    expect(fly()?.style.width).toBe('120px');
   });
 });
