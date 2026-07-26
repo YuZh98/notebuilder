@@ -58,8 +58,12 @@ describe('highlightCode', () => {
 
   it('keeps unterminated-string tokenization roughly linear (comparative, not absolute)', () => {
     const n = 20_000;
-    const benign = 'x = 1\n'.repeat(n / 6);
-    const pathological = '"'.repeat(n);
+    // Bare repeated quotes pair up as valid empty-string ("") tokens and never hit the slow
+    // path. The pathological shape is a quote whose every potential closer is itself escaped,
+    // so the string can never close: STRING keeps failing and rescanning to EOF at every
+    // quote position, which is exactly the O(n) failures x O(n) rescan the fix removes.
+    const pathological = '"' + '\\"'.repeat(n / 2);
+    const benign = 'x = 1\n'.repeat(Math.ceil(pathological.length / 6));
 
     const time = (fn: () => void) => {
       const t0 = performance.now();
@@ -74,6 +78,6 @@ describe('highlightCode', () => {
     const benignMs = time(() => highlightCode(benign, 'python'));
     const pathologicalMs = time(() => highlightCode(pathological, 'python'));
 
-    expect(pathologicalMs).toBeLessThan(Math.max(benignMs * 20, 50));
+    expect(pathologicalMs).toBeLessThan(Math.max(benignMs * 20, 5));
   });
 });
