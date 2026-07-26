@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { session, sessionView, shuffleSection, clearShuffle, resetSession } from './session.svelte';
+import { session, sessionView, shuffleSection, clearSectionView, resetSession } from './session.svelte';
 import type { Section, Card } from './types';
 
 function card(id: string): Card {
@@ -26,12 +26,30 @@ describe('shuffleSection', () => {
   });
 });
 
-describe('clearShuffle', () => {
+describe('clearSectionView', () => {
   it('drops the shuffle, so the view falls back to stored order', () => {
     session.shuf['s1'] = ['b', 'a'];
-    clearShuffle('s1');
+    clearSectionView('s1');
     expect(session.shuf['s1']).toBeUndefined();
     expect(sessionView('s1').shuffle).toBeNull();
+  });
+
+  it('drops the search filter, so a reset section is not still showing 1 card of 6', () => {
+    session.search['s1'] = 'beta';
+    clearSectionView('s1');
+    expect(sessionView('s1').search).toBe('');
+  });
+
+  it('touches only its own section, and leaves the archive view and collapse alone', () => {
+    session.shuf['s1'] = ['b', 'a'];
+    session.search['s1'] = 'beta';
+    session.search['s2'] = 'gamma';
+    session.showArch['s1'] = true;
+    session.collapsed['s1'] = true;
+    clearSectionView('s1');
+    expect(session.search['s2']).toBe('gamma');
+    expect(sessionView('s1').showArch).toBe(true);
+    expect(sessionView('s1').collapsed).toBe(true);
   });
 });
 

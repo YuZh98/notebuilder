@@ -39,6 +39,7 @@
   import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
   import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
+  import { revealCard } from '../card-reveal';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
   import { sideWidthAt } from '../shell';
   import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from '../zoom';
@@ -56,7 +57,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
-  import { session, sessionView, shuffleSection, clearShuffle } from '../session.svelte';
+  import { session, sessionView, shuffleSection, clearSectionView } from '../session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
@@ -549,8 +550,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -656,8 +657,10 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function stampFromGallery(sectionId: string, ct: CardType) {

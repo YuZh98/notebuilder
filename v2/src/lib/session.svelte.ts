@@ -47,9 +47,13 @@ export function shuffleSection(section: Section): void {
   session.shuf[section.id] = ids;
 }
 
-/** Drop a section's shuffle order, restoring stored card order. */
-export function clearShuffle(sectionId: string): void {
+/**
+ * Drop the view-only state the section's Reset restores: its shuffle order and its search filter.
+ * Leaving the search behind meant a reset section came back still showing 1 card of 6.
+ */
+export function clearSectionView(sectionId: string): void {
   delete session.shuf[sectionId];
+  delete session.search[sectionId];
 }
 
 /** Wipe all session study state (notebook switch / create). */

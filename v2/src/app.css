@@ -1375,6 +1375,11 @@ body.side-collapsed #main {
 /* ---------- ported: v1 card chrome — .furn, grip/rz, bare, sel, cardrow/cardslot (styles.css) ---------- */
 .furn {
   --cardc: var(--accent);
+  /* The study cursor ring, shared by the keyboard cursor and the place flash: a --bg gap and an
+     --ink halo either side of the accent outline that draws over them. */
+  --kring:
+    inset 3px 0 0 var(--cardc), var(--glow), 0 0 0 var(--space-2) var(--bg),
+    0 0 0 var(--space-4) color-mix(in srgb, var(--ink) 60%, transparent);
   flex: 0 0 calc((var(--w, 6) / 12) * 100% - 9px);
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1426,18 +1431,41 @@ body[data-theme] .room.edit .furn.bare {
   box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.3);
 }
 /* Study keyboard cursor. `.sel` is the Edit-mode selection and stays edit-only, so the cursor
-   carries its own two-layer ring: a --bg gap, the accent outline, then an --ink halo outside it.
-   The halo is what keeps the cursor apart from the accent-coloured .done border, which the single
-   accent ring read as in Dark and B&W. The `body` prefix outranks the theme blocks, which restyle
-   `.furn`'s box-shadow at a higher specificity and would otherwise drop the halo. */
+   carries its own two-layer ring (--kring above). The halo is what keeps the cursor apart from the
+   accent-coloured .done border, which the single accent ring read as in Dark and B&W. The `body`
+   prefix outranks the theme blocks, which restyle `.furn`'s box-shadow at a higher specificity and
+   would otherwise drop the halo. */
 body .furn.kfocus {
   outline: var(--space-1) solid var(--accent);
   outline-offset: var(--space-1);
-  box-shadow:
-    inset 3px 0 0 var(--cardc),
-    var(--glow),
-    0 0 0 var(--space-2) var(--bg),
-    0 0 0 var(--space-4) color-mix(in srgb, var(--ink) 60%, transparent);
+  box-shadow: var(--kring);
+}
+/* A card placed from the store lands at the end of its section, usually below the fold: the same
+   ring flashes on it so the reader sees where it arrived. */
+@keyframes kflash {
+  0%,
+  60% {
+    outline-color: var(--accent);
+    box-shadow: var(--kring);
+  }
+  100% {
+    outline-color: transparent;
+    box-shadow:
+      inset 3px 0 0 var(--cardc),
+      var(--glow);
+  }
+}
+body .furn.kflash {
+  outline: var(--space-1) solid var(--accent);
+  outline-offset: var(--space-1);
+  box-shadow: var(--kring);
+  animation: kflash calc(var(--t-slow) * 2) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The ring still appears and still clears with the class — it simply does not fade. */
+  body .furn.kflash {
+    animation: none;
+  }
 }
 .furn .grip {
   position: absolute;

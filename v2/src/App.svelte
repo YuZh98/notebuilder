@@ -60,6 +60,7 @@
   import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from './lib/keyboard';
   import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
+  import { revealCard } from './lib/card-reveal';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
@@ -78,7 +79,7 @@
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
-  import { session, sessionView, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
+  import { session, sessionView, shuffleSection, clearSectionView, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
@@ -534,8 +535,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -759,8 +760,10 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function saveCardAsType(card: Card, name: string) {
