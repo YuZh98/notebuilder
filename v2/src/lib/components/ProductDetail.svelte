@@ -114,13 +114,16 @@
     onfusew: noop,
   });
 
-  // v1 fitPreview (70-events.js:217): the stage lays out at 720px notebook geometry and is
-  // scaled to the panel; the wrap gets an explicit height because transforms do not shrink
-  // layout space.
-  const PREV_REF = 720;
+  // v1 fitPreview (70-events.js:217): the stage lays out at notebook geometry and is scaled to the
+  // panel; the wrap gets an explicit height because transforms do not shrink layout space.
+  // The reference width is the type's own share of the 12-column room, not the whole room: a w:6
+  // type previewed at full room width scaled to ~0.36, which is unreadable, and it was never how
+  // the card looks in a notebook anyway.
+  const PREV_REF_12 = 720;
+  const prevRef = (PREV_REF_12 * (ct.w ?? 12)) / 12;
   let prevWrapW = $state(0);
   let prevStageH = $state(0);
-  const prevScale = $derived(Math.min(1, Math.max(0.2, (prevWrapW - 22) / PREV_REF)));
+  const prevScale = $derived(Math.min(1, Math.max(0.2, (prevWrapW - 22) / prevRef)));
   const prevWrapH = $derived(prevStageH > 0 ? Math.ceil(prevStageH * prevScale) + 22 : undefined);
 </script>
 
@@ -168,7 +171,7 @@
     <div
       class="prev-stage"
       bind:clientHeight={prevStageH}
-      style="transform:scale({prevScale})"
+      style="width:{prevRef}px;transform:scale({prevScale})"
     >
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="prev-card" onpointerdown={(e) => ongrip?.(ct.id, e, e.currentTarget)}>
