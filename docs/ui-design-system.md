@@ -89,27 +89,27 @@ It works in inline styles too, which is where most of them are:
 <span style="display:inline-flex;gap:3px; /* token-exempt: 3px sits off the 2px scale; snapping it would rewrap the chip rows */">
 ```
 
-There are seventeen such comments in the tree today, and they cluster into three honest
-reasons: values that sit off the 2px scale and would reflow if snapped (the `3px` chip and row
-gaps), grid track floors that are not spacing at all (`minmax(80px, auto)`, `minmax(160px, …)`),
-and one-off element sizes such as a native colour swatch or a numeric field width. `1px`
-hairlines and `0` need no comment.
+There are twenty two such comments in the hand written tree today, and they cluster into three
+honest reasons: values that sit off the 2px scale and would reflow if snapped (the `3px` chip and
+row gaps, the `3px` card accent stripe), grid track floors that are not spacing at all
+(`minmax(80px, auto)`, `minmax(160px, …)`), and one-off element sizes such as a native colour
+swatch or a numeric field width. `1px` hairlines and `0` need no comment.
 
 ## Honest state of adoption
 
 Tokens are enforced for new UI, not yet uniform across the whole tree.
 
 **Components are tokenised.** Across `v2/src/lib/components/*.svelte` and
-`v2/src/lib/slots/*.svelte` there are 89 `var(--space-*)` uses, 21 `var(--fs-*)` uses and 15
-uses of the inner radii. Twenty nine of the forty four Svelte components carry their own scoped
+`v2/src/lib/slots/*.svelte` there are 99 `var(--space-*)` uses, 23 `var(--fs-*)` uses and 17
+uses of the inner radii. Thirty of the forty five Svelte components carry their own scoped
 `<style>` block, and that is where the token discipline is applied.
 
-**`app.css` is not.** It is 2140 lines, most of it chrome ported wholesale from v1, and it
-still writes those values as literals: zero `var(--space-*)`, zero `var(--fs-*)` and zero
-`var(--radius-sm|md|lg)` uses appear in it. It does use the motion tokens in ten places, and
-it uses the colour and surface tokens throughout, which is what makes the eight themes work at
-all. The spacing, type and inner radius families are, for now, tokens that the ported
-stylesheet does not yet consume.
+**`app.css` lags.** It is 2190 lines, most of it chrome ported wholesale from v1, and it still
+writes most of those values as literals: six `var(--space-*)` uses (the study cursor ring and its
+flash, converted as they were touched), and zero `var(--fs-*)` and zero `var(--radius-sm|md|lg)`
+uses. It does use the motion tokens in sixteen places, and it uses the colour and surface tokens
+throughout, which is what makes the eight themes work at all. The type and inner radius families
+are, for now, tokens that the ported stylesheet does not yet consume.
 
 That gap is a known follow-up, not a hidden one. The direction is one way: new work uses
 tokens, and `app.css` rules get converted as they are touched. Nothing in the build enforces

@@ -250,6 +250,8 @@ v2/
       history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
       keyboard.ts        Pure key dispatcher: the v1 shortcut map as a decision over a KeyCtx
       study-keys.ts      Study cursor: focus order, stepping, per-key reader-state effect
+      card-reveal.ts     Scroll a just-placed card into view and flash the study ring on it
+      modal-inert.ts     `inert` on the shell behind a modal overlay, so Tab cannot reach it
       visible-cards.ts   The one render order: sections/cards the Stage shows (and the cursor walks)
       shell.ts           Shell/container styling logic
       slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, stateLayer, render*
