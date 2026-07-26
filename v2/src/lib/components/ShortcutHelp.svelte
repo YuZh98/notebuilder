@@ -49,7 +49,7 @@
     background: rgba(0, 0, 0, 0.55);
   }
   .kb-box {
-    max-width: 380px;
+    max-width: 380px; /* token-exempt: one-off dialog width, not a spacing value */
   }
   .kb-list {
     display: grid;

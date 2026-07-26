@@ -1367,7 +1367,7 @@
     padding: 8px;
   }
   .kb-hint {
-    padding: 4px 2px;
+    padding: var(--space-2) var(--space-1);
     opacity: 0.6;
   }
 </style>
