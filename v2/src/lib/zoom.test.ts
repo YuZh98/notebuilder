@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 // @ts-expect-error -- node builtin, untyped in the browser-only tsconfig (test runs in vitest/node)
 import { readFileSync } from 'node:fs';
-import { nextZoom, zoomLabel, applyZoom, effectiveZoom, toZoomedSpace } from './zoom';
+import { nextZoom, zoomLabel, applyZoom, effectiveZoom, toZoomedSpace, widthAt } from './zoom';
 
 // Vitest stubs `.css` imports, so the stylesheet is read off disk (`?raw` hands back '') —
 // same route as CardView.test.ts's app.css contract test.
@@ -96,6 +96,25 @@ describe('toZoomedSpace', () => {
   it('leaves pixels alone for a nonsense factor rather than dividing by zero', () => {
     expect(toZoomedSpace(300, 0)).toBe(300);
     expect(toZoomedSpace(300, Number.NaN)).toBe(300);
+  });
+});
+
+describe('widthAt', () => {
+  it('is the rect width plus the pointer travel at zoom 1', () => {
+    expect(widthAt(600, 120, 1)).toBe(720);
+    expect(widthAt(600, -200, 1)).toBe(400);
+  });
+
+  it('converts both the measured start width and the travel', () => {
+    // A rect reads 900 viewport px at 150% — 600 in the space the style write lands in.
+    expect(widthAt(900, 300, 1.5)).toBe(800);
+    expect(widthAt(900, -300, 1.5)).toBe(400);
+  });
+
+  it('renders back to the width the cursor drew', () => {
+    for (const zoom of [0.5, 1, 1.5, 2]) {
+      expect(widthAt(600 * zoom, 90 * zoom, zoom) * zoom).toBeCloseTo((600 + 90) * zoom, 6);
+    }
   });
 });
 

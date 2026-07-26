@@ -4,6 +4,7 @@ import { createRawSnippet, tick } from 'svelte';
 import SectionView from './SectionView.svelte';
 import { mode } from '../stores/mode';
 import { session, resetSession } from '../session.svelte';
+import { applyZoom } from '../zoom';
 import type { Notebook, Section, Card } from '../types';
 
 const cardView = createRawSnippet<[Section, Card, boolean]>((_section, card) => ({
@@ -146,5 +147,54 @@ describe('SectionView — study action run', () => {
     const input = container.querySelector('[data-svcsearch="s1"]') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: 'hello' } });
     expect(session.search['s1']).toBe('hello');
+  });
+});
+
+// The room width is committed into the section document and rendered as `width:${w}px` inside the
+// zoomed <body>, so a viewport-space number would both mis-draw the room and persist corrupted.
+describe('SectionView — room resize under app zoom', () => {
+  function stubRect(el: Element, width: number) {
+    (el as HTMLElement).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width, height: 100, right: width, bottom: 100, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+  }
+
+  function dragEdge(container: HTMLElement, roomWidth: number, shellWidth: number, toX: number) {
+    const room = container.querySelector('.room') as HTMLElement;
+    stubRect(room, roomWidth);
+    if (room.parentElement) stubRect(room.parentElement, shellWidth);
+    const handle = container.querySelector('.rz.room-edge') as HTMLElement;
+    handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 0, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: toX, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: toX, bubbles: true }));
+  }
+
+  afterEach(() => applyZoom(1));
+
+  it('commits the width the cursor drew at zoom 1', () => {
+    const section = sec({ cards: [card('c1')] });
+    const p = baseProps(section);
+    const { container } = render(SectionView, { props: p });
+    dragEdge(container, 600, 1200, 300);
+    expect(p.onpatch).toHaveBeenCalledWith({ width: 900 });
+  });
+
+  it('commits a logical width when the app is zoomed', () => {
+    applyZoom(1.5);
+    const section = sec({ cards: [card('c1')] });
+    const p = baseProps(section);
+    const { container } = render(SectionView, { props: p });
+    // The room reads 600 viewport px (400 logical) and the cursor travels 300 (200 logical).
+    dragEdge(container, 600, 1200, 300);
+    expect(p.onpatch).toHaveBeenCalledWith({ width: 600 });
+  });
+
+  it('clamps against the shell width in the same space', () => {
+    applyZoom(1.5);
+    const section = sec({ cards: [card('c1')] });
+    const p = baseProps(section);
+    const { container } = render(SectionView, { props: p });
+    // Shell is 1200 viewport px = 800 logical: the ceiling is 800, not 1200.
+    dragEdge(container, 600, 1200, 3000);
+    expect(p.onpatch).toHaveBeenCalledWith({ width: 800 });
   });
 });

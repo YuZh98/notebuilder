@@ -46,3 +46,12 @@ export function effectiveZoom(body: HTMLElement | null = document.body): number 
 export function toZoomedSpace(px: number, zoom: number): number {
   return Number.isFinite(zoom) && zoom > 0 ? px / zoom : px;
 }
+
+/**
+ * Width for an edge-resize that starts from a measured rect: both the client rect and the pointer
+ * travel are viewport px, the `width:…px` they end up in is not. Clamp the result, not the inputs —
+ * the bounds are in the same space as the style write.
+ */
+export function widthAt(startWidth: number, dx: number, zoom: number): number {
+  return toZoomedSpace(startWidth + dx, zoom);
+}

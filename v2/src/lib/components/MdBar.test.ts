@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, act } from '@testing-library/svelte';
 import MdBar from './MdBar.svelte';
 import CeText from './CeText.svelte';
+import { applyZoom } from '../zoom';
 
 const bar = () => document.getElementById('mdbar');
 
@@ -32,6 +33,21 @@ afterEach(() => {
   for (const el of extras) el.remove();
   extras = [];
   vi.useRealTimers();
+});
+
+describe('MdBar — placement', () => {
+  it('writes the field position converted out of the zoomed space', async () => {
+    applyZoom(1.5);
+    render(MdBar);
+    const ta = addCeTextarea();
+    // At 150% a field drawn at 200/328 in page space reads 300/492 in viewport px.
+    ta.getBoundingClientRect = () =>
+      ({ left: 300, top: 492, width: 300, height: 60, right: 600, bottom: 552, x: 300, y: 492, toJSON: () => ({}) }) as DOMRect;
+    await act(() => ta.focus());
+    expect(bar()?.style.left).toBe('200px');
+    expect(bar()?.style.top).toBe('288px');
+    applyZoom(1);
+  });
 });
 
 describe('MdBar', () => {
