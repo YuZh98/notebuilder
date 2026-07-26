@@ -63,6 +63,19 @@ describe('App — the study cursor', () => {
     expect(focused(container)).toBeNull();
   });
 
+  it('ArrowDown/ArrowUp walk the cursor like j/k', async () => {
+    const { container } = render(App);
+    mode.set('study');
+    await tick();
+
+    await press('ArrowDown');
+    expect(focused(container)).toBe('card_1');
+    await press('ArrowDown');
+    expect(focused(container)).toBe('card_2');
+    await press('ArrowUp');
+    expect(focused(container)).toBe('card_1');
+  });
+
   it('draws no ring in Edit mode, and drops the cursor when the mode flips', async () => {
     const { container } = render(App);
     mode.set('study');
@@ -128,6 +141,20 @@ describe('App — the study cursor', () => {
     expect(focused(container)).toBe('card_1');
     await press('Escape');
     expect(focused(container)).toBeNull();
+  });
+
+  it('the open overlay makes the shell behind it inert, and closing gives it back', async () => {
+    render(App);
+    mode.set('study');
+    await tick();
+    const inert = () =>
+      ['#top', '#main', '#sidebump'].map((s) => document.querySelector(s)?.hasAttribute('inert'));
+
+    expect(inert()).toEqual([false, false, false]);
+    await press('?', { shiftKey: true });
+    expect(inert()).toEqual([true, true, true]);
+    await press('Escape');
+    expect(inert()).toEqual([false, false, false]);
   });
 });
 
@@ -257,8 +284,10 @@ describe('Reader — the same cursor in an exported file', () => {
 
     await press('?', { shiftKey: true });
     expect(document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')).not.toBeNull();
+    expect(document.querySelector('#main')?.hasAttribute('inert')).toBe(true);
     await press('Escape');
     expect(document.querySelector('[aria-label="Keyboard shortcuts"]')).toBeNull();
+    expect(document.querySelector('#main')?.hasAttribute('inert')).toBe(false);
   });
 });
 

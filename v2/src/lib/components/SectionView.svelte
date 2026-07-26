@@ -5,6 +5,7 @@
   import { sectionsOfChapter } from '../notebook-ops';
   import { startEdgeResize } from '../drag/resize';
   import { clampRoomW } from '../drag/geometry';
+  import { effectiveZoom, toZoomedSpace, widthAt } from '../zoom';
   import { captureNow, pushSnapshot, pushHistory } from '../history.svelte';
   import { session, sessionView } from '../session.svelte';
   import { visibleSectionCards } from '../visible-cards';
@@ -113,13 +114,16 @@
     const shell = roomEl?.parentElement;
     if (!roomEl || !shell) return;
     const startW = roomEl.getBoundingClientRect().width;
-    const maxW = shell.getBoundingClientRect().width;
+    const zoom = effectiveZoom();
+    // The ceiling is measured in viewport px like the start width, and the committed value is a
+    // layout preference: both belong in the space `width:${w}px` is written in, not the cursor's.
+    const maxW = toZoomedSpace(shell.getBoundingClientRect().width, zoom);
     let w: number | null = null;
     const snap = captureNow();
     startEdgeResize(
       ev,
       (dx) => {
-        w = clampRoomW(startW + dx, maxW);
+        w = clampRoomW(widthAt(startW, dx, zoom), maxW);
         liveW = w;
       },
       (mv) => {

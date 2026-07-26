@@ -2,8 +2,8 @@
   let { onclose }: { onclose: () => void } = $props();
 
   const ROWS: [string, string][] = [
-    ['j · →', 'focus the next card'],
-    ['k · ←', 'focus the previous card'],
+    ['j · ↓ · →', 'focus the next card'],
+    ['k · ↑ · ←', 'focus the previous card'],
     ['space · f', 'flip the focused card'],
     ['1 – 9', 'pick that answer option'],
     ['Enter', 'submit the answer'],
@@ -49,7 +49,7 @@
     background: rgba(0, 0, 0, 0.55);
   }
   .kb-box {
-    max-width: 380px;
+    max-width: 380px; /* token-exempt: one-off dialog width, not a spacing value */
   }
   .kb-list {
     display: grid;

@@ -8,7 +8,7 @@ describe('THEMES registry', () => {
     ]);
     expect(THEMES[0].name).toBe('Dark (default)');
     expect(THEMES[1].chip).toBe('B&W');
-    expect(THEMES[7].chip).toBe('Terminal');
+    expect(THEMES[7].chip).toBe('Cyber DG');
   });
 });
 

@@ -58,6 +58,19 @@ describe('Reader drift guard', () => {
     }
   });
 
+  // The zoom shortcut preventDefaults in both surfaces, so a surface that does not handle the
+  // action swallows the browser's own zoom and leaves the reader with no way to scale the page.
+  it('App and Reader both handle the zoom action through the shared helper', () => {
+    for (const [name, src] of [
+      ['App', appSrc],
+      ['Reader', readerSrc],
+    ] as const) {
+      expect(src, `${name}: no zoom case`).toMatch(/case 'zoom'/);
+      expect(src, `${name}: zoom case does not use nextZoom`).toMatch(/nextZoom\(/);
+      expect(src, `${name}: zoom case does not apply the level`).toMatch(/applyZoom\(/);
+    }
+  });
+
   // A partial parse would shrink BOTH lists symmetrically and still compare equal, so the guard
   // above must not be trusted without proof that extraction actually found the prop set.
   it('extraction finds a real prop set in both files', () => {

@@ -39,8 +39,11 @@
   import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
   import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
+  import { revealCard } from '../card-reveal';
+  import { setAppInert } from '../modal-inert';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
-  import { clampSideW } from '../shell';
+  import { sideWidthAt } from '../shell';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from '../zoom';
   import {
     addSection,
     addChapter,
@@ -55,7 +58,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
-  import { session, sessionView, shuffleSection, clearShuffle } from '../session.svelte';
+  import { session, sessionView, shuffleSection, clearSectionView } from '../session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
@@ -164,6 +167,13 @@
     }
   });
 
+  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind it and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen);
+    return () => setAppInert(false);
+  });
+
   // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
   const studyOrderIds = $derived(
     $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
@@ -185,14 +195,17 @@
     const next = stepFocus(studyOrderIds, studyFocus, delta);
     if (!next) return;
     studyFocus = next;
-    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+    // 'center', not 'nearest': nearest parks the card flush against the viewport edge, where the
+    // ring is clipped and the pinned hint sits on top of it.
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'center' });
   }
 
   // Card keys write through the same reader-state path as a click on the slot itself.
   function applyStudyKey(key: string) {
     const card = focusedStudyCard();
     if (!card) return;
-    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    const live = session.live[card.id] ?? {};
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {}, live);
     if (effect) onSlotState(card, effect.slotId, effect.next);
   }
 
@@ -204,14 +217,17 @@
     return [];
   }
 
+  let zoomLevel = 1;
+
   // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
     const inField = isFieldTarget(el);
     const focusedCard = focusedStudyCard();
+    const focusedLive = focusedCard ? (session.live[focusedCard.id] ?? {}) : {};
     const surfaces = focusedCard
-      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {}, focusedLive)
       : NO_SURFACES;
     const ctx: KeyCtx = {
       inField,
@@ -273,6 +289,12 @@
         break;
       case 'blur-single-line':
         el?.blur();
+        break;
+      // The action preventDefaults the browser's own zoom, so this file has to replace it.
+      case 'zoom':
+        zoomLevel = nextZoom(zoomLevel, action.delta);
+        applyZoom(zoomLevel);
+        toast(zoomLabel(zoomLevel));
         break;
       case 'study-focus-step':
         moveStudyFocus(action.delta);
@@ -392,11 +414,11 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) sideW = startW;
-        else if (moved && !sideCollapsed) sideW = clampSideW(mv.clientX);
+        else if (moved && !sideCollapsed) sideW = sideWidthAt(mv.clientX, effectiveZoom());
         else toggleSide();
       },
     );
@@ -536,8 +558,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -643,8 +665,10 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function stampFromGallery(sectionId: string, ct: CardType) {
@@ -1018,8 +1042,22 @@
     width: 100%;
     padding: var(--space-4);
   }
+  /* Pinned to the foot of the scrolling stage: as a plain last line of the document the hint sat
+     below every card, so the shortcuts it advertises were never seen on entering Study. */
   .kb-hint {
-    padding: var(--space-2) var(--space-1);
-    opacity: 0.6;
+    position: sticky;
+    bottom: var(--space-2);
+    z-index: 2;
+    width: fit-content;
+    max-width: 100%;
+    margin: var(--space-5) auto 0;
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    opacity: 0.75;
+    /* It floats over the cards, so it must not take their clicks: a flip or an option under the
+       pill has to stay hittable. */
+    pointer-events: none;
   }
 </style>

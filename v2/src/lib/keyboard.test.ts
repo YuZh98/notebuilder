@@ -263,21 +263,27 @@ describe('handleAppKey — zoom', () => {
 });
 
 describe('handleAppKey — study cursor movement (v0.3.0 keyboard-first Study)', () => {
-  it('j / ArrowRight step forward, k / ArrowLeft step back', () => {
-    for (const k of ['j', 'ArrowRight']) {
+  it('j / ArrowRight / ArrowDown step forward, k / ArrowLeft / ArrowUp step back', () => {
+    for (const k of ['j', 'ArrowRight', 'ArrowDown']) {
       expect(handleAppKey(key(k), studying()), k).toEqual({
         kind: 'study-focus-step',
         delta: 1,
         preventDefault: true,
       });
     }
-    for (const k of ['k', 'ArrowLeft']) {
+    for (const k of ['k', 'ArrowLeft', 'ArrowUp']) {
       expect(handleAppKey(key(k), studying()), k).toEqual({
         kind: 'study-focus-step',
         delta: -1,
         preventDefault: true,
       });
     }
+  });
+
+  it('ArrowUp/Down walk the cursor even with a section selected — the Edit nav stays out of Study', () => {
+    const withSection = studying({ selSection: 's1', sectionIds: ['s1', 's2'] });
+    expect(handleAppKey(key('ArrowDown'), withSection)!.kind).toBe('study-focus-step');
+    expect(handleAppKey(key('ArrowUp'), withSection)!.kind).toBe('study-focus-step');
   });
 
   it('steps with no cursor yet — the first j starts the session', () => {
@@ -379,6 +385,30 @@ describe('handleAppKey — shortcut overlay', () => {
       preventDefault: true,
     });
   });
+
+  it('is modal: with it open every other key is inert', () => {
+    const open = studying({ helpOpen: true, focusedFlipCapable: true });
+    for (const k of ['j', 'k', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', ' ', 'f', 'x', '1', '9', 'Enter']) {
+      expect(handleAppKey(key(k), open), k).toBeNull();
+    }
+  });
+
+  it('is modal even over the selection keys the house otherwise answers', () => {
+    const open = studying({
+      helpOpen: true,
+      selCard: 'c1',
+      cardIdsOfSelectedSection: ['c1', 'c2'],
+      selSection: null,
+      filterActive: true,
+    });
+    expect(handleAppKey(key('ArrowRight'), open)).toBeNull();
+  });
+
+  it('leaves the modifier shortcuts alone — they are not study keys', () => {
+    const open = studying({ helpOpen: true });
+    expect(handleAppKey(key('Enter', { metaKey: true }), open)!.kind).toBe('toggle-mode');
+    expect(handleAppKey(key('z', { metaKey: true }), open)!.kind).toBe('undo');
+  });
 });
 
 describe('handleAppKey — study bindings are Edit-mode and field inert', () => {
@@ -393,6 +423,12 @@ describe('handleAppKey — study bindings are Edit-mode and field inert', () => 
     expect(
       handleAppKey(key('ArrowRight'), ctx({ selCard: 'c1', cardIdsOfSelectedSection: ['c1', 'c2'] })),
     ).toEqual({ kind: 'select-card', id: 'c2', preventDefault: true });
+  });
+
+  it('Edit-mode ArrowUp/Down still move the section selection, not the cursor', () => {
+    expect(
+      handleAppKey(key('ArrowDown'), ctx({ selSection: 's1', sectionIds: ['s1', 's2'] })),
+    ).toEqual({ kind: 'select-section', id: 's2', preventDefault: true });
   });
 
   it('the factory has no study cursor (its stage shows benches, not the notebook)', () => {

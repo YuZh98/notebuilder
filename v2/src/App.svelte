@@ -41,7 +41,7 @@
     setPreference,
   } from './lib/db';
   import { uid } from './lib/uid';
-  import { stampCard, placeType, cardToType, builtinCardTypes, LEGACY_SEEDED_BUILTINS, unseededBuiltins, STORES, type CardType, type Variety } from './lib/card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, LEGACY_SEEDED_BUILTINS, unseededBuiltins, parseSeededLedger, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, typeToBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
   import {
@@ -60,6 +60,8 @@
   import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from './lib/keyboard';
   import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
+  import { revealCard } from './lib/card-reveal';
+  import { setAppInert } from './lib/modal-inert';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
@@ -78,7 +80,7 @@
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
-  import { session, sessionView, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
+  import { session, sessionView, shuffleSection, clearSectionView, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
@@ -90,7 +92,8 @@
   import { startPointerDrag } from './lib/drag/engine';
   import { makeNotebookDropCallbacks } from './lib/drag/notebook-drop';
   import { makeFactoryDropCallbacks } from './lib/drag/factory-drop';
-  import { clampSideW, parseSideWidthPref } from './lib/shell';
+  import { parseSideWidthPref, sideWidthAt } from './lib/shell';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from './lib/zoom';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
   import { confirm } from '@tauri-apps/plugin-dialog';
@@ -205,6 +208,19 @@
     if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
   });
 
+  // The overlay lists house study keys, and those keys are house-only: left open in the Factory it
+  // would be a list of dead shortcuts that ? and Escape can no longer close.
+  $effect(() => {
+    if ($place !== 'house') helpOpen = false;
+  });
+
+  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind it and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen);
+    return () => setAppInert(false);
+  });
+
   /** The focused card — null unless the cursor is on a card the reader can actually see. */
   function focusedStudyCard(): Card | null {
     if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
@@ -215,14 +231,17 @@
     const next = stepFocus(studyOrderIds, studyFocus, delta);
     if (!next) return;
     studyFocus = next;
-    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+    // 'center', not 'nearest': nearest parks the card flush against the viewport edge, where the
+    // ring is clipped and the pinned hint sits on top of it.
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'center' });
   }
 
   // Card keys write through the same reader-state path as a click on the slot itself.
   function applyStudyKey(key: string) {
     const card = focusedStudyCard();
     if (!card) return;
-    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    const live = session.live[card.id] ?? {};
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {}, live);
     if (effect) onSlotState(card, effect.slotId, effect.next);
   }
 
@@ -266,13 +285,13 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) {
           sideW = startW;
         } else if (moved && !sideCollapsed) {
-          sideW = clampSideW(mv.clientX);
+          sideW = sideWidthAt(mv.clientX, effectiveZoom());
           if (isTauri()) void setPreference('side_width', String(sideW));
         } else {
           toggleSide();
@@ -524,8 +543,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -749,8 +768,10 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function saveCardAsType(card: Card, name: string) {
@@ -802,19 +823,22 @@
         for (const a of anns) annotations = addAnnotation(annotations, a);
         // Seed built-in card types the DB has never seen; the ledger preference
         // remembers what was seeded so user deletions of builtins stay deleted.
+        // A present ledger always wins over an empty table: a table emptied by
+        // deliberate deletion must not resurrect those deletions on next boot.
+        // Only a genuinely absent ledger falls back to "seed everything" (fresh
+        // install) or the pre-ledger legacy set (table already had rows).
         const types = await listCardTypes();
-        if (types.length === 0) {
-          for (const ct of builtinCardTypes) await saveCardType(ct);
-          await setPreference('seeded_builtins', JSON.stringify(builtinCardTypes.map((b) => b.id)));
-        } else {
+        try {
           const raw = await getPreference('seeded_builtins');
-          const seeded: string[] = raw ? JSON.parse(raw) : [...LEGACY_SEEDED_BUILTINS];
+          const seeded = raw ? parseSeededLedger(raw) : types.length === 0 ? [] : [...LEGACY_SEEDED_BUILTINS];
           const fresh = unseededBuiltins(seeded);
           for (const ct of fresh) await saveCardType(ct);
           cardTypes = [...types, ...fresh];
           if (fresh.length || !raw) {
             await setPreference('seeded_builtins', JSON.stringify([...seeded, ...fresh.map((b) => b.id)]));
           }
+        } catch {
+          cardTypes = types;
         }
       })();
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
@@ -834,8 +858,9 @@
       const inField = isFieldTarget(el);
       const cur = get(place);
       const focusedCard = focusedStudyCard();
+      const focusedLive = focusedCard ? (session.live[focusedCard.id] ?? {}) : {};
       const surfaces = focusedCard
-        ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+        ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {}, focusedLive)
         : NO_SURFACES;
       const ctx: KeyCtx = {
         inField,
@@ -899,12 +924,11 @@
         case 'blur-single-line':
           el?.blur();
           break;
-        case 'zoom': {
-          zoomLevel = action.delta === 0 ? 1 : Math.round(Math.min(2, Math.max(0.5, zoomLevel + action.delta * 0.1)) * 10) / 10;
-          (document.body.style as CSSStyleDeclaration & { zoom: string }).zoom = String(zoomLevel);
-          toast(`zoom ${Math.round(zoomLevel * 100)}%`);
+        case 'zoom':
+          zoomLevel = nextZoom(zoomLevel, action.delta);
+          applyZoom(zoomLevel);
+          toast(zoomLabel(zoomLevel));
           break;
-        }
         case 'study-focus-step':
           moveStudyFocus(action.delta);
           break;
@@ -1355,8 +1379,22 @@
     width: 100%;
     padding: 8px;
   }
+  /* Pinned to the foot of the scrolling stage: as a plain last line of the document the hint sat
+     below every card, so the shortcuts it advertises were never seen on entering Study. */
   .kb-hint {
-    padding: 4px 2px;
-    opacity: 0.6;
+    position: sticky;
+    bottom: var(--space-2);
+    z-index: 2;
+    width: fit-content;
+    max-width: 100%;
+    margin: var(--space-5) auto 0;
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    opacity: 0.75;
+    /* It floats over the cards, so it must not take their clicks: a flip or an option under the
+       pill has to stay hittable. */
+    pointer-events: none;
   }
 </style>

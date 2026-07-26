@@ -10,6 +10,7 @@ import {
 import { CARD_STATE_KEY } from './card-done';
 import type { SectionView } from './visible-cards';
 import type { Card, Notebook, Section, Slot } from './types';
+import type { Scope } from './variable-graph';
 
 const OPEN: SectionView = { search: '', showArch: false, shuffle: null, collapsed: false };
 /** Focus order with no filters, search, shuffle or collapse in play. */
@@ -36,6 +37,8 @@ function notebook(sections: Section[]): Notebook {
 
 const choice = (id: string, props: Record<string, unknown>): Slot => ({ id, type: 'choice', props });
 const list = (id: string, props: Record<string, unknown>): Slot => ({ id, type: 'list', props });
+const text = (id: string, body = 'hello'): Slot => ({ id, type: 'text', props: { text: body } });
+const FLIPPED = { [CARD_STATE_KEY]: { flipped: true } };
 
 describe('studyCards — focus order is the render order', () => {
   it('is document order across non-divider sections', () => {
@@ -133,24 +136,39 @@ describe('studySurfaces — which keys the focused card can answer', () => {
   });
 
   it('agrees with studyKeyEffect: no surface means no effect, and vice versa', () => {
+    const gated = { reveal: { key: 'show', op: '==' as const, val: true } };
     const cards = [
       card('a'),
       card('a', { verbs: { flip: true } }),
       card('a', { slots: [choice('q1', { options: ['x', 'y'] })] }),
       card('a', { slots: [list('l1', { items: ['one'], style: 'check' })] }),
+      card('a', {
+        verbs: { flip: true },
+        slots: [text('t')],
+        back: [choice('q1', { options: ['x', 'y'] }), list('l1', { items: ['one'], style: 'check' })],
+      }),
+      card('a', {
+        slots: [
+          { ...choice('q1', { options: ['x', 'y'] }), verbs: gated },
+          { ...list('l1', { items: ['one'], style: 'check' }), verbs: gated },
+        ],
+      }),
     ];
     const states: Record<string, Record<string, unknown>>[] = [
       {},
       { q1: { selected: [1] } },
       { l1: { checked: [true] } },
+      { ...FLIPPED, q1: { selected: [1] } },
     ];
     for (const c of cards) {
       for (const st of states) {
-        const s = studySurfaces(c, st);
-        expect(!!studyKeyEffect('f', c, st)).toBe(s.flip);
-        expect(!!studyKeyEffect('Enter', c, st)).toBe(s.canSubmit);
-        expect(!!studyKeyEffect('x', c, st)).toBe(s.canTick);
-        expect(!!studyKeyEffect('1', c, st)).toBe(s.choiceOptions >= 1);
+        for (const live of [{}, { show: true }] as Scope[]) {
+          const s = studySurfaces(c, st, live);
+          expect(!!studyKeyEffect('f', c, st, live)).toBe(s.flip);
+          expect(!!studyKeyEffect('Enter', c, st, live)).toBe(s.canSubmit);
+          expect(!!studyKeyEffect('x', c, st, live)).toBe(s.canTick);
+          expect(!!studyKeyEffect('1', c, st, live)).toBe(s.choiceOptions >= 1);
+        }
       }
     }
   });
@@ -265,13 +283,13 @@ describe('studyKeyEffect — choice digits', () => {
     });
   });
 
-  it('reaches a choice slot on the back face', () => {
+  it('reaches a choice slot on the back face once the card is flipped', () => {
     const flip = card('a', {
       verbs: { flip: true },
       slots: [],
       back: [choice('qb', { options: ['x', 'y'] })],
     });
-    expect(studyKeyEffect('2', flip, {})).toEqual({ slotId: 'qb', next: { selected: [1] } });
+    expect(studyKeyEffect('2', flip, FLIPPED)).toEqual({ slotId: 'qb', next: { selected: [1] } });
   });
 
   it('is null on a card with no open choice slot', () => {
@@ -299,11 +317,13 @@ describe('studyKeyEffect — Enter submits', () => {
     expect(studyKeyEffect('Enter', c, { q1: { selected: [0], submitted: true } })).toBeNull();
   });
 
-  it('skips an unanswered slot to submit an answered later one', () => {
+  it('stays on the digit’s slot rather than reaching past it to an answered later one', () => {
     const two = card('a', {
       slots: [choice('q1', { options: ['x', 'y'] }), choice('q2', { options: ['p', 'q'] })],
     });
-    expect(studyKeyEffect('Enter', two, { q2: { selected: [0] } })?.slotId).toBe('q2');
+    expect(studyKeyEffect('Enter', two, { q2: { selected: [0] } })).toBeNull();
+    expect(studyKeyEffect('Enter', two, { q1: { selected: [0] }, q2: { selected: [0] } })?.slotId)
+      .toBe('q1');
   });
 });
 
@@ -344,6 +364,137 @@ describe('studyKeyEffect — x ticks a checklist', () => {
   it('is null for an empty check list (nothing to tick)', () => {
     const empty = card('a', { slots: [list('l1', { items: [], style: 'check' })] });
     expect(studyKeyEffect('x', empty, {})).toBeNull();
+  });
+});
+
+describe('study keys answer only the face the reader can see', () => {
+  // Shaped like the builtin ct_quizcard: the prompt is on the front, the choice on the back.
+  const quiz = card('a', {
+    verbs: { flip: true },
+    slots: [text('front', 'What is 2 + 2?')],
+    back: [choice('qb', { options: ['3', '4'] })],
+  });
+
+  it('front-up, the back choice is invisible to the digits, to Enter and to the surfaces', () => {
+    expect(studySurfaces(quiz, {}).choiceOptions).toBe(0);
+    expect(studyKeyEffect('1', quiz, {})).toBeNull();
+    expect(studySurfaces(quiz, { qb: { selected: [0] } }).canSubmit).toBe(false);
+    expect(studyKeyEffect('Enter', quiz, { qb: { selected: [0] } })).toBeNull();
+  });
+
+  it('flipped, the back choice answers', () => {
+    expect(studySurfaces(quiz, FLIPPED).choiceOptions).toBe(2);
+    expect(studyKeyEffect('2', quiz, FLIPPED)).toEqual({ slotId: 'qb', next: { selected: [1] } });
+  });
+
+  it('a front choice stops answering once the card is flipped away from it', () => {
+    const c = card('a', {
+      verbs: { flip: true },
+      slots: [choice('qf', { options: ['x', 'y'] })],
+      back: [text('b', 'answer')],
+    });
+    expect(studySurfaces(c, {}).choiceOptions).toBe(2);
+    expect(studySurfaces(c, FLIPPED).choiceOptions).toBe(0);
+    expect(studyKeyEffect('1', c, FLIPPED)).toBeNull();
+  });
+
+  it('a card without the flip verb never answers through a stray back face', () => {
+    const c = card('a', { slots: [text('t')], back: [choice('qb', { options: ['x'] })] });
+    expect(studySurfaces(c, {}).choiceOptions).toBe(0);
+    expect(studyKeyEffect('1', c, {})).toBeNull();
+  });
+
+  it('x ticks only the shown face’s checklist', () => {
+    const c = card('a', {
+      verbs: { flip: true },
+      slots: [text('t')],
+      back: [list('lb', { items: ['one'], style: 'check' })],
+    });
+    expect(studySurfaces(c, {}).canTick).toBe(false);
+    expect(studyKeyEffect('x', c, {})).toBeNull();
+    expect(studySurfaces(c, FLIPPED).canTick).toBe(true);
+    expect(studyKeyEffect('x', c, FLIPPED)?.slotId).toBe('lb');
+  });
+});
+
+describe('study keys respect the verb gates the click path applies', () => {
+  const reveal = { key: 'show', op: '==' as const, val: true };
+  const revealCard = card('a', {
+    slots: [{ ...choice('q1', { options: ['x', 'y'] }), verbs: { reveal } }],
+  });
+  const afterList = (verbs: Slot['verbs']) =>
+    card('a', {
+      slots: [
+        list('l1', { items: ['one'], style: 'check' }),
+        { ...choice('q2', { options: ['p', 'q'] }), verbs },
+      ],
+    });
+
+  it('a reveal-gated choice is unreachable while its condition is unmet', () => {
+    expect(studySurfaces(revealCard, {}).choiceOptions).toBe(0);
+    expect(studyKeyEffect('1', revealCard, {})).toBeNull();
+    expect(studySurfaces(revealCard, { q1: { selected: [0] } }).canSubmit).toBe(false);
+    expect(studyKeyEffect('Enter', revealCard, { q1: { selected: [0] } })).toBeNull();
+  });
+
+  it('the same choice answers once the live scope satisfies the reveal', () => {
+    expect(studySurfaces(revealCard, {}, { show: true }).choiceOptions).toBe(2);
+    expect(studyKeyEffect('1', revealCard, {}, { show: true })).toEqual({
+      slotId: 'q1',
+      next: { selected: [0] },
+    });
+  });
+
+  it('a sequential choice waits for its prior slots, exactly as the rendered face does', () => {
+    const c = afterList({ sequential: true });
+    expect(studySurfaces(c, {}).choiceOptions).toBe(0);
+    expect(studyKeyEffect('1', c, {})).toBeNull();
+    expect(studyKeyEffect('1', c, { l1: { checked: [true] } })?.slotId).toBe('q2');
+  });
+
+  it('a locked choice is answerable only once it is unlocked', () => {
+    const c = afterList({ locked: true });
+    expect(studySurfaces(c, {}).choiceOptions).toBe(0);
+    expect(studyKeyEffect('1', c, {})).toBeNull();
+    expect(studyKeyEffect('1', c, { l1: { checked: [true] } })?.slotId).toBe('q2');
+  });
+
+  it('x skips a checklist the reader cannot see', () => {
+    const c = card('a', {
+      slots: [{ ...list('l1', { items: ['one'], style: 'check' }), verbs: { reveal } }],
+    });
+    expect(studySurfaces(c, {}).canTick).toBe(false);
+    expect(studyKeyEffect('x', c, {})).toBeNull();
+    expect(studyKeyEffect('x', c, {}, { show: true })?.slotId).toBe('l1');
+  });
+});
+
+describe('digits and Enter address one and the same choice slot', () => {
+  const two = card('a', {
+    slots: [choice('q1', { options: ['x', 'y'] }), choice('q2', { options: ['p', 'q'] })],
+  });
+
+  it('Enter never submits a slot the digits do not address', () => {
+    const states = { q2: { selected: [0] } };
+    expect(studyKeyEffect('1', two, states)?.slotId).toBe('q1');
+    expect(studyKeyEffect('Enter', two, states)).toBeNull();
+    expect(studySurfaces(two, states).canSubmit).toBe(false);
+  });
+
+  it('answer-then-submit walks the card one choice at a time', () => {
+    let states: Record<string, Record<string, unknown>> = {};
+    const apply = (key: string) => {
+      const effect = studyKeyEffect(key, two, states);
+      if (effect) states = { ...states, [effect.slotId]: effect.next };
+      return effect;
+    };
+    apply('1');
+    apply('Enter');
+    expect(states.q1).toEqual({ selected: [0], submitted: true });
+    apply('2');
+    apply('Enter');
+    expect(states.q2).toEqual({ selected: [1], submitted: true });
+    expect(apply('Enter')).toBeNull();
   });
 });
 

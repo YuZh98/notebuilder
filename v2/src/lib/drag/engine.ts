@@ -1,6 +1,7 @@
 import { DRAG_KINDS, type DragKind } from './kinds';
 import { passedThreshold, insertionIndex, pointInRect } from './geometry';
 import { dustState } from './dust.svelte';
+import { effectiveZoom, toZoomedSpace } from '../zoom';
 
 export type DragSource = { kind: DragKind; id: string; srcEl: Element; meta?: Record<string, unknown> };
 export type DropTarget =
@@ -34,6 +35,7 @@ export function flipGrid(grid: Element, itemSel: string, mutate: () => void): vo
     [...grid.children].filter((e): e is HTMLElement => e.matches(itemSel) && !e.classList.contains('drag-ph'));
   const before = new Map(live().map((e) => [e, e.getBoundingClientRect()]));
   mutate();
+  const zoom = effectiveZoom();
   live().forEach((e) => {
     const b = before.get(e);
     if (!b) return;
@@ -42,7 +44,8 @@ export function flipGrid(grid: Element, itemSel: string, mutate: () => void): vo
     const dy = b.top - a.top;
     if (!dx && !dy) return;
     e.style.transition = 'none';
-    e.style.transform = `translate(${dx}px,${dy}px)`;
+    // Client rects are viewport px; a transform on a zoomed element is not.
+    e.style.transform = `translate(${toZoomedSpace(dx, zoom)}px,${toZoomedSpace(dy, zoom)}px)`;
     requestAnimationFrame(() => {
       e.style.transition = 'transform .15s ease';
       e.style.transform = '';
@@ -86,7 +89,7 @@ export function startPointerDrag(src: DragSource, ev: PointerEvent, cb: EngineCa
     fly = refEl.cloneNode(true) as HTMLElement;
     fly.classList.add('drag-fly');
     fly.removeAttribute('data-fid');
-    fly.style.width = `${refEl.getBoundingClientRect().width}px`;
+    fly.style.width = `${toZoomedSpace(refEl.getBoundingClientRect().width, effectiveZoom())}px`;
     document.body.appendChild(fly);
     ph = document.createElement('div');
     ph.className = `${phClass(src.kind, itemSel)} drag-ph`;
@@ -115,8 +118,11 @@ export function startPointerDrag(src: DragSource, ev: PointerEvent, cb: EngineCa
     }
     if (mv.cancelable) mv.preventDefault();
     if (fly) {
-      fly.style.left = `${mv.clientX - 18}px`;
-      fly.style.top = `${mv.clientY - 14}px`;
+      // The fly is a fixed child of a zoomed <body>: what it writes renders `zoom` times bigger,
+      // while the cursor is already in viewport px. The 18/14 nudge stays in cursor space.
+      const zoom = effectiveZoom();
+      fly.style.left = `${toZoomedSpace(mv.clientX - 18, zoom)}px`;
+      fly.style.top = `${toZoomedSpace(mv.clientY - 14, zoom)}px`;
     }
     dustState.hot = overDust(mv.clientX, mv.clientY);
     if (fly) fly.style.display = 'none';

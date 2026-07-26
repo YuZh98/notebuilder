@@ -34,3 +34,28 @@ describe('App — section-service chips with a card selected', () => {
     expect(container.querySelector('.furn[data-card] [data-act="pin"]')).not.toBeNull();
   });
 });
+
+describe('App — the study shortcut overlay', () => {
+  it('opens on ? while studying the house', async () => {
+    const { container } = render(App);
+    mode.set('study');
+    await tick();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
+    await tick();
+    expect(container.querySelector('.kb-modal')).not.toBeNull();
+  });
+
+  it('closes itself when the reader leaves the house — its keys are house-only', async () => {
+    const { container } = render(App);
+    mode.set('study');
+    await tick();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
+    await tick();
+    expect(container.querySelector('.kb-modal')).not.toBeNull();
+
+    place.set('factory');
+    await tick();
+    expect(container.querySelector('.kb-modal')).toBeNull();
+  });
+});
