@@ -142,6 +142,20 @@ describe('App — the study cursor', () => {
     await press('Escape');
     expect(focused(container)).toBeNull();
   });
+
+  it('the open overlay makes the shell behind it inert, and closing gives it back', async () => {
+    render(App);
+    mode.set('study');
+    await tick();
+    const inert = () =>
+      ['#top', '#main', '#sidebump'].map((s) => document.querySelector(s)?.hasAttribute('inert'));
+
+    expect(inert()).toEqual([false, false, false]);
+    await press('?', { shiftKey: true });
+    expect(inert()).toEqual([true, true, true]);
+    await press('Escape');
+    expect(inert()).toEqual([false, false, false]);
+  });
 });
 
 /** A shared file with one answerable card, one checklist card and one flashcard. */
@@ -270,8 +284,10 @@ describe('Reader — the same cursor in an exported file', () => {
 
     await press('?', { shiftKey: true });
     expect(document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')).not.toBeNull();
+    expect(document.querySelector('#main')?.hasAttribute('inert')).toBe(true);
     await press('Escape');
     expect(document.querySelector('[aria-label="Keyboard shortcuts"]')).toBeNull();
+    expect(document.querySelector('#main')?.hasAttribute('inert')).toBe(false);
   });
 });
 

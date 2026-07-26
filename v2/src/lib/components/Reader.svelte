@@ -40,6 +40,7 @@
   import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
   import { revealCard } from '../card-reveal';
+  import { setAppInert } from '../modal-inert';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
   import { sideWidthAt } from '../shell';
   import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from '../zoom';
@@ -164,6 +165,13 @@
       studyFocus = null;
       helpOpen = false;
     }
+  });
+
+  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind it and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen);
+    return () => setAppInert(false);
   });
 
   // The cards the Study grid is rendering right now, in render order — the cursor's whole world.

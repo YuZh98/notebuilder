@@ -2,8 +2,8 @@
   let { onclose }: { onclose: () => void } = $props();
 
   const ROWS: [string, string][] = [
-    ['j · →', 'focus the next card'],
-    ['k · ←', 'focus the previous card'],
+    ['j · ↓ · →', 'focus the next card'],
+    ['k · ↑ · ←', 'focus the previous card'],
     ['space · f', 'flip the focused card'],
     ['1 – 9', 'pick that answer option'],
     ['Enter', 'submit the answer'],

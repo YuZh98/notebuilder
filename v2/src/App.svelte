@@ -61,6 +61,7 @@
   import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
   import { revealCard } from './lib/card-reveal';
+  import { setAppInert } from './lib/modal-inert';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
@@ -211,6 +212,13 @@
   // would be a list of dead shortcuts that ? and Escape can no longer close.
   $effect(() => {
     if ($place !== 'house') helpOpen = false;
+  });
+
+  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind it and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen);
+    return () => setAppInert(false);
   });
 
   /** The focused card — null unless the cursor is on a card the reader can actually see. */
