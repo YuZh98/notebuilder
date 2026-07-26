@@ -1376,9 +1376,11 @@ body.side-collapsed #main {
 .furn {
   --cardc: var(--accent);
   /* The study cursor ring, shared by the keyboard cursor and the place flash: a --bg gap and an
-     --ink halo either side of the accent outline that draws over them. */
+     --ink halo either side of the accent outline that draws over them. The 3px inset repeats this
+     rule's own accent stripe. */
   --kring:
-    inset 3px 0 0 var(--cardc), var(--glow), 0 0 0 var(--space-2) var(--bg),
+    inset 3px 0 0 var(--cardc), /* token-exempt: the accent stripe width, kept in step with .furn */
+    var(--glow), 0 0 0 var(--space-2) var(--bg),
     0 0 0 var(--space-4) color-mix(in srgb, var(--ink) 60%, transparent);
   flex: 0 0 calc((var(--w, 6) / 12) * 100% - 9px);
   background: var(--panel);
@@ -1450,6 +1452,7 @@ body .furn.kfocus {
   }
   100% {
     outline-color: transparent;
+    /* the card's resting shadow — token-exempt: the accent stripe width, as in .furn */
     box-shadow:
       inset 3px 0 0 var(--cardc),
       var(--glow);
