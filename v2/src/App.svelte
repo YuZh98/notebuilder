@@ -222,7 +222,8 @@
   function applyStudyKey(key: string) {
     const card = focusedStudyCard();
     if (!card) return;
-    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {});
+    const live = session.live[card.id] ?? {};
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {}, live);
     if (effect) onSlotState(card, effect.slotId, effect.next);
   }
 
@@ -834,8 +835,9 @@
       const inField = isFieldTarget(el);
       const cur = get(place);
       const focusedCard = focusedStudyCard();
+      const focusedLive = focusedCard ? (session.live[focusedCard.id] ?? {}) : {};
       const surfaces = focusedCard
-        ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {})
+        ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {}, focusedLive)
         : NO_SURFACES;
       const ctx: KeyCtx = {
         inField,

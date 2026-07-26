@@ -1,9 +1,13 @@
 // Keyboard-first Study: the decisions behind the study cursor, with no DOM and no Svelte.
 // App and Reader both import this so the exported Reader behaves identically to the app.
 
+import { buildCardScope } from './card-scope';
 import { CARD_STATE_KEY } from './card-done';
+import { getSlot } from './slots/registry';
+import { shouldShow, isLocked } from './verbs';
 import { visibleSections, visibleSectionCards, type SectionView } from './visible-cards';
 import type { Card, Notebook, Slot } from './types';
+import type { Scope } from './variable-graph';
 
 /** One reader-state write: `readerState[focusedCardId][slotId] = next`. */
 export type StudyEffect = { slotId: string; next: Record<string, unknown> };
@@ -53,7 +57,7 @@ export function isFlipCapable(card: Pick<Card, 'verbs'> | null | undefined): boo
  */
 export type StudySurfaces = {
   flip: boolean;
-  /** Options in the first open choice slot — digits above this have nothing to pick. */
+  /** Options in the target choice slot — digits above this have nothing to pick. */
   choiceOptions: number;
   canSubmit: boolean;
   canTick: boolean;
@@ -66,32 +70,83 @@ export const NO_SURFACES: StudySurfaces = {
   canTick: false,
 };
 
-export function studySurfaces(card: Card | null | undefined, states: CardStates): StudySurfaces {
+export function studySurfaces(
+  card: Card | null | undefined,
+  states: CardStates,
+  live: Scope = {},
+): StudySurfaces {
   if (!card) return NO_SURFACES;
-  const open = findOpenChoice(card, states);
+  const slots = addressableSlots(card, states, live);
+  const target = targetChoice(slots, states);
   return {
     flip: isFlipCapable(card),
-    choiceOptions: open ? optionsOf(open).length : 0,
-    canSubmit: findSubmittable(card, states) !== undefined,
-    canTick: findTickable(card, states) !== undefined,
+    choiceOptions: target ? optionsOf(target).length : 0,
+    canSubmit: target !== undefined && selectedOf(states[target.id] ?? {}).length > 0,
+    canTick: findTickable(slots, states) !== undefined,
   };
 }
 
 /**
  * The state write a study key performs on the focused card, or null when the card carries no
  * surface for that key. Keys: ` `/`f` flip · `1`-`9` choice option · `Enter` submit · `x` tick.
+ * `live` is the card's session-layer input scope — the same one CardView renders from.
  */
-export function studyKeyEffect(key: string, card: Card, states: CardStates): StudyEffect | null {
+export function studyKeyEffect(
+  key: string,
+  card: Card,
+  states: CardStates,
+  live: Scope = {},
+): StudyEffect | null {
   if (key === ' ' || key === 'f') return flipEffect(card, states);
-  if (key === 'Enter') return submitEffect(card, states);
-  if (key === 'x') return tickEffect(card, states);
-  if (/^[1-9]$/.test(key)) return choiceEffect(card, states, Number(key) - 1);
-  return null;
+  if (key !== 'Enter' && key !== 'x' && !/^[1-9]$/.test(key)) return null;
+  const slots = addressableSlots(card, states, live);
+  if (key === 'Enter') return submitEffect(slots, states);
+  if (key === 'x') return tickEffect(slots, states);
+  return choiceEffect(slots, states, Number(key) - 1);
 }
 
-/** Both faces in document order — a flip card's back slots are answerable too. */
-function faceSlots(card: Card): Slot[] {
-  return [...card.slots, ...(card.back ?? [])];
+/** The face turned towards the reader: a flip card shows one at a time, every other card its front. */
+function shownFace(card: Card, states: CardStates): Slot[] {
+  if (!isFlipCapable(card)) return card.slots;
+  return states[CARD_STATE_KEY]?.flipped === true ? (card.back ?? []) : card.slots;
+}
+
+// Mirrors CardView.priorComplete: only the slots before it on the same face count.
+function priorComplete(face: Slot[], i: number, states: CardStates): boolean {
+  for (let j = 0; j < i; j++) {
+    const slot = face[j];
+    const type = getSlot(slot.type);
+    if (type?.completable && type.isDone && !type.isDone(slot.props, states[slot.id] ?? {})) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// A cycle or a bad expression leaves CardView rendering an empty scope beside its error banner;
+// the keys must read whatever scope the reader is actually looking at.
+function cardScope(card: Card, live: Scope): Scope {
+  try {
+    return buildCardScope([...card.slots, ...(card.back ?? [])], live);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * The slots a key may address: the shown face's, minus the ones the click path would not offer.
+ * `shouldShow` and `isLocked` get exactly the inputs CardView's studyBody gives them — card-wide
+ * scope for reveal, same-face priorComplete for sequential and locked — so a slot the reader
+ * cannot click is a slot the keyboard cannot answer.
+ */
+function addressableSlots(card: Card, states: CardStates, live: Scope): Slot[] {
+  const face = shownFace(card, states);
+  const scope = cardScope(card, live);
+  return face.filter((slot, i) => {
+    if (!getSlot(slot.type)) return false;
+    const prior = priorComplete(face, i, states);
+    return shouldShow(slot.verbs, scope, prior) && !isLocked(slot.verbs?.locked, prior);
+  });
 }
 
 function selectedOf(state: Record<string, unknown>): number[] {
@@ -112,19 +167,12 @@ function checkedOf(slot: Slot, state: Record<string, unknown>): boolean[] {
     : itemsOf(slot).map(() => false);
 }
 
-/** The choice slot a digit addresses: the first one not yet submitted. */
-function findOpenChoice(card: Card, states: CardStates): Slot | undefined {
-  return faceSlots(card).find((s) => s.type === 'choice' && states[s.id]?.submitted !== true);
-}
-
-/** The choice slot Enter submits: the first unsubmitted one that already carries a selection. */
-function findSubmittable(card: Card, states: CardStates): Slot | undefined {
-  return faceSlots(card).find(
-    (s) =>
-      s.type === 'choice' &&
-      states[s.id]?.submitted !== true &&
-      selectedOf(states[s.id] ?? {}).length > 0,
-  );
+/**
+ * The one choice slot the keyboard is on: the first addressable unsubmitted one. Digits pick in it
+ * and Enter submits it, so the two keys cannot land on different questions.
+ */
+function targetChoice(slots: Slot[], states: CardStates): Slot | undefined {
+  return slots.find((s) => s.type === 'choice' && states[s.id]?.submitted !== true);
 }
 
 /** Index of the first unticked item in a check list, or -1 when it is complete or empty. */
@@ -133,9 +181,9 @@ function tickIndex(slot: Slot, state: Record<string, unknown>): number {
   return itemsOf(slot).findIndex((_item, k) => checked[k] !== true);
 }
 
-/** The checklist `x` ticks: the first check-style list with an item still unticked. */
-function findTickable(card: Card, states: CardStates): Slot | undefined {
-  return faceSlots(card).find(
+/** The checklist `x` ticks: the first addressable check-style list with an item still unticked. */
+function findTickable(slots: Slot[], states: CardStates): Slot | undefined {
+  return slots.find(
     (s) => s.type === 'list' && s.props.style === 'check' && tickIndex(s, states[s.id] ?? {}) >= 0,
   );
 }
@@ -152,8 +200,8 @@ function flipEffect(card: Card, states: CardStates): StudyEffect | null {
 }
 
 // Mirrors ChoiceStudy.toggle(): multi accumulates, single replaces; a submitted slot is closed.
-function choiceEffect(card: Card, states: CardStates, idx: number): StudyEffect | null {
-  const slot = findOpenChoice(card, states);
+function choiceEffect(slots: Slot[], states: CardStates, idx: number): StudyEffect | null {
+  const slot = targetChoice(slots, states);
   if (!slot || idx >= optionsOf(slot).length) return null;
   const state = states[slot.id] ?? {};
   const selected = selectedOf(state);
@@ -167,16 +215,18 @@ function choiceEffect(card: Card, states: CardStates, idx: number): StudyEffect 
 }
 
 // Mirrors ChoiceStudy.submit(), which refuses an empty selection.
-function submitEffect(card: Card, states: CardStates): StudyEffect | null {
-  const slot = findSubmittable(card, states);
+function submitEffect(slots: Slot[], states: CardStates): StudyEffect | null {
+  const slot = targetChoice(slots, states);
   if (!slot) return null;
-  return { slotId: slot.id, next: { ...(states[slot.id] ?? {}), submitted: true } };
+  const state = states[slot.id] ?? {};
+  if (selectedOf(state).length === 0) return null;
+  return { slotId: slot.id, next: { ...state, submitted: true } };
 }
 
 // Mirrors ListStudy.toggle(), one tick at a time. A fully ticked list is skipped rather than
 // untoggled, so repeated `x` walks a card's checklists to the end instead of stalling on the first.
-function tickEffect(card: Card, states: CardStates): StudyEffect | null {
-  const slot = findTickable(card, states);
+function tickEffect(slots: Slot[], states: CardStates): StudyEffect | null {
+  const slot = findTickable(slots, states);
   if (!slot) return null;
   const state = states[slot.id] ?? {};
   const checked = checkedOf(slot, state);
