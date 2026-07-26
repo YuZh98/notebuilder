@@ -140,6 +140,8 @@ export function handleAppKey(e: KeyboardEventLike, ctx: KeyCtx): KeyAction | nul
     if (e.key === '?' || (ctx.helpOpen && e.key === 'Escape')) {
       return { kind: 'study-help', preventDefault: true };
     }
+    // The overlay is modal: nothing moves the cursor or answers a card behind it.
+    if (ctx.helpOpen) return null;
     if (e.key === 'Escape' && ctx.studyFocus) {
       return { kind: 'study-focus-clear', preventDefault: false };
     }

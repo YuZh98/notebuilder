@@ -205,6 +205,12 @@
     if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
   });
 
+  // The overlay lists house study keys, and those keys are house-only: left open in the Factory it
+  // would be a list of dead shortcuts that ? and Escape can no longer close.
+  $effect(() => {
+    if ($place !== 'house') helpOpen = false;
+  });
+
   /** The focused card — null unless the cursor is on a card the reader can actually see. */
   function focusedStudyCard(): Card | null {
     if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;

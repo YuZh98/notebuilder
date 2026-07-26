@@ -379,6 +379,30 @@ describe('handleAppKey — shortcut overlay', () => {
       preventDefault: true,
     });
   });
+
+  it('is modal: with it open every other key is inert', () => {
+    const open = studying({ helpOpen: true, focusedFlipCapable: true });
+    for (const k of ['j', 'k', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', ' ', 'f', 'x', '1', '9', 'Enter']) {
+      expect(handleAppKey(key(k), open), k).toBeNull();
+    }
+  });
+
+  it('is modal even over the selection keys the house otherwise answers', () => {
+    const open = studying({
+      helpOpen: true,
+      selCard: 'c1',
+      cardIdsOfSelectedSection: ['c1', 'c2'],
+      selSection: null,
+      filterActive: true,
+    });
+    expect(handleAppKey(key('ArrowRight'), open)).toBeNull();
+  });
+
+  it('leaves the modifier shortcuts alone — they are not study keys', () => {
+    const open = studying({ helpOpen: true });
+    expect(handleAppKey(key('Enter', { metaKey: true }), open)!.kind).toBe('toggle-mode');
+    expect(handleAppKey(key('z', { metaKey: true }), open)!.kind).toBe('undo');
+  });
 });
 
 describe('handleAppKey — study bindings are Edit-mode and field inert', () => {
