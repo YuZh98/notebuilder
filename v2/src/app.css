@@ -2177,7 +2177,8 @@ body .furn.kflash {
   .grip,
   .rz,
   .arch,
-  .svcbar {
+  .svcbar,
+  .kb-hint {
     display: none !important;
   }
   body {

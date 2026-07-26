@@ -116,11 +116,10 @@
 
   // v1 fitPreview (70-events.js:217): the stage lays out at notebook geometry and is scaled to the
   // panel; the wrap gets an explicit height because transforms do not shrink layout space.
-  // The reference width is the type's own share of the 12-column room, not the whole room: a w:6
-  // type previewed at full room width scaled to ~0.36, which is unreadable, and it was never how
-  // the card looks in a notebook anyway.
-  const PREV_REF_12 = 720;
-  const prevRef = (PREV_REF_12 * (ct.w ?? 12)) / 12;
+  // 720px is a full 12-column room, and the stage takes the type's own share of it: previewing a
+  // w:6 type at whole-room width scaled it to ~0.36, illegible and not how the card ever looks.
+  const ROOM_W = 720;
+  const prevRef = (ROOM_W * (ct.w ?? 12)) / 12;
   let prevWrapW = $state(0);
   let prevStageH = $state(0);
   const prevScale = $derived(Math.min(1, Math.max(0.2, (prevWrapW - 22) / prevRef)));

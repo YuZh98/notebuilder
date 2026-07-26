@@ -1056,8 +1056,8 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     opacity: 0.75;
-  }
-  .kb-hint:hover {
-    opacity: 1;
+    /* It floats over the cards, so it must not take their clicks: a flip or an option under the
+       pill has to stay hittable. */
+    pointer-events: none;
   }
 </style>
