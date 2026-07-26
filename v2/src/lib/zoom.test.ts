@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
+// @ts-expect-error -- node builtin, untyped in the browser-only tsconfig (test runs in vitest/node)
+import { readFileSync } from 'node:fs';
 import { nextZoom, zoomLabel, applyZoom, effectiveZoom, toZoomedSpace } from './zoom';
+
+// Vitest stubs `.css` imports, so the stylesheet is read off disk (`?raw` hands back '') —
+// same route as CardView.test.ts's app.css contract test.
+const appCss: string = readFileSync('src/app.css', 'utf8');
 
 const zoomOf = (el: HTMLElement) => (el.style as CSSStyleDeclaration & { zoom?: string }).zoom;
 
@@ -90,5 +96,19 @@ describe('toZoomedSpace', () => {
   it('leaves pixels alone for a nonsense factor rather than dividing by zero', () => {
     expect(toZoomedSpace(300, 0)).toBe(300);
     expect(toZoomedSpace(300, Number.NaN)).toBe(300);
+  });
+});
+
+// The print path is CSS, not JS: a native print sheet (WKWebView) is raised asynchronously, so
+// nothing in JS can reliably restore the zoom after pagination. See print.ts.
+describe('print stylesheet', () => {
+  it('read the stylesheet at all (extraction proof)', () => {
+    expect(appCss.length).toBeGreaterThan(1000);
+    expect(appCss).toContain('@media print');
+  });
+
+  it('neutralises the body zoom so a forgotten Cmd+- cannot shrink the print', () => {
+    const printBlock = appCss.slice(appCss.indexOf('@media print'));
+    expect(printBlock).toMatch(/zoom:\s*1\s*!important/);
   });
 });

@@ -2148,5 +2148,7 @@ body[data-theme] .room.edit .furn.bare {
   body {
     background: #fff;
     color: #000;
+    /* A forgotten Cmd+- must not shrink the paper: paginate at 100% whoever raised the sheet. */
+    zoom: 1 !important; /* token-exempt: the identity zoom factor, not a dimension */
   }
 }
