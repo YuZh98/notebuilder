@@ -41,7 +41,7 @@
   import { installEditCoalescing } from '../history-focus';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
   import { sideWidthAt } from '../shell';
-  import { effectiveZoom } from '../zoom';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from '../zoom';
   import {
     addSection,
     addChapter,
@@ -206,6 +206,8 @@
     return [];
   }
 
+  let zoomLevel = 1;
+
   // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
@@ -276,6 +278,12 @@
         break;
       case 'blur-single-line':
         el?.blur();
+        break;
+      // The action preventDefaults the browser's own zoom, so this file has to replace it.
+      case 'zoom':
+        zoomLevel = nextZoom(zoomLevel, action.delta);
+        applyZoom(zoomLevel);
+        toast(zoomLabel(zoomLevel));
         break;
       case 'study-focus-step':
         moveStudyFocus(action.delta);
