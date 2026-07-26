@@ -145,10 +145,13 @@ export function handleAppKey(e: KeyboardEventLike, ctx: KeyCtx): KeyAction | nul
     if (e.key === 'Escape' && ctx.studyFocus) {
       return { kind: 'study-focus-clear', preventDefault: false };
     }
-    if (e.key === 'j' || e.key === 'ArrowRight') {
+    // All four arrows walk the cursor: the study grid stacks vertically, so Up/Down is what a
+    // reader reaches for. They shadow the Edit-mode section/card nav below, which needs a
+    // selection Study never has.
+    if (e.key === 'j' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
       return { kind: 'study-focus-step', delta: 1, preventDefault: true };
     }
-    if (e.key === 'k' || e.key === 'ArrowLeft') {
+    if (e.key === 'k' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
       return { kind: 'study-focus-step', delta: -1, preventDefault: true };
     }
     if (ctx.studyFocus) {

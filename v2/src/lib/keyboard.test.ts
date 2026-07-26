@@ -263,21 +263,27 @@ describe('handleAppKey — zoom', () => {
 });
 
 describe('handleAppKey — study cursor movement (v0.3.0 keyboard-first Study)', () => {
-  it('j / ArrowRight step forward, k / ArrowLeft step back', () => {
-    for (const k of ['j', 'ArrowRight']) {
+  it('j / ArrowRight / ArrowDown step forward, k / ArrowLeft / ArrowUp step back', () => {
+    for (const k of ['j', 'ArrowRight', 'ArrowDown']) {
       expect(handleAppKey(key(k), studying()), k).toEqual({
         kind: 'study-focus-step',
         delta: 1,
         preventDefault: true,
       });
     }
-    for (const k of ['k', 'ArrowLeft']) {
+    for (const k of ['k', 'ArrowLeft', 'ArrowUp']) {
       expect(handleAppKey(key(k), studying()), k).toEqual({
         kind: 'study-focus-step',
         delta: -1,
         preventDefault: true,
       });
     }
+  });
+
+  it('ArrowUp/Down walk the cursor even with a section selected — the Edit nav stays out of Study', () => {
+    const withSection = studying({ selSection: 's1', sectionIds: ['s1', 's2'] });
+    expect(handleAppKey(key('ArrowDown'), withSection)!.kind).toBe('study-focus-step');
+    expect(handleAppKey(key('ArrowUp'), withSection)!.kind).toBe('study-focus-step');
   });
 
   it('steps with no cursor yet — the first j starts the session', () => {
@@ -417,6 +423,12 @@ describe('handleAppKey — study bindings are Edit-mode and field inert', () => 
     expect(
       handleAppKey(key('ArrowRight'), ctx({ selCard: 'c1', cardIdsOfSelectedSection: ['c1', 'c2'] })),
     ).toEqual({ kind: 'select-card', id: 'c2', preventDefault: true });
+  });
+
+  it('Edit-mode ArrowUp/Down still move the section selection, not the cursor', () => {
+    expect(
+      handleAppKey(key('ArrowDown'), ctx({ selSection: 's1', sectionIds: ['s1', 's2'] })),
+    ).toEqual({ kind: 'select-section', id: 's2', preventDefault: true });
   });
 
   it('the factory has no study cursor (its stage shows benches, not the notebook)', () => {

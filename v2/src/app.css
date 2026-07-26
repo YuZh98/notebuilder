@@ -1426,14 +1426,18 @@ body[data-theme] .room.edit .furn.bare {
   box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.3);
 }
 /* Study keyboard cursor. `.sel` is the Edit-mode selection and stays edit-only, so the cursor
-   carries its own ring: the outline reads under every theme (themes may restyle the halo away). */
-.furn.kfocus {
+   carries its own two-layer ring: a --bg gap, the accent outline, then an --ink halo outside it.
+   The halo is what keeps the cursor apart from the accent-coloured .done border, which the single
+   accent ring read as in Dark and B&W. The `body` prefix outranks the theme blocks, which restyle
+   `.furn`'s box-shadow at a higher specificity and would otherwise drop the halo. */
+body .furn.kfocus {
   outline: var(--space-1) solid var(--accent);
   outline-offset: var(--space-1);
   box-shadow:
     inset 3px 0 0 var(--cardc),
     var(--glow),
-    0 0 0 var(--space-3) color-mix(in srgb, var(--accent) 18%, transparent);
+    0 0 0 var(--space-2) var(--bg),
+    0 0 0 var(--space-4) color-mix(in srgb, var(--ink) 60%, transparent);
 }
 .furn .grip {
   position: absolute;

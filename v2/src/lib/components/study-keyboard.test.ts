@@ -63,6 +63,19 @@ describe('App — the study cursor', () => {
     expect(focused(container)).toBeNull();
   });
 
+  it('ArrowDown/ArrowUp walk the cursor like j/k', async () => {
+    const { container } = render(App);
+    mode.set('study');
+    await tick();
+
+    await press('ArrowDown');
+    expect(focused(container)).toBe('card_1');
+    await press('ArrowDown');
+    expect(focused(container)).toBe('card_2');
+    await press('ArrowUp');
+    expect(focused(container)).toBe('card_1');
+  });
+
   it('draws no ring in Edit mode, and drops the cursor when the mode flips', async () => {
     const { container } = render(App);
     mode.set('study');

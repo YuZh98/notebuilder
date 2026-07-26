@@ -222,7 +222,9 @@
     const next = stepFocus(studyOrderIds, studyFocus, delta);
     if (!next) return;
     studyFocus = next;
-    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+    // 'center', not 'nearest': nearest parks the card flush against the viewport edge, where the
+    // ring is clipped and the pinned hint sits on top of it.
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'center' });
   }
 
   // Card keys write through the same reader-state path as a click on the slot itself.
@@ -1366,8 +1368,22 @@
     width: 100%;
     padding: 8px;
   }
+  /* Pinned to the foot of the scrolling stage: as a plain last line of the document the hint sat
+     below every card, so the shortcuts it advertises were never seen on entering Study. */
   .kb-hint {
-    padding: var(--space-2) var(--space-1);
-    opacity: 0.6;
+    position: sticky;
+    bottom: var(--space-2);
+    z-index: 2;
+    width: fit-content;
+    max-width: 100%;
+    margin: var(--space-5) auto 0;
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    opacity: 0.75;
+  }
+  .kb-hint:hover {
+    opacity: 1;
   }
 </style>
