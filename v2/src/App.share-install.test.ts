@@ -62,6 +62,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }));
 
 import App from './App.svelte';
+import { shareDocId } from './lib/share';
 import { builtinCardTypes } from './lib/card-types';
 import { demoNotebook } from './lib/demo';
 
@@ -92,7 +93,7 @@ beforeEach(() => {
 });
 
 describe('App — shared files carry a per-install docId', () => {
-  it('first share on an install creates and stores install_id, and the docId is `${installId}:${notebook.id}`', async () => {
+  it('first share on an install creates and stores install_id, and the docId is shareDocId(installId, notebook.id)', async () => {
     const { container } = render(App);
     await ready(container);
     const s = await share(container);
@@ -100,7 +101,7 @@ describe('App — shared files carry a per-install docId', () => {
     expect(writes).toHaveLength(1);
     const installId = writes[0][1];
     expect(installId).toMatch(UUID);
-    expect(s.docId).toBe(`${installId}:nb_demo`);
+    expect(s.docId).toBe(shareDocId(installId, 'nb_demo'));
   });
 
   it('a later share (and a later launch) reuses the stored id: same notebook → same docId', async () => {
@@ -109,7 +110,7 @@ describe('App — shared files carry a per-install docId', () => {
     await ready(container);
     const first = await share(container);
     const again = await share(container);
-    expect(first.docId).toBe('0b9c1c6e-6f1e-4b7e-9a51-1f0d6f2a9c11:nb_demo');
+    expect(first.docId).toBe(shareDocId('0b9c1c6e-6f1e-4b7e-9a51-1f0d6f2a9c11', 'nb_demo'));
     expect(again.docId).toBe(first.docId);
     expect(h.prefWrites.filter(([k]) => k === 'install_id')).toEqual([]);
     unmount();

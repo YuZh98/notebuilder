@@ -33,6 +33,15 @@ The living handout: notebooks an LLM can draft, a teacher can trust, and a stude
   failing silently, card widths not persisting, section resets coming back after a restart.
 - **Version history.** Automatic snapshots (at most every 10 minutes, only on change), "Save
   version now", and Restore (undoable). SQLite migration v6.
+- **Shared files on phones and offline.** Under 760 px the Reader starts with its panel collapsed
+  and cards go full width; the file makes no third-party request (the web-font import is
+  stripped at build, and the build fails on any external reference); a damaged file shows a
+  readable message instead of a blank page; the embedded payload escapes every `<`.
+- **Safer sharing.** Share is refused while the notebook fails validation (the report lists
+  why), so students never get a broken file; Export still writes the backup and then lists what
+  would stop it re-importing. Progress keys are a hash of a per-install id and the notebook id,
+  so two authors' files never share students' progress. Imported text is made well-formed
+  before it reaches SQLite.
 - **Examples.** `docs/examples/practice-lesson.json` (percent change) shows every new piece.
 - CI runs the v2 job on Node 22 (real-SQLite tests) and fails on a stale Reader template.
 

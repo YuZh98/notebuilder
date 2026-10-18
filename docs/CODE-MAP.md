@@ -251,6 +251,9 @@ v2/
       ai-prompt.ts       buildAiPrompt: the "From AI" prompt (format, catalog, grammar, pedagogy)
       import-hints.ts    checkNotebookText: fence/prose-tolerant parse, own line/col, hintFor, fix request
       clipboard.ts       copyText with execCommand fallback
+      install-id.ts      Per-install random id (pref install_id); shareDocId hashes it with the notebook id
+      well-formed.ts     Replace lone UTF-16 surrogates (imports) so SQLite never stores invalid UTF-8
+      reader-boot.ts     Shared-file boot: extract → validate → import; a readable error page on failure
       db-map.ts          Notebook ↔ relational row mapping
       variable-graph.ts  Topological sort, cycle detection, scope resolution
       card-scope.ts      Build scope from a card's slots (same invariant: card-scoped)
@@ -443,11 +446,17 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
    which keeps `cats` in sync. `pinned` is owned by the pin button and cannot be renamed.
 
 8. **Shared Reader** (`reader-main.ts` + `Reader.svelte` + `reader-store.ts` + `results.ts`) — the
-   share payload `{shared, docId, notebook, theme}` is embedded in the committed template
+   share payload `{shared, docId, notebook, theme}` is embedded (every `<`, `>`, `&` escaped as
+   `\u003c`…) in the committed template
    (`generated/reader-template.ts`, rebuilt by `npm run build:reader`, freshness-checked in CI).
    Import regenerates ids each load, so progress is keyed by a hash of each card's CONTENT (slots,
    props, verbs — not width/color/tags) + slot face/index and stored in localStorage under
-   `notebuilder:reader:v1:<docId>`. "My results" summarizes progress and `score()` tallies.
+   `notebuilder:reader:v1:<docId>` (docId = hash of install id + notebook id). "My results"
+   summarizes progress and `score()` tallies. Phones: under 760 px the Reader starts with its
+   panel collapsed and cards go full width (rules scoped to `body.nb-reader`). The build strips
+   remote `@import`s (no font request leaves the file) and fails on any external reference.
+   Share is refused while the notebook fails validation (ImportReport lists why); Export still
+   writes the backup, then lists what would stop it re-importing.
 
 9. **Bring-your-own-LLM authoring** (`schema/` + `slot-catalog.ts` + `ai-prompt.ts` +
    `import-hints.ts`) — the JSON Schema is the one source the prompt kit and hints read from; the

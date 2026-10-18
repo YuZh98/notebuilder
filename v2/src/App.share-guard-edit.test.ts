@@ -90,7 +90,7 @@ afterEach(() => {
   mode.set('edit');
 });
 
-describe('App — a slot broken in the editor holds back Share and Export until it is fixed', () => {
+describe('App — a slot broken in the editor holds back Share until it is fixed; Export warns', () => {
   it('Share: a parameter renamed to "e" is listed and nothing is written; renamed back, it shares', async () => {
     const { container } = render(App);
     await openInEditor(container);
@@ -113,24 +113,24 @@ describe('App — a slot broken in the editor holds back Share and Export until 
     // What is written is the fixed notebook, under this install's docId for it.
     const props = io.shared[0].nb.sections[0].cards[0].slots[0].props as { params: { name: string }[] };
     expect(props.params[0].name).toBe('a');
-    expect(io.shared[0].docId).toMatch(/^[\w-]{8,64}:nb_edit$/);
+    expect(io.shared[0].docId).toMatch(/^d[0-9a-z]+$/);
   });
 
-  it('Export: an unfinished answer "a*" is listed and no backup is written; completed, it exports', async () => {
+  it('Export: an unfinished answer "a*" is still backed up and listed; completed, it exports cleanly', async () => {
     const { container } = render(App);
     await openInEditor(container);
 
     await type(container, 'Answer formula', 'a*');
     await fireEvent.click(container.querySelector('button[title="Backup as JSON (data only)"]')!);
+    await waitFor(() => expect(io.exported).toHaveLength(1));
     await waitFor(() => expect(report()).toBeTruthy());
-    expect(report()!.querySelector('.ir-title')!.textContent).toBe('Fix this problem before exporting');
+    expect(report()!.querySelector('.ir-title')!.textContent).toBe('Exported, but fix this problem before importing it again');
     expect(report()!.querySelector('.ir-list.error')!.textContent).toMatch(/answer:/);
-    expect(io.exported).toEqual([]);
     await closeReport();
 
     await type(container, 'Answer formula', 'a*2');
     await fireEvent.click(container.querySelector('button[title="Backup as JSON (data only)"]')!);
-    await waitFor(() => expect(io.exported).toHaveLength(1));
+    await waitFor(() => expect(io.exported).toHaveLength(2));
     expect(report()).toBeNull();
   });
 });

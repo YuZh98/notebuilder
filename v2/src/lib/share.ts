@@ -6,6 +6,7 @@ import { injectNotebook, extractNotebook, type ReaderPayload } from './html-io';
 import { READER_TEMPLATE } from './generated/reader-template';
 import { isTauri } from './db';
 import { checkNotebookText, type CheckResult } from './import-hints';
+import { cyrb53 } from './reader-store';
 import type { Notebook } from './types';
 
 export type ImportResult =
@@ -20,12 +21,13 @@ const HTML_FILTER = [{ name: 'Shared Notebook (HTML)', extensions: ['html'] }];
 const IMPORT_FILTER = [{ name: 'Notebook', extensions: ['json', 'html'] }];
 
 /**
- * The identity a shared file's students' progress is saved under: this install's random id plus
- * the notebook id. Stable across re-shares of one notebook (students keep their progress), and
- * distinct across installs even for the same notebook id (every install's demo is 'nb_demo').
+ * The identity a shared file's students' progress is saved under: a hash of this install's random
+ * id and the notebook id. Stable across re-shares of one notebook (students keep their progress),
+ * distinct across installs even for the same notebook id (every install's demo is 'nb_demo'), and
+ * revealing neither id, so files from one install can't be linked to each other by it.
  */
 export function shareDocId(installId: string, notebookId: string): string {
-  return `${installId}:${notebookId}`;
+  return `d${cyrb53(`${installId}:${notebookId}`)}`;
 }
 
 /**

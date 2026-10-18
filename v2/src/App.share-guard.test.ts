@@ -144,27 +144,27 @@ describe('App — Share is held back while the notebook fails validation', () =>
     expect(share.shared[0].nb.id).toBe('nb_guard');
   });
 
-  it('browser build: the docId is a per-session install id plus the notebook id, the same on a re-share', async () => {
+  it('browser build: the docId is a per-session install hash, the same on a re-share', async () => {
     const { container } = render(App);
     await open(container, nbWith([problem({})]));
     await fireEvent.click(shareBtn(container));
     await waitFor(() => expect(share.shared).toHaveLength(1));
     await fireEvent.click(shareBtn(container));
     await waitFor(() => expect(share.shared).toHaveLength(2));
-    expect(share.shared[0].docId).toMatch(/^[\w-]{8,64}:nb_guard$/);
+    expect(share.shared[0].docId).toMatch(/^d[0-9a-z]+$/);
     expect(share.shared[1].docId).toBe(share.shared[0].docId);
   });
 });
 
-describe('App — Export is held back while the notebook fails validation', () => {
-  it('lists the problem and writes no backup that could not be re-imported', async () => {
+describe('App — Export of an invalid notebook still backs it up, and says what blocks re-import', () => {
+  it('writes the backup, then lists the problem that would stop it importing', async () => {
     const { container } = render(App);
     await open(container, nbWith([problem({ params: [{ name: 'e', min: 1, max: 5, step: 1 }], answer: 'e' })]));
     await fireEvent.click(exportBtn(container));
+    await waitFor(() => expect(share.exported).toHaveLength(1));
     await waitFor(() => expect(report()).toBeTruthy());
-    expect(report()!.querySelector('.ir-title')!.textContent).toBe('Fix this problem before exporting');
+    expect(report()!.querySelector('.ir-title')!.textContent).toBe('Exported, but fix this problem before importing it again');
     expect(report()!.textContent).toMatch(/"e" is reserved/);
-    expect(share.exported).toEqual([]);
   });
 
   it('a valid notebook exports as before (warnings do not block)', async () => {

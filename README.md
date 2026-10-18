@@ -1,7 +1,7 @@
 # NoteBuilder
 
 [![CI](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-1202-brightgreen)](v2/)
+[![Tests](https://img.shields.io/badge/tests-2084-brightgreen)](v2/)
 [![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](v2/package.json)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](v2/src-tauri/)
 [![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)](v2/)
@@ -89,7 +89,7 @@ Full undo/redo, version history with restore, saves that survive a crash or a Cm
 
 ## Built to last
 
-1202 tests across 87 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
+2084 tests across 156 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
 
 <details>
 <summary><strong>Engineering deep-dive</strong></summary>

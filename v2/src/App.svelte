@@ -152,7 +152,7 @@
 
   /**
    * This install's random id (preference 'install_id', created once, through the queued db
-   * functions). A shared file saves students' progress under `${installId}:${notebook.id}`, so
+   * functions). A shared file saves students' progress under shareDocId(installId, notebook.id), so
    * two installs' demo notebooks (both 'nb_demo') never share it, while re-sharing one notebook
    * keeps it. Per session wherever nothing can be stored (the browser build).
    */
@@ -526,13 +526,13 @@
   }
 
   /**
-   * Held back by validation? The Reader validates a shared file before it shows anything, and
-   * Import validates a backup — but the Study view tolerates some invalid slots (a problem
-   * parameter named "e", step 0, an unfinished answer). Sharing such a notebook would give every
-   * student a blank page; exporting it, a backup that can't be re-imported. Errors are listed with
-   * their paths instead; warnings (a formula reading another card's variable) never block.
+   * Held back by validation? The Reader validates a shared file before it shows anything — but
+   * the Study view tolerates some invalid slots (a problem parameter named "e", step 0, an
+   * unfinished answer). Sharing such a notebook would give every student an error page, so the
+   * errors are listed with their paths instead; warnings (a formula reading another card's
+   * variable) never block.
    */
-  function heldBack(nb: Notebook, action: 'sharing' | 'exporting'): boolean {
+  function heldBack(nb: Notebook, action: 'sharing'): boolean {
     const { errors, warnings } = validateNotebookIssues(exportNotebook(nb));
     if (errors.length === 0) return false;
     const what = errors.length === 1 ? 'this problem' : `these ${errors.length} problems`;
@@ -541,13 +541,20 @@
   }
 
   async function handleExport() {
+    // Export is also the backup: it is never refused. An invalid notebook is still written, then
+    // the problems that would stop it from importing again are listed.
     const nb = $state.snapshot(notebook) as Notebook;
-    if (heldBack(nb, 'exporting')) return;
+    const { errors, warnings } = validateNotebookIssues(exportNotebook(nb));
     const result = await exportNotebookToFile(nb);
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
-      toast(`Exported to ${result.path}`);
+      if (errors.length > 0) {
+        const what = errors.length === 1 ? 'this problem' : `these ${errors.length} problems`;
+        importProblems = { errors, warnings, title: `Exported, but fix ${what} before importing it again`, fixRequest: false };
+      } else {
+        toast(`Exported to ${result.path}`);
+      }
     }
   }
 

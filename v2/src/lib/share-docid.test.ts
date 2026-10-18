@@ -25,8 +25,12 @@ function edited(nb: Notebook, text: string): Notebook {
 }
 
 describe('shareDocId', () => {
-  it('combines the install id and the notebook id', () => {
-    expect(shareDocId(INSTALL_A, 'nb_demo')).toBe(`${INSTALL_A}:nb_demo`);
+  it('is a hash of the install id and the notebook id that reveals neither', () => {
+    const id = shareDocId(INSTALL_A, 'nb_demo');
+    expect(id).toMatch(/^d[0-9a-z]+$/);
+    expect(id).not.toContain(INSTALL_A);
+    expect(id).not.toContain('nb_demo');
+    expect(shareDocId(INSTALL_A, 'nb_demo')).toBe(id); // deterministic
   });
 
   it('two installs sharing their demo notebook (both "nb_demo") get different docIds', () => {
@@ -53,7 +57,7 @@ describe('shareDocId', () => {
   it('the Reader accepts it as the document identity (non-empty, at most 200 chars)', () => {
     const nb = demoNotebook();
     const { p, raw } = payloadOf(buildShareHtml(nb, undefined, shareDocId(INSTALL_A, nb.id)));
-    expect(readerDocRef(p.docId, raw)).toBe(`${INSTALL_A}:nb_demo`);
+    expect(readerDocRef(p.docId, raw)).toBe(shareDocId(INSTALL_A, 'nb_demo'));
   });
 });
 
@@ -94,6 +98,6 @@ describe('shareNotebookToFile docId (browser download)', () => {
     const res = await shareNotebookToFile(demoNotebook(), undefined, shareDocId(INSTALL_A, 'nb_demo'));
 
     expect(res).toEqual({ path: 'My First Notebook.html' });
-    expect(payloadOf(parts[0][0] as string).p.docId).toBe(`${INSTALL_A}:nb_demo`);
+    expect(payloadOf(parts[0][0] as string).p.docId).toBe(shareDocId(INSTALL_A, 'nb_demo'));
   });
 });
