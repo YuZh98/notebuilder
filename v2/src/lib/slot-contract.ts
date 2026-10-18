@@ -51,6 +51,8 @@ export interface SlotType<P extends SlotProps = SlotProps> {
 
   /** Progress tracking — only required if completable */
   isDone?(props: P, state: Record<string, unknown>): boolean;
+  /** Graded result for results export; null when the slot has no answer key. */
+  score?(props: P, state: Record<string, unknown> | undefined): { correct: number; answered: number } | null;
 
   /** Validate props, return errors */
   validate?(props: P): string[];
