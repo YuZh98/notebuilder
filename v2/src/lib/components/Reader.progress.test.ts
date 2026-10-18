@@ -89,6 +89,19 @@ describe('Reader — remembers a student’s progress', () => {
     expect(second.container.querySelector('.choice-study')?.getAttribute('data-verdict')).toBe('correct');
   });
 
+  it('loads by itself when given only a storage key — never saving empty over stored progress', async () => {
+    const first = mountReader();
+    await typeInto(first.container, 'kept');
+    flush();
+    first.unmount();
+
+    const { container } = render(Reader, { props: { notebook: openFile(), shared: true, storageKey: KEY } });
+    await tick();
+    expect((container.querySelector('.text-input-study input') as HTMLInputElement).value).toBe('kept');
+    flush();
+    expect(stored()).toContain('kept');
+  });
+
   it('saves on its own debounce without waiting for pagehide', async () => {
     vi.useFakeTimers();
     try {

@@ -344,6 +344,27 @@ describe('loadProgress + createProgressStore', () => {
     expect(Object.keys(saved.cards)).toHaveLength(2);
   });
 
+  it('two different files that share a docId (e.g. both derived from the demo) keep each other’s progress', () => {
+    vi.useFakeTimers();
+    const storage = new MemoryStorage();
+    const docA = exportNotebook(authorNb([authorCard([input('only in A')])]));
+    const docB = exportNotebook(authorNb([authorCard([input('only in B')])]));
+    const work = (json: NotebookJSON, value: string) => {
+      const nb = open(json);
+      const initial = loadProgress(KEY, nb, storage);
+      const store = createProgressStore({ key: KEY, notebook: nb, initial, storage });
+      const [card] = cardsOf(nb);
+      const prev = initial.readerState[card.id]?.[card.slots[0].id]?.value;
+      store.schedule({ [card.id]: { [card.slots[0].id]: { value } } }, {});
+      store.flush();
+      return prev;
+    };
+    work(docA, 'answer A');
+    work(docB, 'answer B');
+    expect(work(docA, 'answer A2')).toBe('answer A');
+    expect(work(docB, 'answer B2')).toBe('answer B');
+  });
+
   it('stop() flushes what is pending and then ignores further saves (Remix / Import)', () => {
     vi.useFakeTimers();
     const storage = new MemoryStorage();

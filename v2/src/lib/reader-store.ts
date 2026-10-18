@@ -56,7 +56,6 @@ export type LoadedProgress = {
   available?: boolean;
 };
 
-const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
 const emptyBody = (): StoredBody => ({ cards: {}, notes: {} });
@@ -255,7 +254,11 @@ export function loadProgress(
     return empty(true);
   }
   if (!isRecord(parsed) || parsed.v !== STORED_VERSION) return empty(true);
-  return { ...fromStored(parsed, notebook), available: true };
+  try {
+    return { ...fromStored(parsed, notebook), available: true };
+  } catch {
+    return empty(true);
+  }
 }
 
 /** Remove the least-recently-saved Reader entry other than `keep`. False when there is none. */

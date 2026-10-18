@@ -64,7 +64,7 @@
   import { startEdgeResize } from '../drag/resize';
   import { startPointerDrag } from '../drag/engine';
   import { makeNotebookDropCallbacks } from '../drag/notebook-drop';
-  import { createProgressStore, installFlushOnHide, type LoadedProgress } from '../reader-store';
+  import { createProgressStore, installFlushOnHide, loadProgress, type LoadedProgress } from '../reader-store';
 
   let {
     notebook: initial,
@@ -93,22 +93,19 @@
   let shared = $state(sharedInit);
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
 
-  let readerState: Record<string, Record<string, Record<string, unknown>>> = $state(
-    initialState?.readerState ?? {},
-  );
-  let annotations: AnnotationMap = $state(initialState?.annotations ?? {});
-  let storageOk = $state(initialState?.available !== false);
+  // Persist only the locked original. reader-main loads before mount; loading here when it didn't
+  // keeps a bare storageKey from ever saving an empty state over progress already stored.
+  const persist = !!storageKey && sharedInit;
+  const boot: LoadedProgress | undefined =
+    initialState ?? (persist ? loadProgress(storageKey!, initial) : undefined);
+  let readerState: Record<string, Record<string, Record<string, unknown>>> = $state(boot?.readerState ?? {});
+  let annotations: AnnotationMap = $state(boot?.annotations ?? {});
+  let storageOk = $state(boot?.available !== false);
   let resultsOpen = $state(false);
   // Keys are fixed from the pristine notebook as opened, before any in-session edit.
-  const progressStore =
-    storageKey && sharedInit
-      ? createProgressStore({
-          key: storageKey,
-          notebook: initial,
-          initial: initialState,
-          onStatus: (ok) => (storageOk = ok),
-        })
-      : null;
+  const progressStore = persist
+    ? createProgressStore({ key: storageKey!, notebook: initial, initial: boot, onStatus: (ok) => (storageOk = ok) })
+    : null;
   let notesFor: string | null = $state(null);
   let galleryFor: string | null = $state(null);
 
