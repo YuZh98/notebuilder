@@ -5,6 +5,7 @@
   import CardPanel from './CardPanel.svelte';
   import TagsPanel from './TagsPanel.svelte';
   import DraftsBar from './DraftsBar.svelte';
+  import VersionsPanel from './VersionsPanel.svelte';
   import {
     SERVICE_ORDER,
     SERVICE_FEATURES,
@@ -15,6 +16,7 @@
   import { STORES, type CardType, type Variety } from '../card-types';
   import type { Card, Section, SlotProps } from '../types';
   import type { Scope } from '../variable-graph';
+  import type { SnapshotMeta } from '../snapshots';
 
   let {
     notebookName,
@@ -51,6 +53,9 @@
     drafts = 0,
     ondraftnext,
     ondraftsreviewed,
+    versions = null,
+    onversionsave,
+    onversionrestore,
   }: {
     notebookName: string;
     canPersist: boolean;
@@ -92,6 +97,10 @@
     drafts?: number;
     ondraftnext?: () => void;
     ondraftsreviewed?: () => void;
+    /** W7 — the open notebook's stored versions; null (the default) hides the panel (no storage). */
+    versions?: SnapshotMeta[] | null;
+    onversionsave?: () => void;
+    onversionrestore?: (id: string) => void;
   } = $props();
 
   const selType = $derived(selProd ? (cardTypes.find((t) => t.id === selProd) ?? null) : null);
@@ -122,6 +131,7 @@
       <div class="col">
         <input value={notebookName} placeholder="notebook name" data-history="edit" onchange={(e) => onrename(e.currentTarget.value)} />
         <DraftsBar count={drafts} onnext={() => ondraftnext?.()} onmarkall={() => ondraftsreviewed?.()} />
+        {#if canPersist && versions}<VersionsPanel {versions} onsave={() => onversionsave?.()} onrestore={(id) => onversionrestore?.(id)} />{/if}
         {#if candelete}
           <button class="btn warn" onclick={ondelete}>🗑 Delete notebook</button>
         {/if}

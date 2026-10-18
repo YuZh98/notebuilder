@@ -66,6 +66,10 @@ vi.mock('./lib/db', () => ({
   saveAnnotation: vi.fn(async () => true),
   deleteAnnotation: vi.fn(async () => true),
   loadAnnotations: vi.fn(async () => []),
+  // Version history (W7) has its own suite, App.versions.test.ts; here it is inert.
+  saveSnapshot: vi.fn(async () => true),
+  listSnapshots: vi.fn(async () => []),
+  loadSnapshot: vi.fn(async () => null),
 }));
 
 vi.mock('@tauri-apps/api/event', () => ({
