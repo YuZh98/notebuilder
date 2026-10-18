@@ -2072,6 +2072,10 @@ body[data-theme] .room.edit .furn.bare {
     overflow-x: auto;
     overflow-y: hidden;
   }
+  /* the coverage matrix (≥ 42px per tag column) scrolls in its own box once it outgrows the phone */
+  body.nb-reader .mtx {
+    overflow-x: auto;
+  }
   body.nb-reader .cardrow > .cardslot {
     flex-basis: 100%;
   }

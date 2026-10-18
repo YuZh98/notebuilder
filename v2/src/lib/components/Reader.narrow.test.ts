@@ -132,7 +132,9 @@ describe('app.css — the narrow-screen rules', () => {
     expect(body).toMatch(/\.rgwrap\s*>\s*\.room-grid\s*\{[^}]*min-width:\s*0/);
     expect(body).toMatch(/\.room-grid\s*>\s*\.furn\s*\{[^}]*min-width:\s*0/);
     expect(body).toMatch(/\.room-grid\s*>\s*\.furn\s*\{[^}]*overflow-wrap:\s*(?:anywhere|break-word)/);
-    for (const wide of ['.table-study', '.katex-display']) {
+    // the coverage matrix: a 80px row header plus a ≥42px column per tag outgrows a phone at
+    // 5 tags (320px) or 7 (390px); it scrolls inside its own box rather than moving the lesson
+    for (const wide of ['.table-study', '.katex-display', '.mtx']) {
       const re = new RegExp(`\\${wide}[^{}]*\\{[^}]*overflow-x:\\s*auto`);
       expect(body, wide).toMatch(re);
     }
