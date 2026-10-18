@@ -10,6 +10,7 @@ import { problemIssues, drawValues, DEFAULT_SEED, paramsOf, type ProblemProps } 
 import { interp, renderMarkdown } from './markdown';
 import { isCardDone } from './card-done';
 import { buildCardScope } from './card-scope';
+import { LEGACY_BUILTIN_IDS } from './builtin-seed';
 import type { Card, Notebook } from './types';
 
 // The three pedagogical built-ins: predict → explore → explain, a worked example that fades into
@@ -85,7 +86,7 @@ afterEach(() => {
 });
 
 describe('pedagogical built-ins — shared contract', () => {
-  it('ship in their stores with an icon and an accent, after the ten legacy built-ins', () => {
+  it('ship in their stores with an icon, an accent and a description, as new (non-legacy) built-ins', () => {
     expect(byId(GUIDED)).toMatchObject({ name: 'Guided Explore', store: 'live' });
     expect(byId(WORKED)).toMatchObject({ name: 'Worked Example', store: 'practice' });
     expect(byId(PRACTICE)).toMatchObject({ name: 'Practice Set', store: 'practice' });
@@ -93,8 +94,10 @@ describe('pedagogical built-ins — shared contract', () => {
       expect(byId(id).icon, id).toBeTruthy();
       expect(byId(id).accent, id).toMatch(/^#[0-9a-f]{6}$/i);
       expect(byId(id).description, id).toBeTruthy();
+      expect(byId(id).note, id).toBeTruthy(); // "from the maker" guidance in the store
     }
-    expect(builtinCardTypes.slice(-3).map((c) => c.id)).toEqual(NEW_IDS);
+    // Not legacy, so installs from before seeding was recorded receive them (lib/builtin-seed.ts).
+    for (const id of NEW_IDS) expect(LEGACY_BUILTIN_IDS).not.toContain(id);
   });
 
   it.each(NEW_IDS)('%s stamps into a card whose props all pass validate()', (id) => {

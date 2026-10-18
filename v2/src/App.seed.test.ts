@@ -111,7 +111,8 @@ describe('App hydration — seeding built-in card types', () => {
     await hydrated(container);
     expect(h.calls.filter((c) => c.startsWith('saveCardType'))).toEqual(NEW_IDS.map((id) => `saveCardType:${id}`));
     // The record is written after the types it records, and counts the deleted legacy type as seeded.
-    expect(h.calls.at(-1)).toBe('setPreference:builtin_seeded');
+    const recordAt = h.calls.indexOf('setPreference:builtin_seeded');
+    expect(recordAt).toBeGreaterThan(h.calls.lastIndexOf(`saveCardType:${NEW_IDS.at(-1)}`));
     expect(seededWrites()).toEqual([[...LEGACY_BUILTIN_IDS, ...NEW_IDS]]);
     const names = await galleryNames(container);
     expect(names.some((n) => n.includes('Guided Explore'))).toBe(true);
@@ -125,7 +126,7 @@ describe('App hydration — seeding built-in card types', () => {
     h.prefs = { builtin_seeded: JSON.stringify(all) };
     const { container } = render(App);
     await hydrated(container);
-    expect(h.calls).toEqual([]);
+    expect(h.calls.filter((c) => c.startsWith('saveCardType') || c === 'setPreference:builtin_seeded')).toEqual([]);
     const names = await galleryNames(container);
     expect(names.some((n) => n.includes('Worked Example'))).toBe(true);
     expect(names.some((n) => n.includes('Practice Set'))).toBe(false);

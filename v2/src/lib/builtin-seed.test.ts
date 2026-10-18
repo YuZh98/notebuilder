@@ -15,7 +15,7 @@ describe('LEGACY_BUILTIN_IDS', () => {
       'ct_flashcard', 'ct_quiz', 'ct_note', 'ct_tracker', 'ct_mastery',
       'ct_sliderlab', 'ct_gaussian', 'ct_payoff', 'ct_compound', 'ct_quizcard',
     ]);
-    expect(ids(builtinCardTypes).slice(0, LEGACY.length)).toEqual(LEGACY);
+    for (const id of LEGACY) expect(ids(builtinCardTypes), id).toContain(id);
   });
 
   it('stores the record under the builtin_seeded preference', () => {

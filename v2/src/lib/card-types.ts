@@ -175,6 +175,7 @@ export const builtinCardTypes: CardType[] = [
   // an idea before they see the answer, then reconcile the two.
   { id: 'ct_guided', name: 'Guided Explore', store: 'live', accent: '#34e1ff', icon: '🔬',
     description: 'Predict, then explore, then explain: the simulation unlocks once the student commits to a prediction.',
+    note: 'Keep the prediction ungraded (no answer key) and every later slot Step-by-step, so nothing shows until students commit. Swap in your own sliders, formulas and chart.',
     slots: [
       { type: 'text', props: { text: '## Predict, then explore\n\nA deposit of 1000 earns interest at **r%** a year for **t** years, and the interest compounds. Make a prediction first: the simulation unlocks once you submit it.' } },
       { type: 'choice', props: {
@@ -193,6 +194,7 @@ export const builtinCardTypes: CardType[] = [
   // the one before, and the example fades into a problem with the first step already done.
   { id: 'ct_worked', name: 'Worked Example', store: 'practice', accent: '#54d6a0', icon: '📝',
     description: 'A worked solution revealed step by step, with self-explanation prompts, fading into a problem to try.',
+    note: 'One step per text slot, each followed by a "why" box; later steps are Step-by-step, so each unlocks once the one before is explained. End with a similar problem that has the first step done.',
     slots: [
       { type: 'text', props: { text: '## Worked example\n\n**Problem.** Solve $\\dfrac{x}{4} + 3 = 8$.' } },
       { type: 'text', props: { text: '**Step 1.** Subtract 3 from both sides:\n\n$$\\frac{x}{4} = 5$$' } },
@@ -212,6 +214,7 @@ export const builtinCardTypes: CardType[] = [
   // until the student has answered enough of them correctly.
   { id: 'ct_practiceset', name: 'Practice Set', store: 'practice', accent: '#f0a500', icon: '🎯',
     description: 'Two kinds of randomized problem, mixed: each draws fresh numbers until the student has enough right.',
+    note: 'Mix different kinds of problem. Give each a range for every number, an answer formula and a worked explanation; "need" sets how many correct answers finish it.',
     slots: [
       { type: 'text', props: { text: '## Practice set\n\nTwo kinds of problem, mixed. Press **New numbers** for a fresh one; each problem is finished after enough correct answers.' } },
       { type: 'problem', props: {
