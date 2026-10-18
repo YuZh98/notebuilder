@@ -14,7 +14,10 @@ export type ReaderPayload = { shared: boolean; notebook: NotebookJSON; theme?: s
 // The `\s` before `id=` guards against matching a longer attribute that merely ends in `id`.
 const PAYLOAD_RE = /(<script\b[^>]*\sid="notebook-source"[^>]*>)([\s\S]*?)(<\/script>)/i;
 
-/** Embed a JSON string as the payload script's content, escaping `</` so no tag closes early. */
+/**
+ * Embed a JSON string as the payload script's content. Every `<`, `>` and `&` becomes its JSON
+ * `\u` escape (see escapePayload), so nothing in the notebook can steer the HTML tokenizer.
+ */
 export function injectNotebook(template: string, json: string): string {
   if (!PAYLOAD_RE.test(template)) {
     throw new Error(`injectNotebook: no <script id="${PAYLOAD_ID}"> placeholder in template`);
@@ -34,5 +37,13 @@ export function extractNotebook(docOrHtml: Document | string): string | null {
   return unescapePayload(el.textContent ?? '');
 }
 
-const escapePayload = (s: string): string => s.replace(/<\//g, '<\\/');
+// Escaping only `</` is not enough: `<!--` followed by `<script` (with no `-->`) puts the HTML
+// tokenizer into script-data-double-escaped state, where the real </script> no longer ends the
+// element — the payload swallows the app code after it and the shared file opens blank. So no
+// `<` may reach the page at all. `<`, `>` and `&` only ever occur inside JSON strings, where the
+// `\u003c` / `\u003e` / `\u0026` escapes are equivalent, so JSON.parse restores them unchanged.
+const PAYLOAD_ESCAPES: Record<string, string> = { '<': '\\u003c', '>': '\\u003e', '&': '\\u0026' };
+const escapePayload = (s: string): string => s.replace(/[<>&]/g, (c) => PAYLOAD_ESCAPES[c]);
+// Files shared before that fix escaped `</` as `<\/`; keep reading them. A current payload holds
+// no `<` at all, so this never touches one.
 const unescapePayload = (s: string): string => s.replace(/<\\\//g, '</');
