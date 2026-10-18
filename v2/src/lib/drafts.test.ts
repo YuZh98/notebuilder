@@ -7,6 +7,8 @@ import {
   nextDraft,
   hidingChapter,
 } from './drafts';
+import { duplicateCard } from './notebook-ops';
+import { cardToType, stampCard } from './card-types';
 import type { Card, Notebook, Section } from './types';
 
 const card = (id: string, sectionId: string, position: number, over: Partial<Card> = {}): Card => ({
@@ -172,5 +174,20 @@ describe('hidingChapter', () => {
 
   it('returns null for an unknown card', () => {
     expect(hidingChapter(nb(), 'nope')).toBeNull();
+  });
+});
+
+describe('drafts and card copies', () => {
+  it('a duplicated draft stays a draft: the copy carries the same unreviewed content', () => {
+    const n = nb();
+    n.sections[0].cards[0].draft = true;
+    const copy = duplicateCard(n, 'a')!;
+    expect(copy.draft).toBe(true);
+    expect(ids(draftCards(n))).toEqual(['a', copy.id]);
+  });
+
+  it('a card type saved from a draft stamps reviewed cards (the author chose to reuse it)', () => {
+    const ct = cardToType(card('a', 's1', 0, { draft: true }), 'Mine');
+    expect(stampCard(ct, 's1', 0)).not.toHaveProperty('draft');
   });
 });

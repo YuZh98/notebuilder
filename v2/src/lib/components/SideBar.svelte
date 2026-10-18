@@ -4,6 +4,7 @@
   import ProductDetail from './ProductDetail.svelte';
   import CardPanel from './CardPanel.svelte';
   import TagsPanel from './TagsPanel.svelte';
+  import DraftsBar from './DraftsBar.svelte';
   import {
     SERVICE_ORDER,
     SERVICE_FEATURES,
@@ -47,6 +48,9 @@
     onvariety,
     onsvctoggle,
     onsvcgrip,
+    drafts = 0,
+    ondraftnext,
+    ondraftsreviewed,
   }: {
     notebookName: string;
     canPersist: boolean;
@@ -84,6 +88,10 @@
     onsvctoggle?: (key: ServiceKey) => void;
     /** Chip pointerdown → the owner starts the svcattach engine drag (section attach / dust detach). */
     onsvcgrip?: (key: ServiceKey, ev: PointerEvent, srcEl: HTMLElement) => void;
+    /** D2d — AI draft cards still to review (the bar hides at 0, the default). */
+    drafts?: number;
+    ondraftnext?: () => void;
+    ondraftsreviewed?: () => void;
   } = $props();
 
   const selType = $derived(selProd ? (cardTypes.find((t) => t.id === selProd) ?? null) : null);
@@ -113,6 +121,7 @@
       <h3>📓 Notebook</h3>
       <div class="col">
         <input value={notebookName} placeholder="notebook name" data-history="edit" onchange={(e) => onrename(e.currentTarget.value)} />
+        <DraftsBar count={drafts} onnext={() => ondraftnext?.()} onmarkall={() => ondraftsreviewed?.()} />
         {#if candelete}
           <button class="btn warn" onclick={ondelete}>🗑 Delete notebook</button>
         {/if}

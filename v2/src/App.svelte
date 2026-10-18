@@ -85,6 +85,7 @@
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
   import { importNotebook, type NotebookJSON } from './lib/json-io';
+  import { markAllDraft, clearDraft, clearAllDrafts, draftCards, nextDraft, hidingChapter } from './lib/drafts';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
@@ -398,9 +399,11 @@
       toast(`Couldn’t create the notebook — ${e instanceof Error ? e.message : String(e)}`, 5000);
       return;
     }
+    // D2d: AI-written cards carry errors often enough that each one waits for the author's review.
+    markAllDraft(nb);
     fromAiOpen = false;
     openNotebook(nb, false);
-    toast(`Created "${nb.name}" — review the cards, then Study`);
+    toast(`Created "${nb.name}" — its cards are drafts: review each one, then Study`);
   }
 
   async function handleImport() {
@@ -432,12 +435,73 @@
   }
 
   async function handleShare() {
+    // D2d: AI-written cards nobody has checked should not reach students unnoticed.
+    const n = draftsLeft;
+    if (n > 0) {
+      const ok = await confirmDialog(
+        n === 1
+          ? '1 card is still a draft (made by AI and not yet reviewed). Share anyway?'
+          : `${n} cards are still drafts (made by AI and not yet reviewed). Share anyway?`,
+        'Unreviewed Drafts',
+      );
+      if (!ok) return;
+    }
     const result = await shareNotebookToFile($state.snapshot(notebook), themeId);
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
       toast('Shared — one file, opens anywhere, fully interactive');
     }
+  }
+
+  // ---- AI drafts review (D2d) ----
+
+  const draftsLeft = $derived(draftCards(notebook).length);
+
+  function reviewCard(card: Card) {
+    if (card.draft !== true) return;
+    pushHistory();
+    clearDraft(card);
+  }
+
+  async function markAllReviewed() {
+    const n = draftsLeft;
+    if (n === 0) return;
+    const id = notebook.id;
+    if (n > 3 && !(await confirmDialog(`Mark all ${n} drafts as reviewed? (Undoable)`, 'Mark All Reviewed'))) return;
+    if (notebook.id !== id) return; // switched notebooks while the dialog was open
+    pushHistory();
+    const cleared = clearAllDrafts(notebook);
+    toast(`${cleared} draft${cleared === 1 ? '' : 's'} marked reviewed (Undo to restore)`);
+  }
+
+  // Where Next last landed: the queue position when it could not select (a locked card).
+  let draftCursor: string | null = null;
+
+  /** Select the next draft after the selected card (wrapping) and bring it into view. */
+  async function gotoNextDraft() {
+    const card = nextDraft(notebook, selCard ?? draftCursor);
+    if (!card) return;
+    const id = card.id;
+    draftCursor = id;
+    // A coverage filter or a folded chapter would hide it: show it, or Next scrolls to nothing.
+    if (visibleCardIds && !visibleCardIds.has(id)) mtxCells = [];
+    const chapter = hidingChapter(notebook, id);
+    if (chapter) {
+      pushHistory();
+      delete chapter.folded;
+    }
+    // A locked section's card is never selected (the inspector would edit around the lock):
+    // it is only brought into view, where its own chip can still mark it reviewed.
+    if (sectionOfCard(id)?.locked) {
+      selCard = null;
+      selSection = null;
+    } else {
+      selectCard(id);
+    }
+    await tick();
+    const el = [...document.querySelectorAll<HTMLElement>('#stage [data-card]')].find((e) => e.dataset.card === id);
+    el?.scrollIntoView?.({ block: 'center' });
   }
 
   // ---- section / card / slot CRUD ----
@@ -1175,6 +1239,7 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    onreviewed={() => reviewCard(card)}
   />
 {/snippet}
 
@@ -1260,6 +1325,9 @@
       ongrip={gripProductHouse}
       onvariety={(v) => (selVariety = v)}
       onsvctoggle={toggleSectionService}
+      drafts={draftsLeft}
+      ondraftnext={() => void gotoNextDraft()}
+      ondraftsreviewed={() => void markAllReviewed()}
     />
   {/if}
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
