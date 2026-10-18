@@ -23,10 +23,14 @@ function schemaErrors(json: unknown): string[] {
   return validateSchema(json) ? [] : (validateSchema.errors ?? []).map((e) => `${e.instancePath} ${e.message}`);
 }
 
-function expectValidBoth(json: unknown, label: string): void {
+/**
+ * No validator errors and no schema errors. `strict` also forbids warnings (cross-card reads) —
+ * used for documentation examples, which must model good practice; app content only has to import.
+ */
+function expectValidBoth(json: unknown, label: string, strict = false): void {
   const { errors, warnings } = validateNotebook(json);
   expect(errors, `${label}: validateNotebook errors`).toEqual([]);
-  expect(warnings, `${label}: validateNotebook warnings`).toEqual([]);
+  if (strict) expect(warnings, `${label}: validateNotebook warnings`).toEqual([]);
   expect(schemaErrors(json), `${label}: schema errors`).toEqual([]);
 }
 
@@ -105,7 +109,7 @@ describe('everything the app produces passes both the validator and the schema',
     const md = readFileSync('../docs/FORMAT.md', 'utf8') as string;
     const blocks = [...md.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1]);
     expect(blocks.length).toBeGreaterThanOrEqual(1);
-    for (const b of blocks) expectValidBoth(JSON.parse(b), 'FORMAT.md example');
+    for (const b of blocks) expectValidBoth(JSON.parse(b), 'FORMAT.md example', true);
   });
 
   it('the demo notebook, exported', () => {
@@ -212,7 +216,7 @@ describe('bad documents are rejected', () => {
   it('has a broad fixture table', () => {
     expect(FIXTURES.length).toBeGreaterThanOrEqual(12);
     expect(base()).toBeTruthy();
-    expectValidBoth(base(), 'base fixture');
+    expectValidBoth(base(), 'base fixture', true);
   });
 
   it.each(FIXTURES)('$name', ({ make, structural }) => {

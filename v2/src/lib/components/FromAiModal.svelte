@@ -121,7 +121,10 @@
           data-fa="audience"
           value={audience}
           placeholder="e.g. first-year nursing students"
-          oninput={(e) => (audience = e.currentTarget.value)}
+          oninput={(e) => {
+            audience = e.currentTarget.value;
+            promptCopy = 'idle';
+          }}
         />
       </label>
       <label class="fa-field">
@@ -133,7 +136,10 @@
           max="60"
           value={cards}
           style="width:6em"
-          oninput={(e) => (cards = e.currentTarget.value)}
+          oninput={(e) => {
+            cards = e.currentTarget.value;
+            promptCopy = 'idle';
+          }}
         />
       </label>
       <div class="row fa-row">

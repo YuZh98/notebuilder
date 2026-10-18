@@ -60,6 +60,9 @@ describe('FromAiModal — step 1: the prompt', () => {
     expect(writeText).toHaveBeenCalledWith(expected);
     expect(oncopied).toHaveBeenCalledWith('prompt', expected);
     expect(act(container, 'copy-prompt').textContent).toContain('copied');
+    // any change makes the copied prompt stale
+    await fireEvent.input(q(container, '[data-fa="audience"]'), { target: { value: 'grade 6' } });
+    expect(act(container, 'copy-prompt').textContent?.trim()).toBe('Copy prompt');
   });
 
   it('shows the prompt for a manual copy when the clipboard is unavailable', async () => {

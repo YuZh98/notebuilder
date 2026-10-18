@@ -42,10 +42,14 @@ export type CheckResult = {
 // Parsing
 // ---------------------------------------------------------------------------------------------
 
-/** Where the JSON object sits in an AI reply: inside the first ```fenced``` block that holds
- *  one, else between the first `{` and the last `}` (prose around it is ignored). */
+/**
+ * Where the JSON object sits in an AI reply: inside a ```fenced``` block that holds one (the
+ * first that mentions "notebook", else the largest — a reply may also fence a small snippet),
+ * else between the first `{` and the last `}` (prose around it is ignored).
+ */
 function jsonRegion(text: string): { start: number; end: number } | null {
   const opening = /(^|\n)[ \t]*(`{3,}|~{3,})[^\n`]*\n/g;
+  const fenced: Array<{ start: number; end: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = opening.exec(text))) {
     const contentStart = m.index + m[0].length;
@@ -55,8 +59,12 @@ function jsonRegion(text: string): { start: number; end: number } | null {
     const close = closing.exec(text);
     const contentEnd = close ? close.index : text.length; // an unclosed fence runs to the end
     const region = braceRegion(text, contentStart, contentEnd);
-    if (region) return region;
+    if (region) fenced.push(region);
     opening.lastIndex = close ? close.index + close[0].length : text.length;
+  }
+  if (fenced.length) {
+    const named = fenced.find((r) => text.slice(r.start, r.end).includes('"notebook"'));
+    return named ?? fenced.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a));
   }
   return braceRegion(text, 0, text.length);
 }

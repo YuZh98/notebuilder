@@ -52,6 +52,11 @@ describe('parseNotebookText — extracting the JSON from an AI reply', () => {
     expect(parseNotebookText(reply)).toEqual({ json: nb });
   });
 
+  it('picks the notebook block when the reply also fences a small snippet', () => {
+    const reply = `A slot looks like:\n\`\`\`json\n{"type": "text", "props": {"text": "hi"}}\n\`\`\`\nThe notebook:\n\`\`\`json\n${GOOD}\n\`\`\``;
+    expect(parseNotebookText(reply)).toEqual({ json: AI_EXAMPLE });
+  });
+
   it('handles an unclosed fence (a truncated reply)', () => {
     expect(parseNotebookText(`\`\`\`json\n${GOOD}`)).toEqual({ json: AI_EXAMPLE });
   });
