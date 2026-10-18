@@ -104,6 +104,9 @@ describe('cyrb53 / namespace', () => {
     expect(readerDocRef(undefined, '{"a":1}')).toBe(cyrb53('{"a":1}'));
     expect(readerDocRef('', '{"a":1}')).toBe(cyrb53('{"a":1}'));
     expect(readerStorageKey('abc').startsWith(READER_PREFIX)).toBe(true);
+    // a hand-edited payload with a junk docId still gets a stable namespace
+    expect(readerDocRef(42, 'p')).toBe(cyrb53('p'));
+    expect(readerDocRef('x'.repeat(500), 'p')).toBe(cyrb53('p'));
   });
 });
 

@@ -11,6 +11,7 @@
   import Toast from './Toast.svelte';
   import Dustbin from './Dustbin.svelte';
   import CoverageMatrix from './CoverageMatrix.svelte';
+  import ResultsModal from './ResultsModal.svelte';
   import { computeProgress, progressScopeCards, type ProgressScope } from '../progress';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from '../annotations';
   import {
@@ -63,21 +64,51 @@
   import { startEdgeResize } from '../drag/resize';
   import { startPointerDrag } from '../drag/engine';
   import { makeNotebookDropCallbacks } from '../drag/notebook-drop';
+  import { createProgressStore, installFlushOnHide, type LoadedProgress } from '../reader-store';
 
   let {
     notebook: initial,
     shared: sharedInit,
     initialTheme,
-  }: { notebook: Notebook; shared: boolean; initialTheme?: string } = $props();
+    initialState,
+    storageKey,
+    docId = '',
+  }: {
+    notebook: Notebook;
+    shared: boolean;
+    initialTheme?: string;
+    /** Progress restored by reader-main before mount (reader-store's synchronous load). */
+    initialState?: LoadedProgress;
+    /** localStorage key this file's progress persists under; absent = keep nothing. */
+    storageKey?: string;
+    /** Document identity stamped on results exports. */
+    docId?: string;
+  } = $props();
 
-  // The document lives entirely in memory here — no db, no localStorage. A reload reopens the file.
+  // The document lives entirely in memory here — no db, and it never touches localStorage: a
+  // reload reopens the file. Only the reader/progress layer persists (reader-store), and only
+  // while the file is still the shared original — Remix or Import diverges it and stops saving.
   let notebook: Notebook = $state(initial);
   // `shared` locks the file to reading; Remix (D10) unlocks the full author chrome in-memory.
   let shared = $state(sharedInit);
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
 
-  let readerState: Record<string, Record<string, Record<string, unknown>>> = $state({});
-  let annotations: AnnotationMap = $state({});
+  let readerState: Record<string, Record<string, Record<string, unknown>>> = $state(
+    initialState?.readerState ?? {},
+  );
+  let annotations: AnnotationMap = $state(initialState?.annotations ?? {});
+  let storageOk = $state(initialState?.available !== false);
+  let resultsOpen = $state(false);
+  // Keys are fixed from the pristine notebook as opened, before any in-session edit.
+  const progressStore =
+    storageKey && sharedInit
+      ? createProgressStore({
+          key: storageKey,
+          notebook: initial,
+          initial: initialState,
+          onStatus: (ok) => (storageOk = ok),
+        })
+      : null;
   let notesFor: string | null = $state(null);
   let galleryFor: string | null = $state(null);
 
@@ -142,11 +173,22 @@
     // history; without it, post-Remix text-slot edits would silently escape the undo stack.
     const uninstallEditCoalescing = installEditCoalescing();
     window.addEventListener('keydown', handleKey);
+    // pagehide / tab-hidden are the last reliable moments to land a pending save.
+    const uninstallFlush = installFlushOnHide(() => progressStore?.flush());
     return () => {
       window.removeEventListener('keydown', handleKey);
       uninstallEditCoalescing();
+      uninstallFlush();
+      progressStore?.flush();
       delete document.body.dataset.theme;
     };
+  });
+
+  // Debounced save of the reader layer (the store strips presentation and skips no-op writes).
+  $effect(() => {
+    const state = $state.snapshot(readerState) as typeof readerState;
+    const notes = $state.snapshot(annotations) as AnnotationMap;
+    if (shared) progressStore?.schedule(state, notes);
   });
 
   function sectionCardsOf(cardId: string | null): string[] {
@@ -280,6 +322,7 @@
       toast(`Invalid notebook file:\n${errors.join('\n')}`, 4000);
       return;
     }
+    progressStore?.stop(); // a different document now — its progress isn't this file's
     notebook = importNotebook(json as NotebookJSON);
     selCard = null;
     selSection = null;
@@ -296,8 +339,23 @@
 
   // D10 Remix: unlock authoring in memory. Edits never touch disk — a reload reopens the original.
   function remix() {
+    // Land what the student already did, then stop: edits would drift the stable card keys.
+    progressStore?.stop();
     shared = false;
     toast('Editing unlocked — changes stay in this file (a reload reopens the original)');
+  }
+
+  // Start over: forget this file's saved progress here and in memory (notes included).
+  function resetProgress() {
+    const ok = window.confirm(
+      'Reset your progress in this notebook?\nYour answers, checkmarks and notes in this browser will be cleared.',
+    );
+    if (!ok) return;
+    progressStore?.reset();
+    readerState = {};
+    annotations = {};
+    notesFor = null;
+    toast('your progress was reset');
   }
 
   function setTheme(id: ThemeId) {
@@ -648,6 +706,15 @@
   <div class="spacer"></div>
   <div class="row" id="topright">
     {#if shared}
+      {#if progressStore && !storageOk}
+        <span class="muted sm" data-note="no-storage" title="This browser is blocking local storage">Progress isn’t saved in this browser</span>
+      {/if}
+      <button
+        class="btn sm"
+        data-act="results"
+        title="See your progress and send it to your teacher"
+        onclick={() => (resultsOpen = true)}
+      >📊 My results</button>
       <button
         class="btn sm primary"
         data-act="remix"
@@ -771,6 +838,9 @@
   {#if $mode === 'edit'}
     <button class="add-section" onclick={() => { pushHistory(); addSection(notebook); }}>+ section</button>
   {/if}
+  <footer class="madewith">
+    <a href="https://github.com/YuZh98/notebuilder" target="_blank" rel="noopener">Made with NoteBuilder</a>
+  </footer>
 {/snippet}
 
 <div id="main" style="--sidew:{sideW}px">
@@ -833,6 +903,16 @@
   title={sideCollapsed ? 'show the panel' : 'hide the panel'}
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
+
+{#if resultsOpen}
+  <ResultsModal
+    {notebook}
+    {readerState}
+    {docId}
+    onclose={() => (resultsOpen = false)}
+    onreset={shared ? resetProgress : undefined}
+  />
+{/if}
 
 <MdBar />
 <Toast />
@@ -935,5 +1015,18 @@
   .add-section {
     width: 100%;
     padding: 8px;
+  }
+  .madewith {
+    text-align: center;
+    font-size: 11px;
+    opacity: 0.55;
+    padding: 28px 0 10px;
+  }
+  .madewith a {
+    color: inherit;
+  }
+  .madewith a:hover {
+    opacity: 1;
+    color: var(--accent);
   }
 </style>

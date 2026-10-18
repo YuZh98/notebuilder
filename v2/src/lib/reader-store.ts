@@ -77,9 +77,12 @@ export function cyrb53(str: string, seed = 0): string {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
-/** The document identity a Reader namespaces by: the payload docId, else a hash of the payload. */
-export function readerDocRef(docId: string | undefined, payloadRaw: string): string {
-  return docId || cyrb53(payloadRaw);
+/**
+ * The document identity a Reader namespaces by: the payload docId, else (pre-docId files, or a
+ * docId that isn't a sane string) a hash of the payload text itself.
+ */
+export function readerDocRef(docId: unknown, payloadRaw: string): string {
+  return typeof docId === 'string' && docId.length > 0 && docId.length <= 200 ? docId : cyrb53(payloadRaw);
 }
 
 export function readerStorageKey(docRef: string): string {
