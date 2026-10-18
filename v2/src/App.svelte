@@ -89,7 +89,8 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
-  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
+  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile, shareDocId } from './lib/share';
+  import { createInstallId } from './lib/install-id';
   import { importNotebook, type NotebookJSON } from './lib/json-io';
   import { markAllDraft, clearDraft, clearAllDrafts, draftCards, nextDraft, hidingChapter } from './lib/drafts';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
@@ -148,6 +149,14 @@
 
   /** May this write reach SQLite? Only inside Tauri, and only once hydration succeeded. */
   const persistOn = (): boolean => isTauri() && autosave.active;
+
+  /**
+   * This install's random id (preference 'install_id', created once, through the queued db
+   * functions). A shared file saves students' progress under `${installId}:${notebook.id}`, so
+   * two installs' demo notebooks (both 'nb_demo') never share it, while re-sharing one notebook
+   * keeps it. Per session wherever nothing can be stored (the browser build).
+   */
+  const getInstallId = createInstallId({ persistOn, get: getPreference, set: setPreference });
 
   // ---- version history (W7): local snapshots of the open notebook ----
   // The open notebook's versions, newest first; null while there is no storage to keep them in
@@ -535,7 +544,8 @@
       );
       if (!ok) return;
     }
-    const result = await shareNotebookToFile($state.snapshot(notebook), themeId);
+    const nb = $state.snapshot(notebook) as Notebook;
+    const result = await shareNotebookToFile(nb, themeId, shareDocId(await getInstallId(), nb.id));
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
