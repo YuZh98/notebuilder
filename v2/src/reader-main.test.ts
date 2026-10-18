@@ -1,7 +1,6 @@
 // The Reader entry module boots on import. A broken payload must leave a readable page, never a
 // thrown error before mount (which shows every student a blank file).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { unmount } from 'svelte';
 import { injectNotebook } from './lib/html-io';
 import { exportNotebook } from './lib/json-io';
 import { BOOT_ERROR_TITLE } from './lib/reader-boot';
@@ -29,12 +28,15 @@ function nb(): Notebook {
 }
 
 let mounted: Record<string, unknown> | undefined;
+let unmountFresh: ((c: Record<string, unknown>) => unknown) | undefined;
 
 async function bootWith(payload: string) {
   document.body.innerHTML = injectNotebook(SHELL, payload);
   vi.resetModules();
   const mod = await import('./reader-main');
   mounted = mod.default as Record<string, unknown> | undefined;
+  // The entry mounted with the svelte instance of this fresh module registry; unmount with it too.
+  unmountFresh = (await import('svelte')).unmount;
 }
 
 beforeEach(() => {
@@ -43,7 +45,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (mounted) unmount(mounted);
+  if (mounted) unmountFresh?.(mounted);
   mounted = undefined;
   vi.restoreAllMocks();
   document.body.className = '';
