@@ -226,7 +226,7 @@
       "description": "A bulleted, numbered, or checklist list. A 'check' list is a tracker readers tick off; the card counts as done when every item is ticked.",
       "required": ["items", "style"],
       "properties": {
-        "items": { "type": "array", "items": { "type": "string" }, "description": "List items (inline markdown)." },
+        "items": { "type": "array", "items": { "type": "string" }, "description": "List items as plain text (no markdown or $math$; use Unicode such as x², π)." },
         "style": { "enum": ["bullets", "numbered", "check"], "description": "List style." }
       },
       "additionalProperties": false
@@ -249,7 +249,7 @@
         "rows": {
           "type": "array",
           "items": { "type": "array", "items": { "type": "string" } },
-          "description": "Rows of cells, e.g. [[\"Symbol\", \"Meaning\"], [\"μ\", \"mean\"]]."
+          "description": "Rows of plain-text cells, e.g. [[\"Symbol\", \"Meaning\"], [\"μ\", \"mean\"]]. Cells show no markdown or $math$: for math in a table, write a markdown table in a text slot instead."
         }
       },
       "additionalProperties": false
@@ -273,12 +273,12 @@
       "description": "A multiple-choice question that checks itself. Readers pick, submit, see right/wrong, then the explanation.",
       "required": ["options"],
       "properties": {
-        "q": { "type": "string", "description": "The question (inline markdown and $math$)." },
+        "q": { "type": "string", "description": "The question (markdown, $math$ and {{name}} values)." },
         "options": {
           "type": "array",
           "items": { "type": "string" },
           "minItems": 2,
-          "description": "Answer options (at least 2)."
+          "description": "Answer options as plain text, at least 2 (no markdown or $math$: use Unicode such as x², √2, π, or put the math in q)."
         },
         "answer": {
           "type": "array",
@@ -330,7 +330,7 @@
           "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*)?$",
           "description": "Variable name this formula writes (other slots of the card read it)."
         },
-        "note": { "type": "string", "description": "Label shown before the result, e.g. \"Future value =\"." }
+        "note": { "type": "string", "description": "Plain-text label shown before the result, e.g. \"Future value =\"." }
       },
       "additionalProperties": false
     },
@@ -340,7 +340,7 @@
       "required": ["fn"],
       "properties": {
         "fn": { "type": "string", "description": "Expression in x (same grammar as compute), e.g. \"a * x^2 + b\"." },
-        "label": { "type": "string", "description": "Caption under the chart." },
+        "label": { "type": "string", "description": "Plain-text caption under the chart." },
         "x0": { "type": "number", "description": "Left end of the x range (default 0). Always set x0 and x1." },
         "x1": { "type": "number", "description": "Right end of the x range; must be greater than x0." },
         "y0": { "type": "number", "description": "Bottom of the y range; omit y0 and y1 to auto-fit." },

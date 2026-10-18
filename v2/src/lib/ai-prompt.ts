@@ -215,6 +215,7 @@ export function buildAiPrompt(opts: AiPromptOptions): string {
     '',
     '## Teaching guidance',
     '- One idea per card. Keep text short: a heading plus a few sentences or bullets. Use LaTeX for math.',
+    '- Only text slots and a choice\'s q and explanation render markdown, $math$ and {{name}}. Everything else (options, list items, table cells, labels, notes) is plain text: write math there with Unicode (x², √2, π, ≤).',
     '- Retrieval practice: after each new idea add 1–3 choice questions with a correct answer key (0-based indexes into options) and an explanation that says why the answer is right and why the tempting wrong option is wrong. Make distractors real misconceptions.',
     '- Flashcards: for definitions, formulas and key facts use a card with "verbs": {"flip": true}, the prompt in slots and the answer in back.',
     '- Guided exploration: wherever a result depends on parameters, build ONE card with sliders, computes and a chart, text that quotes the live values with {{name}}, and a question (choice or text-input) asking what the learner notices or predicts.',

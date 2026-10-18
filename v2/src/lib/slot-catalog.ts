@@ -28,8 +28,8 @@ export const SLOT_CATALOG: Record<string, CatalogEntry> = {
     example: { code: 'def area(r):\n    return 3.14159 * r ** 2', lang: 'python' },
   },
   table: {
-    purpose: 'A small grid of text: notation tables, comparisons. First row is the header.',
-    example: { rows: [['Symbol', 'Meaning'], ['$\\mu$', 'mean'], ['$\\sigma$', 'standard deviation']] },
+    purpose: 'A small grid of plain text: comparisons, glossaries. First row is the header.',
+    example: { rows: [['Symbol', 'Meaning'], ['μ', 'mean'], ['σ', 'standard deviation']] },
   },
   image: {
     purpose:
@@ -40,7 +40,7 @@ export const SLOT_CATALOG: Record<string, CatalogEntry> = {
     purpose: 'A self-checking multiple-choice question with an answer key and an explanation: the main retrieval-practice tool.',
     example: {
       q: 'What is the derivative of $x^2$?',
-      options: ['$x$', '$2x$', '$x^2/2$', '$2$'],
+      options: ['x', '2x', 'x²/2', '2'],
       answer: [1],
       explanation: 'Power rule: $\\frac{d}{dx}x^n = n x^{n-1}$, so $2x$.',
     },
