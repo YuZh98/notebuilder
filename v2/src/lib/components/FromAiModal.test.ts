@@ -129,6 +129,8 @@ describe('FromAiModal — step 2: check and create', () => {
     expect(act(container, 'create').disabled).toBe(false);
     await fireEvent.click(act(container, 'create'));
     expect(oncreate).toHaveBeenCalledWith(AI_EXAMPLE);
+    // plain data, not a Svelte state proxy: the host may structuredClone it
+    expect(() => structuredClone(oncreate.mock.calls[0][0])).not.toThrow();
   });
 
   it('warnings alone still allow Create and can be dismissed', async () => {

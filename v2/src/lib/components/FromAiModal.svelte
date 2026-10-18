@@ -29,7 +29,9 @@
   let promptCopy: 'idle' | 'copied' | 'failed' = $state('idle');
   let showPrompt = $state(false);
   let reply = $state('');
-  let result = $state<CheckResult | null>(null);
+  // raw, not deep state: the parsed JSON goes to the host as plain data (a $state proxy would
+  // leak into the new notebook and break structuredClone downstream).
+  let result = $state.raw<CheckResult | null>(null);
   let hideWarnings = $state(false);
   let topicInput: HTMLInputElement | undefined = $state();
 
