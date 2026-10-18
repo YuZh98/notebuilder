@@ -149,7 +149,7 @@
         },
         "props": {
           "type": "object",
-          "description": "Settings for this slot; the allowed keys depend on type (see the <type>Props definitions)."
+          "description": "Settings for this slot. The allowed keys depend on type (each type's props are defined below as <type>Props). Always an object; {} when there is nothing to set."
         },
         "verbs": { "$ref": "#/$defs/slotVerbs" },
         "w": {
