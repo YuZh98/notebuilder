@@ -545,9 +545,10 @@ function guessSlotType(bad: string, types: readonly string[]): string | null {
   if (near) return near;
   for (const f of forms) {
     // A typo rarely hits the first letter, and a different one is usually another word (audio
-    // vs radio); short words are within two edits of too many short aliases, so allow one there.
+    // vs radio); words up to 6 letters are within two edits of too many short aliases (photo vs
+    // plot, label vs latex), so allow one there.
     const names = Object.keys(SLOT_ALIASES).filter((a) => a[0] === f[0]);
-    const alias = own(SLOT_ALIASES, didYouMean(f, names, f.length <= 4 ? 1 : 2) ?? '');
+    const alias = own(SLOT_ALIASES, didYouMean(f, names, f.length <= 6 ? 1 : 2) ?? '');
     if (known(alias)) return alias;
   }
   return null;

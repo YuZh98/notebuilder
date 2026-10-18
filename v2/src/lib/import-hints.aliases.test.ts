@@ -47,6 +47,20 @@ describe('slot type did-you-mean for misspelled and plural aliases', () => {
     }
   });
 
+  it('a short word two edits from a different alias gets no guess (photo is not plot)', () => {
+    // Review fix: "photo" suggested chart (two edits from the "plot" alias) and "label" text
+    // (two from "latex"): different words, not typos, and a wrong guess ends up in the fix
+    // request the AI acts on. Words up to 6 letters match an alias within one edit only.
+    for (const w of ['photo', 'photos', 'label', 'labels']) expect(hint(w), w).not.toMatch(/Did you mean/);
+  });
+
+  it('a longer misspelled alias still lands within two edits', () => {
+    expect(hint('questoin')).toContain('Did you mean "choice"?');
+    expect(hint('calcualtion')).toContain('Did you mean "compute"?');
+    expect(hint('chekclist')).toContain('Did you mean "list"?');
+    expect(hint('formla')).toContain('Did you mean "compute"?');
+  });
+
   it('flashcards keep their own explanation', () => {
     expect(hint('flashcards')).toMatch(/"flip": true/);
   });
