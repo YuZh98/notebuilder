@@ -262,6 +262,12 @@ describe('AI-path lints (warnings the app would otherwise swallow)', () => {
     expect(issues.every((i) => i.code === 'unknown-field')).toBe(true);
   });
 
+  it('flags prototype-named keys as unknown instead of resolving them on Object.prototype', () => {
+    const json = JSON.parse('{"version": 2, "notebook": {"name": "N", "constructor": 1, "__proto__": {"x": 1}, "sections": []}}');
+    expect(lintUnknownFields(json).map((i) => i.subject).sort()).toEqual(['__proto__', 'constructor']);
+    expect(hintFor({ code: 'slot-type-unknown', path: '', message: '', subject: 'constructor' })).not.toMatch(/Did you mean "function/);
+  });
+
   it('accepts everything the schema defines (no noise on a good notebook)', () => {
     expect(lintUnknownFields(AI_EXAMPLE)).toEqual([]);
     expect(lintLatexEscapes(AI_EXAMPLE)).toEqual([]);

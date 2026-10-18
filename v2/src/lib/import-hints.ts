@@ -386,6 +386,10 @@ export function didYouMean(word: string, candidates: readonly string[], max = 2)
 
 const registeredTypes = (): string[] => allSlots().map((s) => s.type);
 
+/** Own-property lookup: user-supplied keys ("constructor", "__proto__") must not hit the prototype. */
+const own = <T>(o: Record<string, T>, k: string): T | undefined =>
+  Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined;
+
 /** What LLMs commonly call our slot types. */
 const SLOT_ALIASES: Record<string, string> = {
   quiz: 'choice', mcq: 'choice', question: 'choice', 'multiple-choice': 'choice', multiplechoice: 'choice', radio: 'choice',
@@ -408,7 +412,7 @@ function slotTypeHint(bad: string | undefined): string {
   if (/^flash-?cards?$/.test(key)) {
     return `A flashcard is not a slot type: make a card with "verbs": {"flip": true}, the question in "slots" and the answer in "back". ${list}`;
   }
-  const alias = SLOT_ALIASES[key];
+  const alias = own(SLOT_ALIASES, key);
   const guess = alias && types.includes(alias) ? alias : didYouMean(bad, types);
   return guess ? `Did you mean "${guess}"? ${list}` : list;
 }
@@ -535,7 +539,7 @@ const FIELD_ALIASES: Record<string, string> = {
 
 function unknownField(key: string, allowed: string[], parent: string, defName: string): HintedIssue {
   const path = parent ? `${parent}.${key}` : key;
-  const alias = FIELD_ALIASES[key];
+  const alias = own(FIELD_ALIASES, key);
   const guess = alias && allowed.includes(alias) ? alias : didYouMean(key, allowed);
   let hint = guess ? `Did you mean "${guess}"? ` : '';
   if (defName === 'card' && /^(title|heading|name|question|answer)$/.test(key)) {
@@ -565,7 +569,7 @@ function walkUnknown(value: unknown, node: JsonSchema, path: string, defName: st
     }
   }
   for (const [k, v] of Object.entries(obj)) {
-    const sub = narrowed[k] ?? props[k];
+    const sub = own(narrowed, k) ?? own(props, k);
     const at = path ? `${path}.${k}` : k;
     if (sub) walkUnknown(v, sub, at, name, out);
     else if (n.additionalProperties === false) out.push(unknownField(k, Object.keys(props), path, name));
