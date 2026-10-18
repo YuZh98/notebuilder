@@ -101,6 +101,13 @@ describe('everything the app produces passes both the validator and the schema',
     expectValidBoth(json, file);
   });
 
+  it('the example in docs/FORMAT.md', () => {
+    const md = readFileSync('../docs/FORMAT.md', 'utf8') as string;
+    const blocks = [...md.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+    expect(blocks.length).toBeGreaterThanOrEqual(1);
+    for (const b of blocks) expectValidBoth(JSON.parse(b), 'FORMAT.md example');
+  });
+
   it('the demo notebook, exported', () => {
     expectValidBoth(exportNotebook(demoNotebook()), 'demoNotebook');
   });
