@@ -12,6 +12,7 @@ import {
   lintLatexEscapes,
   syntaxIssue,
   findJsonSyntaxError,
+  notebookSummary,
   type SyntaxProblem,
 } from './import-hints';
 import { validateNotebookIssues, type Issue } from './json-io';
@@ -307,6 +308,27 @@ describe('checkNotebookText', () => {
     const r = checkNotebookText(JSON.stringify(doc([{ type: 'text', props: { text: 'see {{r}}' } }])));
     expect(r.ok).toBe(true);
     expect(r.warnings).toHaveLength(1);
+  });
+});
+
+describe('notebookSummary', () => {
+  it('counts sections, chapters, cards, quizzes, flashcards and interactive cards', () => {
+    const json = {
+      version: 2,
+      notebook: {
+        name: 'Deck',
+        sections: [
+          { name: 'Part I', kind: 'divider', cards: [] },
+          ...AI_EXAMPLE.notebook.sections,
+        ],
+      },
+    };
+    expect(notebookSummary(json)).toEqual({ name: 'Deck', sections: 1, chapters: 1, cards: 5, quizzes: 1, flashcards: 1, interactive: 1 });
+  });
+
+  it('tolerates junk', () => {
+    expect(notebookSummary(null)).toMatchObject({ name: '', sections: 0, cards: 0 });
+    expect(notebookSummary({ notebook: { sections: [null, { cards: [null, {}] }] } }).cards).toBe(1);
   });
 });
 

@@ -638,6 +638,41 @@ export function checkNotebookText(text: string): CheckResult {
   return { ok: errors.length === 0, json: parsed.json, errors, warnings: [...warnings, ...lints] };
 }
 
+export type NotebookSummary = {
+  name: string;
+  sections: number;
+  chapters: number;
+  cards: number;
+  /** Cards holding a choice quiz. */
+  quizzes: number;
+  /** Flip cards. */
+  flashcards: number;
+  /** Cards with a slider (an interactive model). */
+  interactive: number;
+};
+
+/** Counts for the "looks good" preview of a validated notebook document. */
+export function notebookSummary(json: unknown): NotebookSummary {
+  const nb = (json as { notebook?: { name?: unknown; sections?: unknown } } | null)?.notebook;
+  const sections = Array.isArray(nb?.sections) ? (nb.sections as Array<Record<string, unknown>>) : [];
+  const cards = sections
+    .flatMap((s) => (Array.isArray(s?.cards) ? (s.cards as unknown[]) : []))
+    .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object');
+  const types = (c: Record<string, unknown>) =>
+    [...(Array.isArray(c.slots) ? c.slots : []), ...(Array.isArray(c.back) ? c.back : [])].map(
+      (s) => (s as { type?: unknown } | null)?.type,
+    );
+  return {
+    name: typeof nb?.name === 'string' ? nb.name : '',
+    sections: sections.filter((s) => s?.kind !== 'divider').length,
+    chapters: sections.filter((s) => s?.kind === 'divider').length,
+    cards: cards.length,
+    quizzes: cards.filter((c) => types(c).includes('choice')).length,
+    flashcards: cards.filter((c) => (c.verbs as { flip?: unknown } | undefined)?.flip === true).length,
+    interactive: cards.filter((c) => types(c).includes('slider')).length,
+  };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Fix request
 // ---------------------------------------------------------------------------------------------
