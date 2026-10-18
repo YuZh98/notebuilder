@@ -14,6 +14,7 @@
     deleteBenchSlot,
     fuseBenchSlot,
     typeToBench,
+    type SlotEffect,
   } from '../bench.svelte';
   import { VAR } from '../var-colors';
   import { pushHistory } from '../history.svelte';
@@ -49,11 +50,13 @@
     { key: 'bare', icon: '▢', label: 'Frameless' },
   ] as const;
 
+  // Icons match the bench-slot flags CardView draws once an effect is on.
   const SVERBS = [
-    { key: 'reveal', icon: '👁', label: 'Reveal-when' },
-    { key: 'glow', icon: '✦', label: 'Glow' },
-    { key: 'emphasis', icon: '❝', label: 'Emphasis' },
-  ] as const;
+    { key: 'reveal', icon: '👁', label: 'Reveal-when', tip: 'Show only while a condition on a card variable holds' },
+    { key: 'glow', icon: '✦', label: 'Glow', tip: 'Draw attention with a glow' },
+    { key: 'emphasis', icon: '❝', label: 'Emphasis', tip: 'Render as an emphasized callout' },
+    { key: 'sequential', icon: '⏭', label: 'Step-by-step', tip: 'Hide until the earlier tasks on this card are done' },
+  ] as const satisfies readonly { key: SlotEffect; icon: string; label: string; tip: string }[];
 
   // Self-heal to a valid active bench once at init (before deriveds read it), so the
   // pure `currentBench` reader below never has to mutate during render (v1 rebuildRefs).
@@ -75,7 +78,7 @@
     addBenchSlot(b, type, factory.face === 'back' ? 'back' : undefined);
   }
 
-  function effect(key: 'reveal' | 'glow' | 'emphasis') {
+  function effect(key: SlotEffect) {
     if (factory.sel == null) {
       toast('select a slot first — click it on the bench');
       return;
@@ -156,6 +159,7 @@
           class:on={!!selSlot?.verbs?.[v.key]}
           draggable="true"
           ondragstart={(e) => drag(e, 'text/nb-sverb', v.key)}
+          title={v.tip}
           onclick={() => effect(v.key)}>{v.icon} {v.label}</button>
       {/each}
     </div>

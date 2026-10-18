@@ -16,6 +16,7 @@
     fuseBenchSlot,
     benchFaceCard,
     type Bench,
+    type SlotEffect,
   } from '../bench.svelte';
   import { toast } from '../toast.svelte';
   import { pushGestureSnapshot } from '../drag/gesture-history';
@@ -106,7 +107,7 @@
         toast('drop a slot verb onto a slot');
         return;
       }
-      const key = e.dataTransfer!.getData('text/nb-sverb') as 'reveal' | 'glow' | 'emphasis';
+      const key = e.dataTransfer!.getData('text/nb-sverb') as SlotEffect;
       pushHistory();
       setSlotVerb(at, key, true);
       factory.sel = at;
