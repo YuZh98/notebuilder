@@ -38,7 +38,9 @@
   }
 
   function optionClass(idx: number): string {
-    if (!submitted) return selected.includes(idx) ? 'option selected' : 'option';
+    // Unsubmitted, or ungraded (no answer key: a prediction or a poll; the same rule scoring
+    // uses) — a pick is just a pick, never painted wrong.
+    if (!submitted || verdict === null) return selected.includes(idx) ? 'option selected' : 'option';
     const isSelected = selected.includes(idx);
     const isCorrect = answer.includes(idx);
     if (isSelected && isCorrect) return 'option correct';
