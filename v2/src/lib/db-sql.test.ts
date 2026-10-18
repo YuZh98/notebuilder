@@ -193,7 +193,7 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
       card('c1', 's1', 0, { w: 6, tags: ['a'], accent: '#f00', typeId: 'ct_note' }),
       card('c2', 's1', 1, { verbs: { flip: true }, back: [{ id: 'b1', type: 'text', props: {} }] }),
     ], { services: { search: true }, folded: true }),
-    section('s2', 'nb1', 1, [card('c3', 's2', 0, { archived: true })]),
+    section('s2', 'nb1', 1, [card('c3', 's2', 0, { archived: true, draft: true })]),
   ]);
 
   it('extracts every migration from lib.rs', () => {

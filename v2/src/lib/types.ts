@@ -44,6 +44,12 @@ export type Card = {
   w?: number;
   /** D20 — card is archived (hidden from the study grid unless the archive view is toggled on). */
   archived?: boolean;
+  /**
+   * D2d — made by AI and not yet reviewed by the author (absent, never `false`, once reviewed).
+   * Local authoring state like Section.folded: persisted in the DB, never exported to interchange
+   * JSON or a shared file, and never set by an import.
+   */
+  draft?: boolean;
 };
 
 /** A section within a notebook. `kind: 'divider'` marks a chapter break — dividers hold no cards. */
