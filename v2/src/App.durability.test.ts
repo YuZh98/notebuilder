@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   readerSaves: [] as Record<string, unknown>[],
   calls: [] as string[],
   hydrationGate: null as Promise<void> | null,
+  readerGate: null as Promise<void> | null,
   failHydration: false,
   closeHandler: null as null | ((e: unknown) => unknown),
   events: {} as Record<string, (e: unknown) => unknown>,
@@ -39,7 +40,10 @@ vi.mock('./lib/db', () => ({
     h.calls.push(`deleteNotebook:${id}`);
     return true;
   }),
-  loadReaderState: vi.fn(async () => structuredClone(h.reader)),
+  loadReaderState: vi.fn(async () => {
+    if (h.readerGate) await h.readerGate;
+    return structuredClone(h.reader);
+  }),
   saveReaderState: vi.fn(async (map: Record<string, unknown>) => {
     h.calls.push('saveReaderState');
     h.readerSaves.push(structuredClone(map));
@@ -146,6 +150,7 @@ beforeEach(() => {
   h.readerSaves = [];
   h.calls = [];
   h.hydrationGate = null;
+  h.readerGate = null;
   h.failHydration = false;
   h.closeHandler = null;
   h.events = {};
@@ -175,6 +180,17 @@ describe('App durability — hydration guard', () => {
     window.dispatchEvent(new Event('blur'));
     await wait(20);
     expect(h.calls.filter((c) => c.startsWith('save'))).toEqual([]);
+  });
+
+  it('an edit made to the loaded notebook while the rest of hydration is still running is saved', async () => {
+    let release!: () => void;
+    h.readerGate = new Promise((r) => (release = r)); // the notebook is loaded, reader state is not
+    const { container } = render(App);
+    await hydrated(container, 'Alpha');
+    await addNote(container);
+    release();
+    await waitFor(() => expect(savesOf('nbA').length).toBeGreaterThan(0), { timeout: 1500 });
+    expect(cardCount(savesOf('nbA').at(-1)!)).toBe(2);
   });
 
   it('a failed hydration keeps persistence off and says changes won’t be saved', async () => {

@@ -821,16 +821,26 @@
         if (w !== null) sideW = w;
         sideCollapsed = savedCollapsed === '1';
         hydrateFactory(savedFactory);
+        // Each channel is primed with exactly what storage holds, the moment it is known — NOT
+        // with the in-memory value at the end of the load, which may already include an edit
+        // made while the rest of the load was still running (that edit would never be saved).
         const rows = await listNotebooks();
         if (rows.length === 0) {
-          if (!(await saveNotebook($state.snapshot(notebook)))) throw new Error('could not create the first notebook');
+          const first = $state.snapshot(notebook) as Notebook;
+          if (!(await saveNotebook(first))) throw new Error('could not create the first notebook');
+          notebookSave.prime(first);
           notebookList = [{ id: notebook.id, name: notebook.name }];
         } else {
           notebookList = rows.map((r) => ({ id: r.id, name: r.name }));
           const nb = await loadNotebook(rows[0].id);
-          if (nb) notebook = nb;
+          if (nb) {
+            notebookSave.prime(nb);
+            notebook = nb;
+          }
         }
-        readerState = await loadReaderState();
+        const storedReader = await loadReaderState();
+        readerSave.prime(storedReader);
+        readerState = storedReader;
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
         // Seed built-in card types once; after that the DB is the source of truth.
@@ -847,12 +857,17 @@
         clearHistory();
         selCard = null;
         selSection = null;
-        // Let the effects see the hydrated values while persistence is still off, and record
-        // that storage holds exactly them — the first blur/flush then has nothing to rewrite.
-        await tick();
-        notebookSave.prime($state.snapshot(notebook) as Notebook);
-        readerSave.prime($state.snapshot(readerState) as ReaderStateMap);
         if (savedFactory !== null) factorySave.prime(savedFactory);
+        // Let the effects see the hydrated values while persistence is still off.
+        await tick();
+      }).then((ok) => {
+        if (!ok) return;
+        // The gate dropped every schedule while the load ran, including real edits made after
+        // the stored values arrived: queue the current values now. Identical ones are skipped,
+        // so an untouched launch writes nothing.
+        notebookSave.schedule($state.snapshot(notebook) as Notebook);
+        readerSave.schedule($state.snapshot(readerState) as ReaderStateMap);
+        factorySave.schedule(serializeFactory());
       });
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
