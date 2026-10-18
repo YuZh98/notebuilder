@@ -336,6 +336,20 @@ describe('App versions — restore', () => {
     expect(container.querySelector('button[title="Undo"]')!.hasAttribute('disabled')).toBe(true);
   });
 
+  it('never restores another notebook’s version into this one (its card ids would clash)', async () => {
+    h.snaps = [{ id: 'old', nb: OLD(), reason: 'manual', at: T0 - 3 * 24 * 60 * MIN }];
+    const { container } = render(App);
+    await hydrated(container, 'hello Alpha');
+    await openVersions();
+    const buttons = await screen.findAllByRole('button', { name: /^restore the version/i });
+    h.snaps.find((s) => s.id === 'old')!.nb = nb('nbB', 'Beta', ['beta card']);
+    await fireEvent.click(buttons.at(-1)!);
+    await waitFor(() => expect(document.body.textContent).toMatch(/no longer available/i));
+    expect(container.textContent).toContain('hello Alpha');
+    expect(container.textContent).not.toContain('beta card');
+    expect(snapsOf('nbA').map((s) => s.reason)).not.toContain('before-restore');
+  });
+
   it('a version pruned meanwhile is reported, and nothing changes', async () => {
     h.snaps = [{ id: 'old', nb: OLD(), reason: 'manual', at: T0 - 3 * 24 * 60 * MIN }];
     const { container } = render(App);

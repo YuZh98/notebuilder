@@ -84,7 +84,15 @@ export function createVersionKeeper(deps: VersionKeeperDeps): VersionKeeper {
       if (known) newest.set(nb.id, prev);
       else newest.delete(nb.id);
     };
-    return deps.save(nb, reason, at).then(
+    let saving: Promise<boolean>;
+    try {
+      saving = deps.save(nb, reason, at);
+    } catch (err) {
+      console.warn('version not stored', err);
+      undo();
+      return Promise.resolve(false);
+    }
+    return saving.then(
       (ok) => {
         if (!ok) {
           undo();
@@ -111,9 +119,15 @@ export function createVersionKeeper(deps: VersionKeeperDeps): VersionKeeper {
   }
 
   function saved(nb: Notebook): Promise<boolean> {
-    if (!deps.enabled()) return Promise.resolve(false);
-    if (newest.has(nb.id)) return decide(nb);
-    return refresh(nb.id).then(() => (newest.has(nb.id) && deps.enabled() ? decide(nb) : false));
+    // Called from inside the notebook save: whatever happens here must not fail that save.
+    try {
+      if (!deps.enabled()) return Promise.resolve(false);
+      if (newest.has(nb.id)) return decide(nb);
+      return refresh(nb.id).then(() => (newest.has(nb.id) && deps.enabled() ? decide(nb) : false));
+    } catch (err) {
+      console.warn('automatic version skipped', err);
+      return Promise.resolve(false);
+    }
   }
 
   async function opened(nb: Notebook, fromStorage: boolean): Promise<void> {

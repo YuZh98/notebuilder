@@ -43,7 +43,7 @@
   <button
     class="vp-head"
     aria-expanded={open}
-    aria-controls="{uid}-versions"
+    aria-controls={open ? `${uid}-versions` : undefined}
     title="Earlier versions of this notebook, kept on this computer"
     onclick={() => (open = !open)}
   >

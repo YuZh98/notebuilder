@@ -451,7 +451,8 @@
       return;
     }
     if (notebook.id !== nbId) return; // switched notebooks while it loaded
-    if (!stored) {
+    // Only this notebook's own versions: another's card ids would clash with that notebook's rows.
+    if (!stored || stored.id !== nbId) {
       toast('That version is no longer available', 4000);
       void versionKeeper.refresh(nbId);
       return;

@@ -39,6 +39,7 @@ describe('VersionsPanel', () => {
     const { container } = render(VersionsPanel, { props: props() });
     const head = screen.getByRole('button', { name: /versions/i });
     expect(head.getAttribute('aria-expanded')).toBe('false');
+    expect(head.hasAttribute('aria-controls')).toBe(false); // nothing to point at while folded
     expect(head.textContent).toMatch(/🕘/);
     expect(container.querySelector('.vp-list')).toBeNull();
     expect(screen.queryByRole('button', { name: /save version now/i })).toBeNull();

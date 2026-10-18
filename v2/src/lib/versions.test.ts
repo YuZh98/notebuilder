@@ -133,6 +133,19 @@ describe('version keeper — automatic snapshots after saves', () => {
     expect(h.reasons('a')).toEqual(['auto']);
   });
 
+  it('a snapshot store that throws (sync or async) never escapes into the notebook save, nor rate-limits', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(h.deps.save).mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+    expect(await h.keeper.saved(nb('a', 'one'))).toBe(false);
+    vi.mocked(h.deps.save).mockRejectedValueOnce(new Error('later boom'));
+    expect(await h.keeper.saved(nb('a', 'one'))).toBe(false);
+    expect(await h.keeper.saved(nb('a', 'one'))).toBe(true);
+    expect(h.reasons('a')).toEqual(['auto']);
+    warn.mockRestore();
+  });
+
   it('a list that cannot be read takes no snapshot now and is retried later', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(h.deps.list).mockRejectedValueOnce(new Error('locked'));
