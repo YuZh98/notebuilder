@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:notebuilder:schema:notebook:2",
   "title": "NoteBuilder notebook (interchange format, version 2)",
-  "description": "A NoteBuilder notebook as exported by File > Export and accepted by Import. A notebook is a list of sections; a section holds cards; a card holds slots (text, quizzes, sliders, formulas, charts...). Interactive variables live inside ONE card: a slider or compute writes a variable, and only text/compute/chart slots in that same card can read it. Unknown keys are rejected here so typos surface; the app itself ignores them. Semantic checks the schema cannot express (formula cycles, choice answer indexes within the options, equal-length table rows) are documented in docs/FORMAT.md and enforced by the app on import.",
+  "description": "A NoteBuilder notebook as exported by File > Export and accepted by Import. A notebook is a list of sections; a section holds cards; a card holds slots (text, quizzes, sliders, formulas, charts...). Interactive variables live inside ONE card: a slider or compute writes a variable, and only slots in that same card can read it (compute and chart formulas, a problem's answer, {{name}} in markdown text, reveal conditions). A problem slot's params are local to that slot and never become card variables. Unknown keys are rejected here so typos surface; the app itself ignores them. Semantic checks the schema cannot express (formula cycles, choice answer indexes within the options, equal-length table rows) are documented in docs/FORMAT.md and enforced by the app on import.",
   "type": "object",
   "required": ["version", "notebook"],
   "properties": {
@@ -375,10 +375,10 @@
     },
     "problemProps": {
       "type": "object",
-      "description": "A practice problem with randomized numbers: each attempt draws fresh values for params, the reader types a number and it is checked against answer. Retrieval practice with varied numbers. Params are local to this slot; they never become card variables.",
+      "description": "A practice problem with randomized numbers: each attempt draws fresh values for params, the reader types a number and it is checked against answer. Retrieval practice with varied numbers. Params are local to this slot; they never become card variables, so do not add sliders for them. answer, prompt and explain may also read this card's variables (written by its sliders and computes); a param with the same name shadows the card variable inside this slot.",
       "required": ["prompt", "params", "answer"],
       "properties": {
-        "prompt": { "type": "string", "description": "The question (markdown and $math$). Use {{name}} to show a drawn param, e.g. \"What is {{a}} × {{b}}?\"." },
+        "prompt": { "type": "string", "description": "The question (markdown and $math$). Use {{name}} to show a drawn param (or a card variable), e.g. \"What is {{a}} × {{b}}?\"." },
         "params": {
           "type": "array",
           "description": "Randomized parameters, each drawn from min..max on the step grid (step 1 gives whole numbers).",
@@ -386,7 +386,7 @@
             "type": "object",
             "required": ["name", "min", "max"],
             "properties": {
-              "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "description": "Name used in prompt and answer: letters, digits, underscore; not a function/constant name (sin, e, pi, min, ...)." },
+              "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "description": "Name used in prompt, answer and explain: letters, digits, underscore; unique within the slot; not a function/constant name (sin, e, pi, min, max, round, mod, ...)." },
               "min": { "type": "number", "description": "Smallest value." },
               "max": { "type": "number", "description": "Largest value (at least min)." },
               "step": { "type": "number", "exclusiveMinimum": 0, "description": "Grid spacing, e.g. 1 or 0.5 (default 1)." }
