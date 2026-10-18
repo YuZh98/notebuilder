@@ -78,6 +78,9 @@ describe('ResultsModal', () => {
     const fallback = container.querySelector('textarea[data-results="text"]') as HTMLTextAreaElement;
     expect(fallback).not.toBeNull();
     expect(fallback.value).toContain('Quiz: Cells');
+    // the selectable text follows later edits (e.g. typing the name after a failed copy)
+    await fireEvent.input(container.querySelector('input[data-results="name"]') as Element, { target: { value: 'Bo' } });
+    expect(fallback.value).toContain('Student: Bo');
   });
 
   it('downloads a .json file via a blob — no network', async () => {

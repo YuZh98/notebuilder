@@ -22,7 +22,7 @@
   } = $props();
 
   let student = $state('');
-  let fallbackText: string | null = $state(null);
+  let showText = $state(false);
   let box: HTMLElement | null = $state(null);
 
   const results = $derived(buildResults(notebook, readerState, { docId, student, now: new Date() }));
@@ -65,7 +65,7 @@
     }
     if (!ok) ok = legacyCopy(text);
     // When no copy path works (file:// pages may lack clipboard access), show the text to select.
-    fallbackText = ok ? null : text;
+    showText = !ok;
     toast(ok ? 'results copied — paste them to your teacher' : 'couldn’t copy — select the text below', 3000);
   }
 
@@ -149,8 +149,15 @@
       </ul>
     {/if}
 
-    {#if fallbackText !== null}
-      <textarea data-results="text" class="results-text" readonly rows="8" value={fallbackText}></textarea>
+    {#if showText}
+      <textarea
+        data-results="text"
+        class="results-text"
+        aria-label="Results as text"
+        readonly
+        rows="8"
+        value={formatResultsText(results)}
+      ></textarea>
     {/if}
 
     <div class="row" style="margin-top:14px">
