@@ -90,10 +90,10 @@
     <p class="problem-error" role="alert">{inst.error}</p>
   {:else}
     <div class="problem-row">
+      <!-- No inputmode: decimal keypads can lack "-", "/" or "." (iOS), and answers need all three. -->
       <input
         class="problem-input"
         type="text"
-        inputmode="decimal"
         autocomplete="off"
         spellcheck="false"
         aria-label="Your answer"
