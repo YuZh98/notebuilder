@@ -160,6 +160,15 @@ describe('db write queue', () => {
     expect(sqls).toContain(db.DELETE_NOTEBOOK_SQL);
   });
 
+  it('dbIdle resolves only after everything queued so far has settled', async () => {
+    void db.setPreference('a', '1');
+    void db.saveNotebook(nb('n'));
+    void db.deleteCardType('x');
+    await db.dbIdle();
+    expect(executes()).toHaveLength(3);
+    expect(h.active).toBe(0);
+  });
+
   it('a delete queued behind a running save runs after it', async () => {
     const save = db.saveNotebook(nb('n'));
     await new Promise((r) => setTimeout(r, 0));

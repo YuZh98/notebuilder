@@ -38,7 +38,12 @@
     loadAnnotations,
     getPreference,
     setPreference,
+    onDbError,
+    dbIdle,
+    type ReaderStateMap,
   } from './lib/db';
+  import { cardTypeChanges } from './lib/db-map';
+  import { createAutosave, withTimeout, HYDRATION_FAILED_MESSAGE } from './lib/autosave';
   import { uid } from './lib/uid';
   import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
@@ -81,9 +86,8 @@
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
-  import { resetPresentation } from './lib/presentation';
+  import { resetPresentation, stripPresentation } from './lib/presentation';
   import { SERVICE_FEATURES, SERVICE_ACTIONS, type ServiceKey } from './lib/services';
-  import { debounce } from './lib/debounce';
   import { startEdgeResize } from './lib/drag/resize';
   import { startPointerDrag } from './lib/drag/engine';
   import { makeNotebookDropCallbacks } from './lib/drag/notebook-drop';
@@ -91,8 +95,10 @@
   import { clampSideW, parseSideWidthPref } from './lib/shell';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { invoke } from '@tauri-apps/api/core';
   import { confirm } from '@tauri-apps/plugin-dialog';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
 
   // Reader state: cardId → slotId → arbitrary state object (persisted to SQLite inside Tauri)
@@ -105,6 +111,46 @@
 
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
   let galleryFor: string | null = $state(null);
+
+  // ---- persistence (D0 durability) ----
+  // Debounced autosave channels, gated on hydration: NOTHING persists until the startup load
+  // succeeded (so the pre-hydration demo notebook / empty reader + factory state can never
+  // overwrite stored data); a failed load keeps persistence off for the session and says so.
+  // Outside Tauri hydration never runs, so the demo lives in memory only. Every write funnels
+  // through db.ts's serialized queue, which also surfaces failures (onDbError → toast).
+  const autosave = createAutosave({ wait: 600, onError: (msg) => toast(msg, 6000) });
+  const notebookSave = autosave.channel('your notebook', (nb: Notebook) =>
+    saveNotebook({ ...nb, updatedAt: new Date().toISOString() }),
+  );
+  // Fingerprinted without volatile flip state, which is never stored: flipping alone saves nothing.
+  const readerSave = autosave.channel('your study progress', (map: ReaderStateMap) => saveReaderState(map), {
+    fingerprint: (map) => JSON.stringify(stripPresentation(map)),
+  });
+  const factorySave = autosave.channel('the Factory', (json: string) => setPreference('factory_state', json), {
+    fingerprint: (json) => json,
+  });
+
+  /** May this write reach SQLite? Only inside Tauri, and only once hydration succeeded. */
+  const persistOn = (): boolean => isTauri() && autosave.active;
+
+  /**
+   * Save the CURRENT notebook, reader state and factory state now — straight from state, not
+   * just whatever debounce happens to be pending (an effect may not have fired yet). Identical
+   * saves are skipped. Resolves once every queued db write (card types, notes, preferences
+   * too) has settled. Never rejects.
+   */
+  async function flushAll(): Promise<void> {
+    if (!autosave.active) return;
+    try {
+      void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
+      void readerSave.saveNow($state.snapshot(readerState) as ReaderStateMap);
+      void factorySave.saveNow(serializeFactory());
+      await autosave.flushAll();
+      await dbIdle();
+    } catch (err) {
+      console.error('flush failed', err);
+    }
+  }
 
   // Coverage-matrix session state (v1 view.mtxRow/mtxCol/cells/fold) — never undoable, not persisted.
   let mtxRow: MatrixAxis | null = $state(null);
@@ -120,7 +166,7 @@
   function setTheme(id: ThemeId) {
     themeId = id;
     applyTheme(id);
-    if (isTauri()) void setPreference('theme', id);
+    if (persistOn()) void setPreference('theme', id);
   }
 
   // Reader annotations: private layer on top of the document, never exported.
@@ -130,12 +176,12 @@
   function addNote(cardId: string, body: string) {
     const note = { id: uid('ann'), cardId, kind: 'note' as const, body, createdAt: new Date().toISOString() };
     annotations = addAnnotation(annotations, note);
-    if (isTauri()) void saveAnnotation(note);
+    if (persistOn()) void saveAnnotation(note);
   }
 
   function deleteNote(id: string) {
     annotations = removeAnnotation(annotations, id);
-    if (isTauri()) void deleteAnnotation(id);
+    if (persistOn()) void deleteAnnotation(id);
   }
 
   // Effective axes (pure fallback) + matrix visibility, rebuilt from the selection.
@@ -189,17 +235,6 @@
     selSection = null;
   }
 
-  // Persistence is active only inside the Tauri app; in a plain browser/tests it no-ops so the demo still runs.
-  const persistNotebook = debounce((nb: Notebook) => {
-    if (isTauri()) void saveNotebook({ ...nb, updatedAt: new Date().toISOString() });
-  }, 600);
-  const persistReaderState = debounce((map: typeof readerState) => {
-    if (isTauri()) void saveReaderState(map);
-  }, 600);
-  const persistFactory = debounce((json: string) => {
-    if (isTauri()) void setPreference('factory_state', json);
-  }, 600);
-
   function confirmDialog(msg: string, title: string): Promise<boolean> {
     return isTauri() ? confirm(msg, { title, kind: 'warning' }) : Promise.resolve(window.confirm(msg));
   }
@@ -208,7 +243,7 @@
 
   function toggleSide() {
     sideCollapsed = !sideCollapsed;
-    if (isTauri()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
+    if (persistOn()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
   }
 
   function startSideResize(e: PointerEvent) {
@@ -226,7 +261,7 @@
           sideW = startW;
         } else if (moved && !sideCollapsed) {
           sideW = clampSideW(mv.clientX);
-          if (isTauri()) void setPreference('side_width', String(sideW));
+          if (persistOn()) void setPreference('side_width', String(sideW));
         } else {
           toggleSide();
         }
@@ -236,23 +271,51 @@
 
   // ---- notebook shell ----
 
-  async function switchNotebook(id: string) {
-    if (id === notebook.id) return;
-    const nb = await loadNotebook(id);
-    if (nb) {
-      notebook = nb;
-      notebookList = notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e));
-      resetSession();
-      clearHistory();
+  /**
+   * Make `nb` the open notebook (switch / new / import). The outgoing notebook is saved FIRST,
+   * synchronously queued from its current state — otherwise its pending debounced save would be
+   * replaced by the incoming notebook's and its last edits lost. Then list, session, selection
+   * and history reset. `persisted`: storage already holds `nb` exactly (a switch) — else (new,
+   * import) it is written at once instead of after the debounce.
+   */
+  function openNotebook(nb: Notebook, persisted: boolean) {
+    // A notebook just removed (no longer listed) is not saved back; db.ts tombstones it as well.
+    if (notebookList.some((e) => e.id === notebook.id)) {
+      void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
     }
+    notebook = nb;
+    notebookList = notebookList.some((e) => e.id === nb.id)
+      ? notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e))
+      : [{ id: nb.id, name: nb.name }, ...notebookList];
+    resetSession();
+    selCard = null;
+    selSection = null;
+    galleryFor = null;
+    notesFor = null;
+    mtxCells = [];
+    clearHistory();
+    const snap = $state.snapshot(notebook) as Notebook;
+    if (persisted) notebookSave.prime(snap);
+    else void notebookSave.saveNow(snap);
+  }
+
+  /** Load and open a stored notebook; false when it could not be loaded. */
+  async function switchNotebook(id: string): Promise<boolean> {
+    if (id === notebook.id) return true;
+    let nb: Notebook | null;
+    try {
+      nb = await loadNotebook(id);
+    } catch (err) {
+      toast(`Couldn’t open that notebook — ${err instanceof Error ? err.message : String(err)}`, 5000);
+      return false;
+    }
+    if (!nb) return false;
+    openNotebook(nb, true);
+    return true;
   }
 
   function newNotebook() {
-    const nb = createNotebook(`Notebook ${notebookList.length + 1}`);
-    notebook = nb;
-    notebookList = [{ id: nb.id, name: nb.name }, ...notebookList];
-    resetSession();
-    clearHistory();
+    openNotebook(createNotebook(`Notebook ${notebookList.length + 1}`), false);
   }
 
   // Undo/redo capture author state only (notebook + card types + factory benches); reader
@@ -267,6 +330,13 @@
   }
 
   function restoreHistory(s: HistSnapshot) {
+    // Card types persist per write (not via autosave), so an undo/redo that swaps the list must
+    // resync storage — or undoing a delete would resurrect the type in memory only.
+    if (persistOn()) {
+      const { upsert, remove } = cardTypeChanges($state.snapshot(cardTypes) as CardType[], s.cardTypes);
+      for (const ct of upsert) void saveCardType(ct);
+      for (const id of remove) void deleteCardType(id);
+    }
     notebook = s.notebook;
     cardTypes = s.cardTypes;
     factory.benches = s.benches;
@@ -293,13 +363,21 @@
       'Delete Notebook',
     );
     if (!ok) return;
-    if (isTauri()) await deleteNotebook(notebook.id);
-    notebookList = notebookList.filter((e) => e.id !== notebook.id);
-    if (notebookList.length > 0 && isTauri()) {
-      await switchNotebook(notebookList[0].id);
-    } else {
-      newNotebook();
+    const goneId = notebook.id;
+    if (persistOn()) {
+      notebookSave.cancel();
+      // Its reader rows are deleted with it; drop them in memory too, so the next full-replace
+      // reader-state save does not write them back.
+      const goneCards = new Set(notebook.sections.flatMap((s) => s.cards.map((c) => c.id)));
+      if (Object.keys(readerState).some((id) => goneCards.has(id))) {
+        readerState = Object.fromEntries(Object.entries(readerState).filter(([id]) => !goneCards.has(id)));
+      }
+      await deleteNotebook(goneId);
     }
+    notebookList = notebookList.filter((e) => e.id !== goneId);
+    const next = notebookList[0];
+    if (next && isTauri() && (await switchNotebook(next.id))) return;
+    newNotebook();
   }
 
   // ---- import / export ----
@@ -309,8 +387,7 @@
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('notebook' in result) {
-      notebook = result.notebook;
-      notebookList = [{ id: notebook.id, name: notebook.name }, ...notebookList];
+      openNotebook(result.notebook, false);
       const n = result.warnings.length;
       if (n > 0) {
         toast(
@@ -573,7 +650,7 @@
     },
     setStore: (ct, store) => {
       ct.store = store ?? undefined;
-      if (isTauri()) void saveCardType($state.snapshot(ct) as CardType);
+      if (persistOn()) void saveCardType($state.snapshot(ct) as CardType);
     },
     storeName: (store) => STORES.find((s) => s.id === store)?.name ?? store ?? 'Workshop',
     confirmDelete: confirmDialog,
@@ -659,7 +736,7 @@
       cardTypes = [...cardTypes, o.type];
       if (b) b.src = null;
     }
-    if (isTauri()) void saveCardType(o.type);
+    if (persistOn()) void saveCardType(o.type);
     sealBenchId = null;
     toast(`sealed "${o.type.name}"`);
   }
@@ -709,7 +786,7 @@
   function saveCardAsType(card: Card, name: string) {
     const ct = cardToType($state.snapshot(card) as Card, name);
     cardTypes = [...cardTypes, ct];
-    if (isTauri()) void saveCardType(ct);
+    if (persistOn()) void saveCardType(ct);
     toast(`Saved card type "${name}"`);
   }
 
@@ -718,7 +795,7 @@
     if (!ok) return;
     pushHistory();
     cardTypes = cardTypes.filter((t) => t.id !== ct.id);
-    if (isTauri()) void deleteCardType(ct.id);
+    if (persistOn()) void deleteCardType(ct.id);
   }
 
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
@@ -728,7 +805,10 @@
     unlisteners.push(installEditCoalescing());
     delete document.documentElement.dataset.theme;
     if (isTauri()) {
-      void (async () => {
+      onDbError((msg) => toast(msg, 6000));
+      unlisteners.push(() => onDbError(null));
+      // Persistence turns on only when this whole load succeeded (autosave.hydrate).
+      void autosave.hydrate(async () => {
         const savedTheme = await getPreference('theme');
         themeId = normalizeThemeId(savedTheme);
         applyTheme(themeId);
@@ -743,7 +823,7 @@
         hydrateFactory(savedFactory);
         const rows = await listNotebooks();
         if (rows.length === 0) {
-          await saveNotebook($state.snapshot(notebook));
+          if (!(await saveNotebook($state.snapshot(notebook)))) throw new Error('could not create the first notebook');
           notebookList = [{ id: notebook.id, name: notebook.name }];
         } else {
           notebookList = rows.map((r) => ({ id: r.id, name: r.name }));
@@ -756,15 +836,54 @@
         // Seed built-in card types once; after that the DB is the source of truth.
         const types = await listCardTypes();
         if (types.length === 0) {
-          for (const ct of builtinCardTypes) await saveCardType(ct);
+          for (const ct of builtinCardTypes) {
+            if (!(await saveCardType(ct))) throw new Error('could not seed the card types');
+          }
         } else {
           cardTypes = types;
         }
-      })();
+        // Undo must never step back into the pre-hydration demo state (it would then be saved).
+        clearHistory();
+        // Let the effects see the hydrated values while persistence is still off, and record
+        // that storage holds exactly them — the first blur/flush then has nothing to rewrite.
+        await tick();
+        notebookSave.prime($state.snapshot(notebook) as Notebook);
+        readerSave.prime($state.snapshot(readerState) as ReaderStateMap);
+        if (savedFactory !== null) factorySave.prime(savedFactory);
+      });
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
       void listen('menu://export-html', () => void handleShare()).then((un) => unlisteners.push(un));
+      // Window close: the API destroys the window only after this handler resolves, so it must
+      // never throw or hang — withTimeout resolves after 2s whatever the flush does.
+      void getCurrentWindow()
+        .onCloseRequested(async () => {
+          await withTimeout(flushAll(), 2000);
+        })
+        .then((un) => unlisteners.push(un))
+        .catch((err) => console.error('close-requested flush not installed', err));
+      // Cmd+Q / app quit: Rust holds the exit, asks us to flush, and exits on exit_app (or after 3s).
+      void listen('app://flush-then-exit', async () => {
+        try {
+          await withTimeout(flushAll(), 2000);
+        } finally {
+          await invoke('exit_app').catch(() => {});
+        }
+      })
+        .then((un) => unlisteners.push(un))
+        .catch((err) => console.error('quit flush not installed', err));
     }
+    // Leaving the app (tab hidden, window blur) flushes everything right away.
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') void flushAll();
+    };
+    const onBlur = () => void flushAll();
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', onBlur);
+    unlisteners.push(() => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', onBlur);
+    });
     function sectionCardsOf(cardId: string | null): string[] {
       if (!cardId) return [];
       for (const s of notebook.sections) {
@@ -801,7 +920,8 @@
           else toggleMode();
           break;
         case 'toast-save':
-          toast('everything autosaves — you’re always saved');
+          void flushAll();
+          toast(autosave.failed ? HYDRATION_FAILED_MESSAGE : 'everything autosaves — you’re always saved');
           break;
         case 'undo':
           toast(histUndo() ? 'undo' : 'nothing to undo');
@@ -841,10 +961,10 @@
     };
   });
 
-  // Debounced autosave whenever the document or reader state changes.
-  $effect(() => persistNotebook($state.snapshot(notebook)));
-  $effect(() => persistReaderState($state.snapshot(readerState)));
-  $effect(() => persistFactory(serializeFactory()));
+  // Debounced autosave whenever the document, reader state or factory changes (dropped until hydrated).
+  $effect(() => notebookSave.schedule($state.snapshot(notebook) as Notebook));
+  $effect(() => readerSave.schedule($state.snapshot(readerState) as ReaderStateMap));
+  $effect(() => factorySave.schedule(serializeFactory()));
   $effect(() => {
     document.body.classList.toggle('side-collapsed', sideCollapsed);
   });

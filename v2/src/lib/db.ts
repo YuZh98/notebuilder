@@ -113,6 +113,11 @@ function serial<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Resolves once every db operation queued so far has settled — close/quit flushes await it. */
+export function dbIdle(): Promise<void> {
+  return tail.then(() => undefined);
+}
+
 /** Reads reject on failure (the caller decides what that means); the handle is reset first. */
 function read<T>(query: (d: Database) => Promise<T>): Promise<T> {
   return serial(async () => {

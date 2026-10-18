@@ -1,5 +1,6 @@
 import { derivedTagUnion } from './tags';
 import type { Notebook, Section, Card, Slot } from './types';
+import type { CardType } from './card-types';
 
 export type NotebookRow = {
   id: string;
@@ -164,4 +165,17 @@ export function rowsToNotebook(
   // Pre-D26 blob: derive cats from card tags so it is never undefined downstream.
   notebook.cats = nbData.cats ?? derivedTagUnion(notebook);
   return notebook;
+}
+
+/**
+ * Writes that bring stored card types in line with `next` after an undo/redo swapped the whole
+ * list in memory: upsert every type that is new or differs, delete every type that vanished.
+ */
+export function cardTypeChanges(prev: CardType[], next: CardType[]): { upsert: CardType[]; remove: string[] } {
+  const before = new Map(prev.map((t) => [t.id, JSON.stringify(t)]));
+  const kept = new Set(next.map((t) => t.id));
+  return {
+    upsert: next.filter((t) => before.get(t.id) !== JSON.stringify(t)),
+    remove: prev.filter((t) => !kept.has(t.id)).map((t) => t.id),
+  };
 }
