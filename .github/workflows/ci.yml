@@ -63,3 +63,7 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify committed Reader template is up to date
+        # Shared .html files are built from this generated bundle; a stale one ships old behavior.
+        run: npm run build:reader && git diff --exit-code -- src/lib/generated/reader-template.ts
