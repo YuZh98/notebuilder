@@ -9,7 +9,9 @@ so importing a shared `.html` reads it too.
   (JSON Schema 2020-12). Its `description` fields are written to double as documentation for people and
   for LLMs.
 - **Working examples:** [`docs/examples/compound-interest.json`](examples/compound-interest.json),
-  [`docs/examples/regression-drill.json`](examples/regression-drill.json).
+  [`docs/examples/regression-drill.json`](examples/regression-drill.json),
+  [`docs/examples/practice-lesson.json`](examples/practice-lesson.json) (guided cards, step-by-step
+  reveals and randomized `problem` slots).
   (`release-notes.json` there is the legacy prototype format, not this one.)
 
 ## Versioning promise
@@ -27,8 +29,14 @@ so importing a shared `.html` reads it too.
 ## What a file never contains
 
 The file is the **document layer** only. It never carries ids (fresh ones are minted on import),
-reader progress (answers, ticks, flips), section fold state, card notes/annotations, or live slider
-positions. Those belong to the reader's local state or the session and stay on the device.
+reader progress (answers, ticks, flips, a problem's drawn numbers and score), section fold state,
+card notes/annotations, or live slider positions. Those belong to the reader's local state or the
+session and stay on the device.
+
+The **draft** mark is local too. A notebook made **From AI** opens with every card marked as a draft
+to review; the mark is saved on this device until the author marks the card reviewed, but it is not
+part of this format. Export and the shared Reader never write it, import ignores a `draft` key, and
+the schema rejects one as an unknown field.
 
 ## Structure
 
@@ -67,7 +75,7 @@ Slot      { type, props, verbs?, w?, fuse?, fuseW? }
 | Verb | Shape | Effect in Study |
 | --- | --- | --- |
 | `reveal` | `{ "key": "a", "op": ">=", "val": 1 }`, `op` ∈ `== != >= <= > <` | Show the slot only while the condition on a card variable holds. |
-| `sequential` | `true` | Hidden until every earlier completable slot in the card is done. |
+| `sequential` | `true` | Hidden until every earlier completable slot in the card is done. The Factory's **Step-by-step** slot effect sets it. Give it to each step of a worked example, with a question or answer box before each, to reveal one step at a time. |
 | `locked` | `true` | Shown but disabled until every earlier completable slot is done. |
 | `glow`, `emphasis` | `true` | Visual emphasis. |
 | `hint` | `{ "content": "..." }` | A collapsible plain-text hint. |
@@ -87,8 +95,10 @@ Slot      { type, props, verbs?, w?, fuse?, fuseW? }
 | `compute` | A formula that **writes** the variable `out` and shows `note` + the result. | `expr` (required), `out`, `note`. |
 | `chart` | A live plot of y = `fn`(x). | `fn` (required), `x0`, `x1` (set both; default 0 and x0 + 1), `y0`, `y1` (omit both to auto-fit), `xticks`, `yticks`, `hover`, `label`. |
 | `progress` | A meter of finished cards. | `scope: "section" \| "chapter" \| "notebook"` (required), `label`, `track: string[]` (count only cards with these tags), `show: { mn, pct, bar }`. |
+| `problem` | Practice with fresh random numbers on every attempt; the typed number is checked. | `prompt`, `params: { name, min, max, step? }[]`, `answer` (all required), `tol`, `need`, `explain`. See [Practice problems](#practice-problems-the-problem-slot). |
 
-**Markdown and math** render only in `text.text`, `choice.q` and `choice.explanation`: `#`–`###`
+**Markdown and math** render only in `text.text`, `choice.q`, `choice.explanation`, `problem.prompt`
+and `problem.explain`: `#`–`###`
 headings, `**bold**`, `*italic*`, `~~strike~~`, `==highlight==`, `` `code` ``, `-` / `1.` lists, `>`
 quotes, `|` tables, `[links](https://…)`, `$inline$` and `$$display$$` LaTeX (KaTeX), and `{{name}}`.
 Every other string (options, list items, table cells, notes, labels) is plain text — use Unicode
@@ -99,8 +109,12 @@ feed followed by `rac`; the From AI check warns about exactly this.
 ## Variables and expressions
 
 - **Writers:** a `slider` writes `props.key`; a `compute` writes `props.out`.
-- **Readers:** `compute.expr`, `chart.fn` (where `x` is the axis, not a variable), `{{name}}` in
-  markdown fields, and `verbs.reveal.key`.
+- **Readers:** `compute.expr`, `chart.fn` (where `x` is the axis, not a variable), `problem.answer`,
+  `{{name}}` in markdown fields (including `problem.prompt` and `problem.explain`), and
+  `verbs.reveal.key`.
+- **Problem params are slot-local:** a `problem`'s `params` are drawn and read inside that one slot
+  only. They never become card variables, so they need no slider, and inside the slot a param
+  shadows a card variable of the same name.
 - **The card-scope rule: variables never cross cards.** A slot reads only variables written in its
   own card; the front and back of a flip card share one scope. A read with no writer in the card
   imports with a **warning** (it shows `?` / evaluates to 0); put the slider and everything that uses
@@ -108,7 +122,7 @@ feed followed by `rac`; the From AI check warns about exactly this.
 - **No cycles:** a compute may not depend, directly or through other computes, on its own `out`.
   A cycle is an import **error**.
 - **Names** are identifiers (`[A-Za-z_][A-Za-z0-9_]*`), case-sensitive. Avoid the function and
-  constant names below and `x`.
+  constant names below, `mod`, and `x`.
 - `{{name}}` prints a value as-is; only a plain name goes inside the braces. Round in a compute:
   `round(v * 100) / 100` keeps two decimals.
 
@@ -124,6 +138,72 @@ Expression grammar ([`v2/src/lib/expr.ts`](../v2/src/lib/expr.ts) — a small pa
 | Constants | `pi`, `e`, `true`, `false` |
 | Unknowns | A misspelled variable or function silently evaluates to `0`. |
 
+## Practice problems (the `problem` slot)
+
+A `problem` draws fresh numbers for its `params` on every attempt, shows `prompt` with those numbers,
+and checks the number the reader types against `answer`. Use it for drills and to follow a worked
+example. A complete working example is the practice set in
+[`docs/examples/practice-lesson.json`](examples/practice-lesson.json).
+
+| Prop | Meaning |
+| --- | --- |
+| `prompt` (required) | The question: markdown, `$math$`, and `{{name}}` for a drawn param (or a card variable). |
+| `params` (required) | `[{ "name": "a", "min": 2, "max": 12, "step": 1 }, …]`. Each value is drawn from `min`..`max` (`min` ≤ `max`) on the `step` grid; `step` is optional, greater than 0, default 1 (whole numbers). |
+| `answer` (required) | An expression (the grammar above) over the params and the card's variables that gives the correct number. |
+| `tol` | Accepted absolute error, ≥ 0. Default 0: exact up to float noise. Set it for decimal answers, e.g. `0.01` when the answer is rounded to cents. |
+| `need` | Correct answers needed before the slot counts as done: a whole number ≥ 1, default 1. Use 2–3 for a drill. |
+| `explain` | A worked solution shown after a correct answer or when the reader gives up: markdown, `$math$` and `{{name}}`. Always give one. |
+
+- **Param names** follow the variable-name rule and are stricter about it: each is an identifier,
+  unique within its slot, and never a built-in name (`sin` … `clamp`, `pi`, `e`, `true`, `false`,
+  `mod`) or `__proto__`, `constructor`, `prototype`. A bad name is an import error.
+- **Params are slot-local** (see the readers above). `answer`, `prompt` and `explain` may also read
+  the card's own slider and compute variables. A read with no writer in the card is an import
+  warning, and if `answer` makes it, the slot shows an error instead of grading against 0.
+- **`round` takes one argument.** Scale to keep decimals: `round(x * 100) / 100`. `round(x, 2)` is an
+  import error.
+- When a draw makes the answer non-finite (a division by zero, say), the next draws are tried.
+- Readers type one plain number: `42`, `-3.5`, `1e3` or a fraction like `-3/4`. What they type is
+  never evaluated as an expression.
+
+```json
+{
+  "version": 2,
+  "notebook": {
+    "name": "Compound interest drill",
+    "sections": [
+      {
+        "name": "Practice",
+        "cards": [
+          {
+            "slots": [
+              { "type": "slider", "props": { "key": "r", "value": 5, "min": 1, "max": 10, "step": 1 } },
+              {
+                "type": "problem",
+                "props": {
+                  "prompt": "At **{{r}}%** a year, what does **{{P}}** grow to after **{{n}}** years? Round to cents.",
+                  "params": [
+                    { "name": "P", "min": 100, "max": 1000, "step": 100 },
+                    { "name": "n", "min": 1, "max": 5 }
+                  ],
+                  "answer": "round(P * (1 + r/100)^n * 100) / 100",
+                  "tol": 0.01,
+                  "need": 2,
+                  "explain": "Each year multiplies the amount by $1 + r/100$: {{P}} × (1 + {{r}}/100)^{{n}}, rounded to cents."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Here `r` is a card variable (the slider writes it, and the problem reads it), while `P` and `n` are
+params: drawn afresh for each attempt and invisible to the rest of the card.
+
 ## Validation on import
 
 Import validates before it creates anything. **Errors** reject the file; **warnings** let it load.
@@ -134,12 +214,16 @@ to paste back into the LLM that wrote the file.
 
 Beyond the structure above, the app checks what a JSON Schema cannot express:
 
-- each slot's own `validate()` — e.g. choice answer indexes within the options, equal-length table rows;
+- each slot's own `validate()` — e.g. choice answer indexes within the options, equal-length table rows,
+  a problem's param names and `answer` formula;
 - formula cycles within a card (error) and cross-card reads (warning).
 
 The From AI check additionally tolerates ```` ```json ```` fences and chatter around the object,
 reports JSON syntax errors with line and column, and warns about fields the schema does not define,
 about LaTeX that lost its backslash, and about formulas that use `**` or negate a power (`-x^2`).
+When the only syntax problem is trailing commas, it also lists what the file would get wrong
+without them, so one fix request covers everything; the notebook still cannot be created until the
+commas are gone.
 
 ## Minimal example
 
