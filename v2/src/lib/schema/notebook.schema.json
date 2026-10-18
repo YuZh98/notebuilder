@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:notebuilder:schema:notebook:2",
+  "title": "NoteBuilder notebook (interchange format, version 2)",
+  "description": "A NoteBuilder notebook as exported by File > Export and accepted by Import. A notebook is a list of sections; a section holds cards; a card holds slots (text, quizzes, sliders, formulas, charts...). Interactive variables live inside ONE card: a slider or compute writes a variable, and only text/compute/chart slots in that same card can read it. Unknown keys are rejected here so typos surface; the app itself ignores them. Semantic checks the schema cannot express (formula cycles, choice answer indexes within the options, equal-length table rows) are documented in docs/FORMAT.md and enforced by the app on import.",
+  "type": "object",
+  "required": ["version", "notebook"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional pointer to this schema for editors. Ignored by the app."
+    },
+    "version": {
+      "type": "integer",
+      "enum": [1, 2],
+      "description": "Interchange format version. Always write 2. Version 1 files (no notebook.cats) still import; the app derives cats from card tags."
+    },
+    "notebook": { "$ref": "#/$defs/notebook" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "notebook": {
+      "type": "object",
+      "description": "The notebook: a title, optional subtitle, and an ordered list of sections.",
+      "required": ["name", "sections"],
+      "properties": {
+        "name": { "type": "string", "description": "Notebook title shown in the top bar." },
+        "subtitle": { "type": "string", "description": "One-line description shown under the title." },
+        "width": {
+          "enum": ["narrow", "medium", "wide"],
+          "description": "Page width preset. Omit for the default."
+        },
+        "cats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tag categories in display order (the tag chips readers filter by). List every tag used in card.tags; extra tags are allowed."
+        },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/section" },
+          "description": "Sections in reading order. A section is a lesson-sized group of cards; a section with kind 'divider' is a chapter break."
+        }
+      },
+      "additionalProperties": false
+    },
+    "section": {
+      "type": "object",
+      "description": "A section (a lesson / room of cards), or a chapter divider when kind is 'divider'.",
+      "required": ["name", "cards"],
+      "properties": {
+        "name": { "type": "string", "description": "Section name shown in the sidebar." },
+        "kind": {
+          "const": "divider",
+          "description": "Set to 'divider' to make this a chapter break that starts a new part of the notebook. Dividers hold no cards (use \"cards\": [])."
+        },
+        "title": { "type": "string", "description": "Heading shown above the section's cards (often the same as name)." },
+        "subtitle": { "type": "string", "description": "One-line lead-in shown under the section title." },
+        "locked": { "type": "boolean", "description": "Locks the section against editing." },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Fixed section width in pixels. Omit to fill the page."
+        },
+        "services": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "description": "Study-mode tool bar features to enable, keyed by feature: pin, search, archive, notes, shuffle, flipAll, reset. Example: {\"shuffle\": true, \"flipAll\": true}."
+        },
+        "svcOrder": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Left-to-right order of the tool bar features (keys as in services)."
+        },
+        "svcW": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "description": "Pixel widths of resizable tool bar features, keyed as in services."
+        },
+        "cards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/card" },
+          "description": "Cards in reading order."
+        }
+      },
+      "additionalProperties": false
+    },
+    "card": {
+      "type": "object",
+      "description": "A card: one idea, one question, or one interactive model. Slots stack top to bottom. A card is also the scope of its variables: sliders and computes write variables that only this card's slots (front and back) can read.",
+      "required": ["slots"],
+      "properties": {
+        "slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/slot" },
+          "description": "The card's slots (its front face when verbs.flip is true)."
+        },
+        "back": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/slot" },
+          "description": "Back-face slots of a flip card (set verbs.flip to true). Front and back share one variable scope."
+        },
+        "verbs": { "$ref": "#/$defs/cardVerbs" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Concept tags for filtering and the coverage matrix, e.g. [\"definition\", \"chain-rule\"]. Declare them in notebook.cats."
+        },
+        "accent": {
+          "type": "string",
+          "description": "Accent color for the card frame, as a CSS hex color like \"#6ea8fe\"."
+        },
+        "w": {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 12,
+          "description": "Card width in twelfths of the section grid: 12 full (default), 6 half, 4 third, 3 quarter. Narrow cards sit side by side."
+        },
+        "archived": {
+          "type": "boolean",
+          "description": "Hides the card from the study grid unless the archive view is on."
+        }
+      },
+      "additionalProperties": false
+    },
+    "cardVerbs": {
+      "type": "object",
+      "description": "Card-level behaviours.",
+      "properties": {
+        "flip": {
+          "type": "boolean",
+          "description": "Flashcard: the card shows slots on the front and back on the back; readers click to flip."
+        },
+        "bare": {
+          "type": "boolean",
+          "description": "Render without a card frame, as plain page text (good for notes and headings)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "slot": {
+      "$comment": "Adding a slot type is one localized edit here: add its name to properties.type.enum, add a $defs entry named <type>Props (camelCase for hyphenated types), and add one if/then branch to allOf.",
+      "type": "object",
+      "description": "One content block inside a card. `type` picks the kind of block; `props` holds its settings (shape depends on type).",
+      "required": ["type", "props"],
+      "properties": {
+        "type": {
+          "enum": ["text", "list", "code", "table", "image", "choice", "slider", "text-input", "compute", "chart", "progress"],
+          "description": "Slot kind: text (markdown + math), list, code, table, image, choice (quiz), slider (number input that writes a variable), text-input (free answer), compute (formula that writes a variable), chart (plot of y = f(x)), progress (completion meter)."
+        },
+        "props": {
+          "type": "object",
+          "description": "Settings for this slot. The allowed keys depend on type (each type's props are defined below as <type>Props). Always an object; {} when there is nothing to set."
+        },
+        "verbs": { "$ref": "#/$defs/slotVerbs" },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 12,
+          "description": "Slot width in twelfths of the card (default 12). Consecutive narrow slots wrap side by side, e.g. two sliders at w 6."
+        },
+        "fuse": {
+          "type": "boolean",
+          "description": "Join this slot and the next one into a single row cell."
+        },
+        "fuseW": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Relative share of a fused row this slot takes (default 1)."
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        { "if": { "required": ["type"], "properties": { "type": { "const": "text" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/textProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "list" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/listProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "code" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/codeProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "table" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/tableProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "image" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/imageProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "choice" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/choiceProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "slider" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/sliderProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "text-input" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/textInputProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "compute" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/computeProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "chart" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/chartProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "progress" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/progressProps" } } } }
+      ]
+    },
+    "slotVerbs": {
+      "type": "object",
+      "description": "Slot-level behaviours in Study mode.",
+      "properties": {
+        "reveal": {
+          "type": "object",
+          "description": "Show this slot only while a condition on a variable of this card holds, e.g. {\"key\": \"rate\", \"op\": \">=\", \"val\": 10}.",
+          "required": ["key", "op"],
+          "properties": {
+            "key": { "type": "string", "description": "A variable written by a slider or compute in this card." },
+            "op": { "enum": ["==", "!=", ">=", "<=", ">", "<"], "description": "Comparison operator." },
+            "val": { "type": ["number", "string", "boolean", "null"], "description": "Value to compare against (normally a number)." }
+          },
+          "additionalProperties": false
+        },
+        "glow": { "type": "boolean", "description": "Draw attention with a glow." },
+        "emphasis": { "type": "boolean", "description": "Render as an emphasized callout." },
+        "sequential": { "type": "boolean", "description": "Hide until every earlier completable slot in the card is done." },
+        "locked": { "type": "boolean", "description": "Disable (but show) until every earlier completable slot in the card is done." },
+        "hint": {
+          "type": "object",
+          "description": "A collapsible hint shown under the slot.",
+          "required": ["content"],
+          "properties": { "content": { "type": "string", "description": "Hint text (plain text)." } },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "textProps": {
+      "type": "object",
+      "description": "Markdown prose. Supports # / ## / ### headings, **bold**, *italic*, ~~strike~~, ==highlight==, `code`, - bullet and 1. numbered lists, > quotes, | tables |, [links](https://...), $inline$ and $$display$$ LaTeX math (KaTeX), and {{name}} to print the live value of a variable from this card.",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "description": "The markdown source. In JSON every LaTeX backslash must be doubled: \"$\\\\frac{a}{b}$\"." }
+      },
+      "additionalProperties": false
+    },
+    "listProps": {
+      "type": "object",
+      "description": "A bulleted, numbered, or checklist list. A 'check' list is a tracker readers tick off; the card counts as done when every item is ticked.",
+      "required": ["items", "style"],
+      "properties": {
+        "items": { "type": "array", "items": { "type": "string" }, "description": "List items as plain text (no markdown or $math$; use Unicode such as x², π)." },
+        "style": { "enum": ["bullets", "numbered", "check"], "description": "List style." }
+      },
+      "additionalProperties": false
+    },
+    "codeProps": {
+      "type": "object",
+      "description": "A monospaced code block.",
+      "required": ["code"],
+      "properties": {
+        "code": { "type": "string", "description": "The source code (use \\n for line breaks)." },
+        "lang": { "type": "string", "description": "Language label, e.g. \"python\"." }
+      },
+      "additionalProperties": false
+    },
+    "tableProps": {
+      "type": "object",
+      "description": "A grid of text cells. The first row is the header. Every row must have the same number of cells.",
+      "required": ["rows"],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": { "type": "array", "items": { "type": "string" } },
+          "description": "Rows of plain-text cells, e.g. [[\"Symbol\", \"Meaning\"], [\"μ\", \"mean\"]]. Cells show no markdown or $math$: for math in a table, write a markdown table in a text slot instead."
+        }
+      },
+      "additionalProperties": false
+    },
+    "imageProps": {
+      "type": "object",
+      "description": "An image by URL.",
+      "required": ["src"],
+      "properties": {
+        "src": {
+          "type": "string",
+          "pattern": "^(?:$|[Hh][Tt][Tt][Pp][Ss]?:|[Dd][Aa][Tt][Aa]:|[Ff][Ii][Ll][Ee]:)",
+          "description": "Image URL using https:, http:, data:, or file:. Empty string for a placeholder."
+        },
+        "alt": { "type": "string", "description": "Alternative text describing the image." }
+      },
+      "additionalProperties": false
+    },
+    "choiceProps": {
+      "type": "object",
+      "description": "A multiple-choice question that checks itself. Readers pick, submit, see right/wrong, then the explanation.",
+      "required": ["options"],
+      "properties": {
+        "q": { "type": "string", "description": "The question (markdown, $math$ and {{name}} values)." },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2,
+          "description": "Answer options as plain text, at least 2 (no markdown or $math$: use Unicode such as x², √2, π, or put the math in q)."
+        },
+        "answer": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "0-based indexes of the correct options, e.g. [1] for the second option. Every index must be less than options.length."
+        },
+        "multi": { "type": "boolean", "description": "Allow selecting more than one option (use when answer has several indexes)." },
+        "explanation": { "type": "string", "description": "Shown after the reader answers, right or wrong: why the answer is correct (markdown and $math$)." }
+      },
+      "additionalProperties": false
+    },
+    "sliderProps": {
+      "type": "object",
+      "description": "A number input that WRITES the variable `key` for this card. Other slots in the same card read it in formulas and as {{key}} in text.",
+      "required": ["key", "value"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Variable name: letters, digits, underscore; not starting with a digit. Avoid function/constant names (sin, e, pi, min, ...) and x (the chart axis)."
+        },
+        "value": { "type": "number", "description": "Starting value." },
+        "min": { "type": "number", "description": "Lower bound." },
+        "max": { "type": "number", "description": "Upper bound." },
+        "step": { "type": "number", "description": "Increment, e.g. 1 or 0.1." },
+        "showName": { "type": "boolean", "description": "Show the variable name (default true)." },
+        "showValue": { "type": "boolean", "description": "Show the current value (default true)." },
+        "showSlider": { "type": "boolean", "description": "Show the drag track (default true); false gives a plain number box." }
+      },
+      "additionalProperties": false
+    },
+    "textInputProps": {
+      "type": "object",
+      "description": "A free-text answer box for open questions or reflection. Done once the reader writes something. It does not create a variable.",
+      "properties": {
+        "placeholder": { "type": "string", "description": "Prompt shown in the empty box." },
+        "key": { "type": "string", "description": "Optional label for the answer." }
+      },
+      "additionalProperties": false
+    },
+    "computeProps": {
+      "type": "object",
+      "description": "A formula that reads this card's variables and WRITES the variable `out`; shows `note` followed by the result.",
+      "required": ["expr"],
+      "properties": {
+        "expr": { "type": "string", "description": "Expression, e.g. \"round(P * (1 + r/100) ^ t)\". Operators + - * / % ^ // == != < <= > >= && || ! and c ? a : b; functions sin cos tan exp log sqrt abs sign round floor ceil min max pow clamp; constants pi e true false." },
+        "out": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*)?$",
+          "description": "Variable name this formula writes (other slots of the card read it)."
+        },
+        "note": { "type": "string", "description": "Plain-text label shown before the result, e.g. \"Future value =\"." }
+      },
+      "additionalProperties": false
+    },
+    "chartProps": {
+      "type": "object",
+      "description": "A live plot of y = fn(x). `x` is the horizontal axis; every other name in fn is a variable of this card, so the curve moves when a slider changes.",
+      "required": ["fn"],
+      "properties": {
+        "fn": { "type": "string", "description": "Expression in x (same grammar as compute), e.g. \"a * x^2 + b\"." },
+        "label": { "type": "string", "description": "Plain-text caption under the chart." },
+        "x0": { "type": "number", "description": "Left end of the x range (default 0). Always set x0 and x1." },
+        "x1": { "type": "number", "description": "Right end of the x range; must be greater than x0." },
+        "y0": { "type": "number", "description": "Bottom of the y range; omit y0 and y1 to auto-fit." },
+        "y1": { "type": "number", "description": "Top of the y range." },
+        "xticks": { "type": "number", "description": "Number of x-axis ticks." },
+        "yticks": { "type": "number", "description": "Number of y-axis ticks." },
+        "hover": { "type": "boolean", "description": "Show the value under the pointer." }
+      },
+      "additionalProperties": false
+    },
+    "progressProps": {
+      "type": "object",
+      "description": "A progress meter: how many of the cards that have something to finish (a quiz, a checklist, an answer box) the reader has finished.",
+      "required": ["scope"],
+      "properties": {
+        "scope": { "enum": ["section", "chapter", "notebook"], "description": "What to count: this section, this chapter (up to the next divider), or the whole notebook." },
+        "label": { "type": "string", "description": "Caption, e.g. \"Your progress\"." },
+        "track": { "type": "array", "items": { "type": "string" }, "description": "Optional tags to count only cards carrying them." },
+        "show": {
+          "type": "object",
+          "description": "Which readouts to show.",
+          "properties": {
+            "mn": { "type": "boolean", "description": "\"M / N\" count (default true)." },
+            "pct": { "type": "boolean", "description": "Percentage (default false)." },
+            "bar": { "type": "boolean", "description": "Bar (default true)." }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
