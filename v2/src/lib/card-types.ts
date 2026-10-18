@@ -170,4 +170,63 @@ export const builtinCardTypes: CardType[] = [
     slots: [{ type: 'text', props: { text: '**Q.** Var of a fair coin flip (0/1)?' } }],
     back: [
       { type: 'choice', props: { q: 'Pick the variance:', options: ['0.25', '0.5', '1'], answer: [0], multi: false, explanation: 'Var = p(1−p) = **0.25**' } }] },
+  // Predict → explore → explain: an ungraded prediction gates the simulation (every later slot is
+  // step-by-step, and the prediction is the card's only completable slot), so students commit to
+  // an idea before they see the answer, then reconcile the two.
+  { id: 'ct_guided', name: 'Guided Explore', store: 'live', accent: '#34e1ff', icon: '🔬',
+    description: 'Predict, then explore, then explain: the simulation unlocks once the student commits to a prediction.',
+    slots: [
+      { type: 'text', props: { text: '## Predict, then explore\n\nA deposit of 1000 earns interest at **r%** a year for **t** years, and the interest compounds. Make a prediction first: the simulation unlocks once you submit it.' } },
+      { type: 'choice', props: {
+        q: '**Your prediction.** If the interest rate *doubles* (say from 4% to 8%), the interest earned over 20 years…',
+        options: ['…exactly doubles', '…more than doubles', '…less than doubles'],
+        multi: false,
+        explanation: 'Prediction locked in. Now test it: drag the sliders below.' } },
+      { type: 'slider', props: { key: 'r', min: 1, max: 12, value: 4, step: 0.5 }, verbs: { sequential: true }, w: 6 },
+      { type: 'slider', props: { key: 't', min: 1, max: 40, value: 20, step: 1 }, verbs: { sequential: true }, w: 6 },
+      { type: 'compute', props: { expr: 'round(1000 * ((1 + r/100)^t - 1))', out: 'gain', note: 'interest earned at r% =' }, verbs: { sequential: true }, w: 6 },
+      { type: 'compute', props: { expr: 'round(1000 * ((1 + 2*r/100)^t - 1))', out: 'gain2', note: 'interest earned at 2r% =' }, verbs: { sequential: true }, w: 6 },
+      { type: 'compute', props: { expr: 'round(gain2 / gain * 100) / 100', out: 'times', note: 'doubling the rate multiplies the interest by' }, verbs: { sequential: true } },
+      { type: 'chart', props: { fn: '((1 + 2*r/100)^x - 1) / ((1 + r/100)^x - 1)', x0: 1, x1: 40, xticks: 4, hover: true, label: 'interest at 2r% ÷ interest at r%, after x years' }, verbs: { sequential: true } },
+      { type: 'text', props: { text: '**Explain.** At **{{r}}%** for **{{t}}** years the interest is **{{gain}}**; at double the rate it is **{{gain2}}**, which is **{{times}}×** as much. Compare that with your prediction.\n\nFor more than one year, doubling the rate *more than* doubles the interest, because each year\'s interest also earns interest. Set t = 1: with nothing to compound yet, it is exactly 2×. Why does the gap widen as t grows?' }, verbs: { sequential: true } }] },
+  // Worked example with self-explanation prompts; each step unlocks once the student has explained
+  // the one before, and the example fades into a problem with the first step already done.
+  { id: 'ct_worked', name: 'Worked Example', store: 'practice', accent: '#54d6a0', icon: '📝',
+    description: 'A worked solution revealed step by step, with self-explanation prompts, fading into a problem to try.',
+    slots: [
+      { type: 'text', props: { text: '## Worked example\n\n**Problem.** Solve $\\dfrac{x}{4} + 3 = 8$.' } },
+      { type: 'text', props: { text: '**Step 1.** Subtract 3 from both sides:\n\n$$\\frac{x}{4} = 5$$' } },
+      { type: 'text-input', props: { placeholder: 'Why is this step valid? Explain it in your own words to unlock step 2.' } },
+      { type: 'text', props: { text: '**Step 2.** Multiply both sides by 4:\n\n$$x = 20$$\n\n**Check.** $\\frac{20}{4} + 3 = 5 + 3 = 8$ ✓' }, verbs: { sequential: true } },
+      { type: 'text-input', props: { placeholder: 'Why multiply by 4, and why on both sides?' }, verbs: { sequential: true } },
+      { type: 'problem', props: {
+        prompt: '**Now you try.** The first step is done for you.\n\nSolve $\\dfrac{x}{ {{a}} } + {{b}} = {{c}}$.\n\nStep 1: $\\dfrac{x}{ {{a}} } = {{c}} - {{b}}$. Finish it: what is $x$?',
+        params: [
+          { name: 'a', min: 2, max: 9, step: 1 },
+          { name: 'b', min: 1, max: 9, step: 1 },
+          { name: 'c', min: 10, max: 20, step: 1 }],
+        answer: 'a * (c - b)', tol: 0, need: 1,
+        explain: 'Work out ${{c}} - {{b}}$, then multiply both sides by {{a}}: $x = {{a}} \\times ({{c}} - {{b}})$. Check it by substituting back.' },
+        verbs: { sequential: true } }] },
+  // Randomized retrieval practice: two different problem kinds, mixed, each drawing fresh numbers
+  // until the student has answered enough of them correctly.
+  { id: 'ct_practiceset', name: 'Practice Set', store: 'practice', accent: '#f0a500', icon: '🎯',
+    description: 'Two kinds of randomized problem, mixed: each draws fresh numbers until the student has enough right.',
+    slots: [
+      { type: 'text', props: { text: '## Practice set\n\nTwo kinds of problem, mixed. Press **New numbers** for a fresh one; each problem is finished after enough correct answers.' } },
+      { type: 'problem', props: {
+        prompt: '**1.** What is {{p}}% of {{n}}?',
+        params: [
+          { name: 'p', min: 5, max: 95, step: 5 },
+          { name: 'n', min: 20, max: 400, step: 20 }],
+        answer: 'p * n / 100', tol: 0, need: 3,
+        explain: '{{p}}% means {{p}} hundredths, so take $\\frac{ {{p}} }{100} \\times {{n}}$.' } },
+      { type: 'problem', props: {
+        prompt: '**2.** Solve $\\dfrac{x}{ {{a}} } - {{b}} = {{c}}$. What is $x$?',
+        params: [
+          { name: 'a', min: 2, max: 6, step: 1 },
+          { name: 'b', min: 2, max: 9, step: 1 },
+          { name: 'c', min: 1, max: 9, step: 1 }],
+        answer: 'a * (c + b)', tol: 0, need: 2,
+        explain: 'Add {{b}} to both sides: $\\dfrac{x}{ {{a}} } = {{c}} + {{b}}$. Then multiply both sides by {{a}}: $x = {{a}} \\times ({{c}} + {{b}})$.' } }] },
 ];
