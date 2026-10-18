@@ -49,6 +49,7 @@
   import { createAutosave, withTimeout, HYDRATION_FAILED_MESSAGE } from './lib/autosave';
   import { uid } from './lib/uid';
   import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
+  import { planBuiltinSeed, BUILTIN_SEEDED_PREF } from './lib/builtin-seed';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, typeToBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
   import {
@@ -865,15 +866,20 @@
         readerState = storedReader;
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
-        // Seed built-in card types once; after that the DB is the source of truth.
+        // Seed each built-in card type once per install, ever (lib/builtin-seed.ts): new built-ins
+        // reach existing users, deleted ones never return. After that the DB is the source of truth.
+        // Part of the load itself, like the first notebook: persistOn() opens only once this succeeds.
         const types = await listCardTypes();
-        if (types.length === 0) {
-          for (const ct of builtinCardTypes) {
-            if (!(await saveCardType(ct))) throw new Error('could not seed the card types');
-          }
-        } else {
-          cardTypes = types;
+        const seededPref = await getPreference(BUILTIN_SEEDED_PREF);
+        const seed = planBuiltinSeed({ existingIds: types.map((t) => t.id), seededPref, builtins: builtinCardTypes });
+        for (const ct of seed.toSeed) {
+          if (!(await saveCardType(ct))) throw new Error('could not seed the card types');
         }
+        // Recorded only after the types are stored; a failed write is reported (onDbError) and the
+        // next launch re-derives the same record, since seeded types are then in the table.
+        const nextSeeded = JSON.stringify(seed.nextSeeded);
+        if (nextSeeded !== seededPref) await setPreference(BUILTIN_SEEDED_PREF, nextSeeded);
+        cardTypes = [...types, ...seed.toSeed];
         // Undo must never step back into the pre-hydration demo state (it would then be saved),
         // and a selection made on the demo must not dangle into the loaded notebook.
         clearHistory();

@@ -9,6 +9,7 @@ import type { CardType } from './lib/card-types';
 const h = vi.hoisted(() => ({
   notebooks: [] as Notebook[],
   types: [] as CardType[],
+  prefs: {} as Record<string, string>,
   saves: [] as Notebook[],
   reader: {} as Record<string, Record<string, Record<string, unknown>>>,
   readerSaves: [] as Record<string, unknown>[],
@@ -49,7 +50,7 @@ vi.mock('./lib/db', () => ({
     h.readerSaves.push(structuredClone(map));
     return true;
   }),
-  getPreference: vi.fn(async () => null),
+  getPreference: vi.fn(async (key: string) => h.prefs[key] ?? null),
   setPreference: vi.fn(async (key: string) => {
     h.calls.push(`setPreference:${key}`);
     return true;
@@ -97,6 +98,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }));
 
 import App from './App.svelte';
+import { builtinCardTypes } from './lib/card-types';
 import { mode } from './lib/stores/mode';
 import { place } from './lib/stores/place';
 
@@ -145,6 +147,8 @@ async function hydrated(container: HTMLElement, name: string) {
 beforeEach(() => {
   h.notebooks = [nb('nbA', 'Alpha'), nb('nbB', 'Beta')];
   h.types = [CUSTOM];
+  // An up-to-date install: every built-in was seeded before (App.seed.test.ts covers seeding).
+  h.prefs = { builtin_seeded: JSON.stringify(builtinCardTypes.map((t) => t.id)) };
   h.saves = [];
   h.reader = {};
   h.readerSaves = [];
