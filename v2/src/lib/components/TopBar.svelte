@@ -114,11 +114,14 @@
     (focus === 'first' ? items[0] : items[items.length - 1])?.focus();
   }
 
+  // Keys the menu handles stop here: App's window shortcuts would also move the section/card
+  // selection (arrows) or deselect (Escape) behind the open menu.
   function newMenuKeys(e: KeyboardEvent) {
     const items = newItems();
     const at = items.indexOf(document.activeElement as HTMLButtonElement);
     const move = (to: number) => {
       e.preventDefault();
+      e.stopPropagation();
       items[(to + items.length) % items.length]?.focus();
     };
     if (e.key === 'ArrowDown') move(at + 1);
@@ -126,6 +129,7 @@
     else if (e.key === 'Home') move(0);
     else if (e.key === 'End') move(items.length - 1);
     else if (e.key === 'Escape') {
+      e.stopPropagation();
       openMenu = null;
       newBtn?.focus();
     } else if (e.key === 'Tab') openMenu = null;
@@ -226,6 +230,7 @@
         onkeydown={(e) => {
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
+            e.stopPropagation();
             void openNewMenu(e.key === 'ArrowDown' ? 'first' : 'last');
           }
         }}
