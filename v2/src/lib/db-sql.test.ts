@@ -455,7 +455,9 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
   it('save + prune run as one batch: retention drops this notebook’s expired snapshots only', async () => {
     const conn = inspect();
     plantSnapshot(conn, 'old_auto', 'nb1', T0 - 40 * DAY);
-    plantSnapshot(conn, 'old_manual', 'nb1', T0 - 40 * DAY, 'manual');
+    // The newest one past the 30 days (what the notebook was when they began): manual, so it
+    // alone covers that, and the older automatic one expires.
+    plantSnapshot(conn, 'old_manual', 'nb1', T0 - 35 * DAY, 'manual');
     plantSnapshot(conn, 'same_day_a', 'nb1', new Date(2026, 9, 15, 12, 0).getTime());
     plantSnapshot(conn, 'same_day_b', 'nb1', new Date(2026, 9, 15, 11, 0).getTime());
     plantSnapshot(conn, 'other_old', 'nb2', T0 - 40 * DAY);
@@ -473,17 +475,32 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     let reported = '';
     db.onDbError((m) => (reported = m));
     const conn = inspect();
-    plantSnapshot(conn, 'old_auto', 'nb1', T0 - 40 * DAY);
+    plantSnapshot(conn, 'older_auto', 'nb1', T0 - 50 * DAY); // expired: the batch must delete it
+    plantSnapshot(conn, 'old_auto', 'nb1', T0 - 40 * DAY); // kept: still current 30 days ago
     // The prune DELETE fails AFTER the INSERT already ran inside the transaction.
     conn.exec("CREATE TRIGGER no_delete BEFORE DELETE ON snapshots BEGIN SELECT RAISE(ABORT, 'refused'); END");
     expect(await db.saveSnapshot(V1, 'manual', T0)).toBe(false);
     expect(reported).toMatch(/version/);
-    expect(snapshotIds(conn, 'nb1')).toEqual(['old_auto']);
+    expect(snapshotIds(conn, 'nb1')).toEqual(['older_auto', 'old_auto']);
     conn.exec('DROP TRIGGER no_delete');
     conn.close();
     // No connection is left inside the transaction: the next snapshot just works.
     expect(await db.saveSnapshot(V1, 'manual', T0 + MIN)).toBe(true);
-    expect((await db.listSnapshots('nb1')).map((s) => s.reason)).toEqual(['manual']);
+    expect((await db.listSnapshots('nb1')).map((s) => s.id).slice(1)).toEqual(['old_auto']);
+  });
+
+  it('the first version after a long pause keeps the one it replaced (last term’s notebook)', async () => {
+    const conn = inspect();
+    plantSnapshot(conn, 'term_end', 'nb1', T0 - 60 * DAY);
+    plantSnapshot(conn, 'term_mid', 'nb1', T0 - 75 * DAY);
+    // Opened again today: the first autosaved edit takes a version, then the next ones do.
+    expect(await db.saveSnapshot(V1, 'auto', T0)).toBe(true);
+    expect(await db.saveSnapshot({ ...V1, name: 'Physics (edited)' }, 'auto', T0 + 15 * MIN)).toBe(true);
+    const ids = snapshotIds(conn, 'nb1');
+    expect(ids).toHaveLength(3);
+    expect(ids[0]).toBe('term_end'); // what the notebook was until today — still there to restore
+    expect(ids).not.toContain('term_mid');
+    conn.close();
   });
 
   it('notebook saves never touch its snapshots (no FK, so the upsert cannot cascade)', async () => {

@@ -127,7 +127,10 @@ function localDay(t: number): string {
  * 2. of the rest, everything from the last 24h is kept, up to the RECENT_KEEP newest;
  * 3. of what is left and younger than 30 days, the newest of each local calendar day is kept —
  *    so a busy today can never push out the last version of yesterday;
- * 4. everything else goes. A snapshot whose timestamp cannot be read is never deleted.
+ * 4. the newest snapshot older than 30 days is kept too: it is what the notebook still was when
+ *    the 30-day window began. Without it, the first version taken after a pause longer than the
+ *    window (last term's notebook, opened again) would delete the only copy of what it replaced;
+ * 5. everything else goes. A snapshot whose timestamp cannot be read is never deleted.
  */
 export function pruneIds(snapshots: readonly SnapshotStamp[], now: number): string[] {
   const dated = snapshots
@@ -161,6 +164,10 @@ export function pruneIds(snapshots: readonly SnapshotStamp[], now: number): stri
       keep.add(d.id);
     }
   }
+  // `dated` is newest first: the first one past the window was current when the window began
+  // (already kept when it is a protected manual version).
+  const current30DaysAgo = dated.find((d) => now - d.t >= DAILY_WINDOW_MS);
+  if (current30DaysAgo) keep.add(current30DaysAgo.id);
   return dated.filter((d) => !keep.has(d.id)).map((d) => d.id);
 }
 

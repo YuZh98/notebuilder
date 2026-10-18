@@ -173,9 +173,10 @@ describe('pruneIds — retention', () => {
     expect(pruneIds(snaps, NOW)).toEqual([]);
   });
 
-  it('deletes automatic snapshots older than 30 days', () => {
-    const snaps = [s('d29', ago(29 * DAY)), s('d31', ago(31 * DAY)), s('d90', ago(90 * DAY))];
-    expect(sorted(pruneIds(snaps, NOW))).toEqual(['d31', 'd90']);
+  it('deletes automatic snapshots older than 30 days, except the one still current 30 days ago', () => {
+    const snaps = [s('d29', ago(29 * DAY)), s('d31', ago(31 * DAY)), s('d45', ago(45 * DAY)), s('d90', ago(90 * DAY))];
+    // d31 is what the notebook was until d29 replaced it: the state 30 days ago.
+    expect(sorted(pruneIds(snaps, NOW))).toEqual(['d45', 'd90']);
   });
 
   it('keeps the 20 newest manual snapshots regardless of age', () => {
@@ -197,12 +198,17 @@ describe('pruneIds — retention', () => {
   });
 
   it('treats before-restore snapshots like automatic ones', () => {
-    const snaps = [s('br_old', ago(31 * DAY), 'before-restore'), s('br_new', ago(1 * HOUR), 'before-restore')];
-    expect(pruneIds(snaps, NOW)).toEqual(['br_old']);
+    const snaps = [
+      s('br_older', ago(40 * DAY), 'before-restore'),
+      s('br_old', ago(31 * DAY), 'before-restore'),
+      s('br_new', ago(1 * HOUR), 'before-restore'),
+    ];
+    expect(pruneIds(snaps, NOW)).toEqual(['br_older']);
   });
 
   it('never prunes a snapshot whose timestamp it cannot read', () => {
-    expect(pruneIds([s('bad', 'not a date'), s('old', ago(40 * DAY))], NOW)).toEqual(['old']);
+    const snaps = [s('bad', 'not a date'), s('old', ago(40 * DAY)), s('older', ago(50 * DAY))];
+    expect(pruneIds(snaps, NOW)).toEqual(['older']);
   });
 
   it('is deterministic for equal timestamps (id breaks the tie) and leaves its input alone', () => {
@@ -211,6 +217,37 @@ describe('pruneIds — retention', () => {
     const copy = structuredClone(input);
     expect(sorted(pruneIds(input, NOW))).toEqual(['a', 'b']);
     expect(input).toEqual(copy);
+  });
+});
+
+describe('pruneIds — a notebook left untouched for longer than 30 days', () => {
+  const s = (id: string, createdAt: string, reason = 'auto'): SnapshotStamp => ({ id, createdAt, reason });
+
+  // Last term's notebook: versions only from two months ago. Today the author opens it, deletes a
+  // section by mistake, and the autosave takes the first new version.
+  const lastTerm = [s('lt_final', ago(60 * DAY)), s('lt_mid', ago(65 * DAY)), s('lt_early', ago(80 * DAY))];
+
+  it('the first new version does not delete the only copy of what it replaced', () => {
+    const pruned = pruneIds([...lastTerm, s('today_1', ago(0))], NOW);
+    expect(pruned).not.toContain('lt_final');
+    expect(pruned.sort()).toEqual(['lt_early', 'lt_mid']);
+  });
+
+  it('nor do the versions that follow it later that day (or the next weeks)', () => {
+    const today = Array.from({ length: 30 }, (_, i) => s(`t${i}`, ago(i * 10 * MIN)));
+    expect(pruneIds([...lastTerm, ...today], NOW)).not.toContain('lt_final');
+    const weeks = [s('w2', ago(14 * DAY)), s('w1', ago(7 * DAY)), s('now', ago(0))];
+    expect(pruneIds([s('lt_final', ago(60 * DAY)), s('first_edit', ago(20 * DAY)), ...weeks], NOW)).toEqual([]);
+  });
+
+  it('it goes once a newer version was itself current 30 days ago', () => {
+    const later = [s('first_edit', ago(31 * DAY)), s('now', ago(0))];
+    expect(pruneIds([s('lt_final', ago(60 * DAY)), ...later], NOW)).toEqual(['lt_final']);
+  });
+
+  it('a manual version that was current 30 days ago already covers it', () => {
+    const snaps = [s('old_auto', ago(70 * DAY)), s('old_manual', ago(60 * DAY), 'manual'), s('now', ago(0))];
+    expect(pruneIds(snaps, NOW)).toEqual(['old_auto']);
   });
 });
 
