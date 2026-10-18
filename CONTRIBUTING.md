@@ -8,7 +8,7 @@ repository root is the legacy single-file prototype, kept building but not evolv
 ```bash
 cd v2
 npm install
-npm run dev          # browser dev server (persistence no-ops; demo notebook loads)
+npm run dev          # browser dev server (persistence no-ops; demo notebook loads); Node 22+
 npm run tauri dev    # the real desktop app — needs Rust + Xcode CLT
 ```
 
@@ -18,7 +18,7 @@ Gates — keep all green before and after every change:
 npm test             # Vitest unit suite
 npm run check        # svelte-check, TypeScript strict
 npm run build        # Vite production build
-npm run build:reader # only when the Reader render path changes — commit the regenerated template
+npm run build:reader # when the Reader render path changes — commit the regenerated template (CI fails on a stale one)
 ```
 
 ## The shape of v2
@@ -33,6 +33,9 @@ npm run build:reader # only when the Reader render path changes — commit the r
 - **Migrations always.** A change to the SQLite shape ships a migration in
   `v2/src-tauri/src/lib.rs`; a change to the JSON interchange shape bumps its schema version and
   ships an import migration. Old saves and old exports must still load.
+- **The interchange format is published.** A change to it updates `v2/src/lib/schema/notebook.schema.json`,
+  `v2/src/lib/slot-catalog.ts` (for a new slot type) and `docs/FORMAT.md`; `schema-sync.test.ts` and
+  `ai-prompt.test.ts` name whatever is missing.
 - **Behavior changes are test-driven** — add a failing test, then make it pass. Verify UI and
   interaction changes by running the app, not by reading the diff.
 

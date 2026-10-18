@@ -4,7 +4,7 @@
 
 A local-first macOS desktop app for building and studying interactive notebooks. No account, no cloud, no backend. Your data is yours.
 
-**Core loop:** Build cards from slots (Edit mode) → Study them interactively (Study mode) → Share notebook files with others who have the app.
+**Core loop:** Build cards from slots (Edit mode), by hand or by pasting what any LLM wrote → Study them interactively (Study mode) → Share one self-contained `.html` that opens offline in any browser and remembers each reader's progress, or a notebook JSON for another NoteBuilder.
 
 ---
 
@@ -87,7 +87,19 @@ type VarDeclaration = {
 - **JSON schema:** Small, flat, validatable, versioned (currently **v2** — added `cats`, the
   author-controlled tag identity and order). Import migrates older versions and rejects newer ones.
   The contract between the app, LLMs, and other users.
-- **LLM workflow:** LLM generates JSON → user imports into app → app stores in SQLite → app renders. Unchanged from prototype concept.
+- **Published format:** `v2/src/lib/schema/notebook.schema.json` (JSON Schema 2020-12) plus the
+  human spec in `docs/FORMAT.md`. A sync test keeps the schema, the validator and the examples in step.
+- **LLM workflow:** New notebook → From AI… builds a complete prompt (format, slot catalog,
+  expression grammar, card-scope rule, pedagogy) for any chat AI → the author pastes the reply →
+  the app checks it (code fences and chatter tolerated; problems listed with where / what / how to
+  fix, plus a copyable fix request for the AI) → creates the notebook with every card marked
+  **draft** until the author reviews it. Share warns while drafts remain. No AI runs inside the app.
+- **Shared Reader:** the `.html` keeps each reader's progress in that browser's localStorage, keyed
+  by card content (so an author's later fixes keep everyone else's progress), offers "My results"
+  (copy or download a summary for the teacher; nothing leaves the device otherwise) and "Reset my
+  progress".
+- **Durability:** saves are atomic and serialized, flushed on blur, close and quit; automatic version
+  snapshots (≥10 min apart, only on change) with Restore.
 
 ---
 
@@ -148,6 +160,7 @@ interface SlotType {
 | **compute** | compute | No | Evaluated formula, outputs a named variable |
 | **chart** | compute | No | Reactive SVG plot driven by variables |
 | **progress** | track | No | Completion meter across scope |
+| **problem** | interact | Yes (after `need` correct) | Randomized numeric practice: params drawn per attempt, typed answer checked against an expression |
 
 ### isDone() Unification
 
@@ -297,6 +310,8 @@ These worked well and should transfer to the rebuild:
 ## Open / Decide Later
 
 - Graph visibility — whether the variable dependency graph is shown to authors as a UI element
-- Chapter layer — can add above Section later if needed
-- Store — future feature, browse/share card types
+- Spaced repetition (FSRS) and a review queue across notebooks
+- A browser (PWA) build for authors on Windows / Chromebook / iPad
+- LMS packaging (SCORM / LTI) for shared Readers
+- An MCP server so agents can create and validate notebooks directly
 - Plugin API — future, for custom slots and extensions

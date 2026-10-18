@@ -230,21 +230,38 @@ v2/
       coverage-matrix.ts Matrix axes, cell matching, same 3-axis model as v1
       services.ts        ServiceBar: SERVICE_ORDER, svcBarItems, reorderSvc, search
       service-ops.ts     Mutation helpers: toggleService, resetSection, flipAllSection
-      json-io.ts         Export/import (SCHEMA_VERSION 2) + validateNotebookJSON + graph validation
+      json-io.ts         Export/import (SCHEMA_VERSION 2) + validateNotebook / validateNotebookIssues
+                         (structured {code, path, message}) + graph validation
       html-io.ts         Shared-.html payload inject/extract (notebook-source script tag)
-      share.ts           Tauri file dialog wrappers for import/export
-      db.ts              SQLite layer (saveNotebook, loadNotebook, reader state, prefs)
+      share.ts           Tauri file dialog wrappers for import/export; buildShareHtml (payload docId)
+      db.ts              SQLite layer: ONE serialized queue (coalescing keys), atomic single-execute
+                         batches (exported SQL constants), onDbError, dbIdle; notebooks, reader
+                         state, prefs, card types, annotations, snapshots
+      autosave.ts        Hydration-gated debounced channels (notebook / reader / factory); flush
+      snapshots.ts       Version-history policy: contentHash, shouldAutoSnapshot, retention pruneIds
+      versions.ts        Version keeper: when to snapshot (auto, manual, before-restore)
+      reader-store.ts    Shared-Reader progress in localStorage: stable content keys, quota eviction
+      results.ts         Student results summary (progress + graded score() tallies) + text form
+      drafts.ts          AI drafts: markAllDraft, nextDraft, clear one/all (local authoring state)
+      builtin-seed.ts    planBuiltinSeed: new built-ins reach existing installs exactly once
+      rng.ts             mulberry32 + step-grid draws for reproducible practice numbers
+      numeric-input.ts   Strict parser for typed numeric answers (never evalExpr on input)
+      schema/            notebook.schema.json (published JSON Schema 2020-12) + schema.ts readers
+      slot-catalog.ts    One entry per slot type for the AI kit (purpose + example; props from schema)
+      ai-prompt.ts       buildAiPrompt: the "From AI" prompt (format, catalog, grammar, pedagogy)
+      import-hints.ts    checkNotebookText: fence/prose-tolerant parse, own line/col, hintFor, fix request
+      clipboard.ts       copyText with execCommand fallback
       db-map.ts          Notebook ↔ relational row mapping
       variable-graph.ts  Topological sort, cycle detection, scope resolution
       card-scope.ts      Build scope from a card's slots (same invariant: card-scoped)
-      expr.ts            Safe expression evaluator (no eval, variable whitelist)
+      expr.ts            Safe expression evaluator (no eval, variable whitelist); parseExpr (throws)
       markdown.ts        Markdown → HTML (inline + block) with KaTeX
       mdbar.ts           Formatting toolbar actions
       verbs.ts           Reveal/glow/emphasis evaluation
       themes.ts          Theme registry
       toast.svelte.ts    Notification state
       uid.ts             ID generator
-      debounce.ts        Utility
+      debounce.ts        debounce with flush / cancel / pending
       annotations.ts     Reader annotations (local-only)
       history.svelte.ts  Undo/redo stacks: pushHistory/pushSnapshot/beginEdit (focus-coalesced)
       history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
@@ -254,12 +271,13 @@ v2/
       card-done.ts       Per-card completion logic
       var-colors.ts      Variable key → color assignment
 
-      slots/             Per-slot-type modules (11 types):
+      slots/             Per-slot-type modules (12 types):
         registry.ts      Slot type registry (registerSlot / getSlot / allSlots)
         identifiers.ts   Key naming helpers
         text.ts          + TextEdit.svelte + TextStudy.svelte
         slider.ts        + SliderEdit.svelte + SliderStudy.svelte
         compute.ts       + ComputeEdit.svelte + ComputeStudy.svelte (+ .test.ts)
+        problem.ts       + ProblemEdit.svelte + ProblemStudy.svelte — randomized numeric practice
         chart.ts         + ChartEdit.svelte + ChartStudy.svelte + plot.ts
         choice.ts        + ChoiceEdit.svelte + ChoiceStudy.svelte (+ .test.ts)
         list.ts          + ListEdit.svelte + ListStudy.svelte (+ .test.ts)
@@ -292,6 +310,11 @@ v2/
         Toast.svelte     Notifications
         CardNotes.svelte Reader annotations
         Reader.svelte    Shared-.html shell — hand-mirrors the App shell (see DEBT P1 + drift guard)
+        ResultsModal.svelte  Reader "My results": copy / download JSON
+        FromAiModal.svelte   New notebook from AI: copy prompt → paste reply → check → create
+        ImportReport.svelte  Import problems with where / what / fix + "Copy fix request"
+        DraftsBar.svelte     "N drafts to review · Next · Mark all reviewed" (SideBar)
+        VersionsPanel.svelte Version history list, Save version now, Restore (SideBar, Tauri)
 
       drag/              Drag-and-drop engine:
         engine.ts        Core pointer engine (startDrag, FLIP animation)
@@ -334,14 +357,19 @@ CardType = { id, name, description?, verbs?, slots: SlotTemplate[], back?, accen
              store?, varieties? }
 ```
 
-**SQLite schema** (5 migrations in `lib.rs`):
+**SQLite schema** (6 migrations in `lib.rs`; never edit an applied one):
 - `notebooks` (id, name, created_at, updated_at, data JSON)
 - `sections` (id, notebook_id FK, name, position, data JSON)
 - `cards` (id, section_id FK, type_id, position, data JSON)
 - `reader_state` (card_id, slot_id, data JSON) — local progress, never exported
 - `annotations` (id, card_id, kind, body, created_at) — local-only
 - `card_types` (id, name, data JSON, created_at) — sealed products
-- `preferences` (key, value) — theme, etc.
+- `preferences` (key, value) — theme, `builtin_seeded`, etc.
+- `snapshots` (id, notebook_id, created_at, reason, hash, data JSON) — version history (v6); no FK,
+  deleted explicitly with the notebook
+
+`Card.draft?: boolean` is local authoring state (like `folded`): persisted in the card data blob,
+never exported, never in a share payload, ignored on import.
 
 **Same invariants as v1:**
 - Variables are **card-scoped** (front + back share one scope, never cross card boundaries).
@@ -371,8 +399,11 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 | `renderEdit` | Svelte component for Edit mode |
 | `renderStudy` | Svelte component for Study mode |
 
-**Registered types** (11): `text`, `slider`, `compute`, `chart`, `choice`, `list`, `progress`,
-`code`, `image`, `table`, `text-input`.
+**Registered types** (12): `text`, `slider`, `compute`, `chart`, `choice`, `list`, `progress`,
+`code`, `image`, `table`, `text-input`, `problem`.
+
+Optional `score?(props, state) → {correct, answered} | null` feeds the Reader's results export
+(choice and problem implement it; a slot without an answer key returns null).
 
 ### B5. Key systems (v2)
 
@@ -397,19 +428,42 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
    variable-graph cycle detection. Static analysis catches broken variable references before notebooks
    are loaded.
 
-6. **Persistence** (`db.ts`) — SQLite via Tauri plugin-sql. `isTauri()` guards DB calls so the code
-   runs in tests/browser without the native layer. Notebook/section/card extras ride `data` JSON
-   columns (`db-map.ts`) — new optional fields need no SQL migration.
+6. **Persistence** (`db.ts` + `autosave.ts`) — SQLite via Tauri plugin-sql. `isTauri()` guards DB
+   calls so the code runs in tests/browser without the native layer. Every read/write goes through
+   one serialized queue; a save is ONE `execute()` batch (`BEGIN IMMEDIATE … COMMIT`, rows via
+   `json_each`), so it is atomic on a pooled connection; on failure the pool is closed (rolling the
+   open transaction back) and the write retried once with the latest state. Nothing persists before
+   hydration succeeds. `flushAll()` runs on blur, hidden, window close and Cmd+Q (Rust holds the
+   quit until the frontend flushed). Notebook/section/card extras ride `data` JSON columns
+   (`db-map.ts`) — new optional fields need no SQL migration. `db-sql.test.ts` runs the real SQL and
+   every migration against `node:sqlite`.
 
 7. **Tags** (`tags.ts` + `TagsPanel.svelte`) — `Notebook.cats` holds identity and order; membership
    lives on `card.tags`. Every mutation (including the card's comma input) goes through `tags.ts`,
    which keeps `cats` in sync. `pinned` is owned by the pin button and cannot be renamed.
 
+8. **Shared Reader** (`reader-main.ts` + `Reader.svelte` + `reader-store.ts` + `results.ts`) — the
+   share payload `{shared, docId, notebook, theme}` is embedded in the committed template
+   (`generated/reader-template.ts`, rebuilt by `npm run build:reader`, freshness-checked in CI).
+   Import regenerates ids each load, so progress is keyed by a hash of each card's CONTENT (slots,
+   props, verbs — not width/color/tags) + slot face/index and stored in localStorage under
+   `notebuilder:reader:v1:<docId>`. "My results" summarizes progress and `score()` tallies.
+
+9. **Bring-your-own-LLM authoring** (`schema/` + `slot-catalog.ts` + `ai-prompt.ts` +
+   `import-hints.ts`) — the JSON Schema is the one source the prompt kit and hints read from; the
+   Reader bundle must never import them (`reader-boundary.test.ts`). Notebooks created From AI arrive
+   with every card `draft` (`drafts.ts`, `DraftsBar.svelte`); Share warns while drafts remain.
+
+10. **Version history** (`snapshots.ts` + `versions.ts` + `VersionsPanel.svelte`) — automatic
+    snapshots after saves (≥10 min apart, only when content changed), manual "Save version now",
+    Restore (snapshots current first, keeps the notebook id, undoable). Retention: last 24 h up to
+    50, then one per day for 30 days; manual ones kept up to 20.
+
 ### B6. "I want to change X" → go here (v2)
 
 | Goal | Where |
 |---|---|
-| New slot type | Implement `SlotType<P>` in `slots/mytype.ts` + Edit/Study `.svelte` + register in `slots/registry.ts` |
+| New slot type | Implement `SlotType<P>` in `slots/mytype.ts` + Edit/Study `.svelte` + register in `slots/registry.ts` + `SLOT_ICONS` in `CardView.svelte` + a `$defs` entry and `if/then` branch in `schema/notebook.schema.json` + an entry in `slot-catalog.ts` (sync tests name what is missing) + `npm run build:reader` |
 | New verb/effect | `verbs.ts` + wire in `slots/VerbWrapper.svelte` + update `VerbConfig` in `types.ts` |
 | Card/section CRUD | `notebook-ops.ts` |
 | Factory/seal workflow | `bench.svelte.ts` + `card-types.ts` + `SealModal.svelte` |
@@ -419,7 +473,12 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 | Import/export | `json-io.ts` (logic) + `share.ts` (file dialogs) + `html-io.ts` (shared .html) |
 | Tags | `tags.ts` (all writes) + `TagsPanel.svelte` (UI) + `drag/notebook-drop.ts` `dropTag` |
 | Card inspector | `CardPanel.svelte` (renders registry Edit components; writes via `updateSlotProps`) |
-| Persistence/DB | `db.ts` + `db-map.ts` + migrations in `src-tauri/src/lib.rs` |
+| Persistence/DB | `db.ts` (queue, SQL constants) + `db-map.ts` + `autosave.ts` + migrations in `src-tauri/src/lib.rs` (tested by `db-sql.test.ts`) |
+| Shared Reader progress / results | `reader-store.ts` + `results.ts` + `Reader.svelte` (then `npm run build:reader`) |
+| Interchange format / AI prompt | `schema/notebook.schema.json` + `docs/FORMAT.md` + `slot-catalog.ts` + `ai-prompt.ts` |
+| Import error messages / hints | `json-io.ts` `validateNotebookIssues` (codes) + `import-hints.ts` `hintFor` |
+| Built-in card types | `card-types.ts` `builtinCardTypes` (+ `builtin-seed.ts` delivers new ones to existing installs) |
+| Version history | `snapshots.ts` (policy) + `versions.ts` (when) + `db.ts` snapshot SQL + `VersionsPanel.svelte` |
 | Themes | `themes.ts` + CSS variables in `app.css` |
 | Progress tracking | `progress.ts` + `card-done.ts` + `slots/progress.ts` |
 | Variable reactivity | `variable-graph.ts` + `card-scope.ts` + slot's `variables()`/`evaluate()` |
@@ -431,7 +490,15 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 - **SlotType contract** — every slot type must declare `variables()` and provide both render components.
 - **SQLite parameterized queries** — no string interpolation of user data in SQL.
 - **Session state (`session.svelte.ts`)** is never persisted or exported — mode/notebook switches reset it.
-- **`folded` is local-only** — never included in JSON export (fold state is per-reader).
+- **`folded` and `draft` are local-only** — never included in JSON export or share payloads.
+- **Never `INSERT OR REPLACE` a parent row** — with foreign keys on it deletes and cascades;
+  use `INSERT … ON CONFLICT(id) DO UPDATE`.
+- **Every DB access rides the queue in `db.ts`**; multi-statement writes are one `execute()` batch.
+- **Nothing persists before hydration** (`autosave.ts`); App writes check `persistOn()`.
+- **Reader bundle boundary** — `json-io.ts`/the Reader never import `schema/`, `ai-prompt`,
+  `import-hints`, `slot-catalog` (sweep-tested); the committed Reader template is regenerated with
+  `npm run build:reader` whenever the Reader render path changes (CI fails on a stale one).
+- **Never `evalExpr` on student input** — typed answers go through `numeric-input.ts`.
 - **Tauri-guard pattern** — `isTauri()` gates all native calls so lib modules run in unit tests.
 - **Structural immutability of placed cards** — slot add/remove only in the Factory bench; placed cards
   allow only content and style edits (same rule as v1).
