@@ -32,7 +32,8 @@ const DB_URL = 'sqlite:notebuilder.db';
  * parent row first and cascades through every child table) and rewrite its whole tree from two
  * JSON arrays. Args: $1 id, $2 name, $3 created_at, $4 updated_at, $5 data,
  * $6 JSON [{id,name,position,data}], $7 JSON [{id,section_id,type_id,position,data}].
- * COALESCE mirrors the column DEFAULTs, so one stray missing value cannot fail the whole save.
+ * COALESCE mirrors the column DEFAULTs, so one stray missing value cannot fail the whole save;
+ * a section name that is missing (or was read back as null) is stored as '' for the same reason.
  */
 export const SAVE_NOTEBOOK_SQL = `BEGIN IMMEDIATE;
 INSERT INTO notebooks (id, name, created_at, updated_at, data)
@@ -44,7 +45,7 @@ INSERT INTO notebooks (id, name, created_at, updated_at, data)
     data = excluded.data;
 DELETE FROM sections WHERE notebook_id = $1;
 INSERT INTO sections (id, notebook_id, name, position, data)
-  SELECT json_extract(value, '$.id'), $1, json_extract(value, '$.name'),
+  SELECT json_extract(value, '$.id'), $1, COALESCE(json_extract(value, '$.name'), ''),
          COALESCE(json_extract(value, '$.position'), 0), COALESCE(json_extract(value, '$.data'), '{}')
   FROM json_each($6);
 INSERT INTO cards (id, section_id, type_id, position, data)

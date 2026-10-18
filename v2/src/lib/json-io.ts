@@ -3,6 +3,7 @@ import { derivedTagUnion } from './tags';
 import { getSlot } from './slots/registry';
 import { findGraphIssues, type GraphDecl } from './variable-graph';
 import { uid } from './uid';
+import { wellFormedDeep } from './well-formed';
 
 // v2 (D26): the notebook carries `cats` — author-controlled tag identity and order.
 const SCHEMA_VERSION = 2;
@@ -96,11 +97,15 @@ function exportSlot(slot: Slot): SlotJSON {
 }
 
 /** Import from JSON interchange format to a Notebook */
-export function importNotebook(json: NotebookJSON): Notebook {
+export function importNotebook(input: NotebookJSON): Notebook {
   // Older payloads migrate below (v1 → v2 derives cats); only a NEWER version is rejected.
-  if (json.version > SCHEMA_VERSION) {
-    throw new Error(`Unsupported schema version: ${json.version}`);
+  if (input.version > SCHEMA_VERSION) {
+    throw new Error(`Unsupported schema version: ${input.version}`);
   }
+  // The import boundary: a lone UTF-16 surrogate (JSON.parse accepts "\ud83e") has no UTF-8
+  // form, so it would reach SQLite as invalid bytes and fail every later save. Every string,
+  // keys included, is made well-formed here — on a copy, so the caller's JSON is untouched.
+  const json = wellFormedDeep(input);
 
   const notebookId = uid('nb');
 
