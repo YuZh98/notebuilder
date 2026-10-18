@@ -121,4 +121,20 @@ describe('app.css — the narrow-screen rules', () => {
     expect(body).toMatch(/#side\s*\{[^}]*position:\s*absolute/);
     expect(body).toMatch(/#top\s*\{[^}]*flex-wrap:\s*wrap/);
   });
+
+  // A flex item's default min-width:auto is its min-content width: one long code line, URL or
+  // wide table made its card — and, through the section grid, every card in that section — wider
+  // than the phone, so the lesson scrolled sideways inside #stage (which the document-level
+  // scrollWidth check cannot see). Cards must stay at the screen width; wide content scrolls or
+  // wraps inside its own slot.
+  it('keeps wide content (long code lines, URLs, tables, display math) from widening a card', () => {
+    const body = narrowBlocks().join('\n');
+    expect(body).toMatch(/\.rgwrap\s*>\s*\.room-grid\s*\{[^}]*min-width:\s*0/);
+    expect(body).toMatch(/\.room-grid\s*>\s*\.furn\s*\{[^}]*min-width:\s*0/);
+    expect(body).toMatch(/\.room-grid\s*>\s*\.furn\s*\{[^}]*overflow-wrap:\s*(?:anywhere|break-word)/);
+    for (const wide of ['.table-study', '.katex-display']) {
+      const re = new RegExp(`\\${wide}[^{}]*\\{[^}]*overflow-x:\\s*auto`);
+      expect(body, wide).toMatch(re);
+    }
+  });
 });

@@ -2056,8 +2056,21 @@ body[data-theme] .room.edit .furn.bare {
     padding: 14px 12px;
   }
   /* the 12-column card grid collapses: every card, and every slot in it, spans the full width */
+  body.nb-reader .rgwrap > .room-grid {
+    min-width: 0;
+  }
+  /* min-width: 0 — a flex item's min-width:auto is its min-content width, so one long code line
+     or URL widened its card, and through the grid every card in the section, past the screen.
+     Wide content now wraps (text) or scrolls inside its own slot (code, tables, display math). */
   body.nb-reader .room-grid > .furn {
     flex-basis: 100%;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+  body.nb-reader .furn .table-study,
+  body.nb-reader .furn .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
   }
   body.nb-reader .cardrow > .cardslot {
     flex-basis: 100%;
