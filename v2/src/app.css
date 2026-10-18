@@ -1991,6 +1991,85 @@ body[data-theme] .room.edit .furn.bare {
   top: 36px;
 }
 
+/* ---------- shared Reader on phones (≤ 760px) ----------
+   Reader.svelte opens with the panel collapsed below this width and marks <body> nb-reader.
+   Every rule is scoped to that class: desktop widths and the authoring App keep the layout above. */
+@media (max-width: 760px) {
+  /* row 1: brand … My results / Remix; row 2: theme + notebook name. Never a sideways scroll. */
+  body.nb-reader #top {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 8px 12px;
+  }
+  body.nb-reader #top .btn {
+    white-space: nowrap;
+  }
+  body.nb-reader #places {
+    order: 1;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  body.nb-reader #places .brand-nb {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  body.nb-reader #topright {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  /* the lesson always gets the full width; #main fills what the (wrapped) top bar leaves */
+  body.nb-reader #main {
+    grid-template-columns: minmax(0, 1fr);
+    position: relative;
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+  body.nb-reader #resizer {
+    display: none;
+  }
+  /* an open panel overlays the lesson instead of squeezing it */
+  body.nb-reader #side {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(var(--sidew, 312px), 86vw);
+    z-index: 25;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.35);
+  }
+  body.nb-reader.side-collapsed #side {
+    display: none;
+  }
+  body.nb-reader #sidebump {
+    left: min(var(--sidew, 312px), 86vw);
+    width: 22px;
+    height: 64px;
+  }
+  body.nb-reader.side-collapsed #sidebump {
+    left: 0;
+  }
+  body.nb-reader #stage {
+    padding: 14px 12px;
+  }
+  /* the 12-column card grid collapses: every card, and every slot in it, spans the full width */
+  body.nb-reader .room-grid > .furn {
+    flex-basis: 100%;
+  }
+  body.nb-reader .cardrow > .cardslot {
+    flex-basis: 100%;
+  }
+  /* mobile 100vh runs under the browser's toolbar; the dynamic viewport doesn't */
+  @supports (height: 100dvh) {
+    body.nb-reader #app {
+      height: 100dvh;
+    }
+  }
+}
+
 /* ---------- ported: v1 print stylesheet (styles.css @media print 2160-2183) ---------- */
 @media print {
   #top,

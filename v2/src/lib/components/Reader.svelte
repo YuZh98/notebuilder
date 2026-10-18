@@ -113,7 +113,11 @@
   let openTheme = $state(false);
 
   let sideW = $state(312);
-  let sideCollapsed = $state(false);
+  // Phones open with the panel closed: it holds little for a student, and open it would squeeze
+  // the lesson to a sliver. Same threshold as app.css's `@media (max-width: 760px)` Reader rules,
+  // under which an opened panel overlays the lesson instead of narrowing it.
+  const NARROW_MAX_PX = 760;
+  let sideCollapsed = $state(typeof window !== 'undefined' && window.innerWidth <= NARROW_MAX_PX);
 
   let selSection: string | null = $state(null);
   let selCard: string | null = $state(null);
@@ -166,6 +170,8 @@
     // A shared file always opens locked into Study; Remix later unlocks the mode toggle.
     mode.set('study');
     applyTheme(themeId);
+    // Scopes app.css's narrow-screen layout to the Reader; the authoring App never gets it.
+    document.body.classList.add('nb-reader');
     // Arm in-place text edits for undo (v1 parity) — Remix unlocks editing but keeps this file's
     // history; without it, post-Remix text-slot edits would silently escape the undo stack.
     const uninstallEditCoalescing = installEditCoalescing();
@@ -178,6 +184,7 @@
       uninstallFlush();
       progressStore?.flush();
       delete document.body.dataset.theme;
+      document.body.classList.remove('nb-reader');
     };
   });
 
