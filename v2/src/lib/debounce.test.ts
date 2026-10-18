@@ -42,3 +42,71 @@ describe('debounce', () => {
     expect(fn).toHaveBeenNthCalledWith(2, 'y');
   });
 });
+
+describe('debounce.flush / cancel', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('flush runs the pending call immediately with the latest args and returns its result', () => {
+    const fn = vi.fn((x: number) => x * 2);
+    const d = debounce(fn, 100);
+    d(1);
+    d(21);
+    expect(d.pending()).toBe(true);
+    expect(d.flush()).toBe(42);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(21);
+    expect(d.pending()).toBe(false);
+    vi.advanceTimersByTime(200);
+    expect(fn).toHaveBeenCalledTimes(1); // the timer was consumed, not re-fired
+  });
+
+  it('flush returns the promise of an async fn', async () => {
+    const d = debounce(async (s: string) => `saved:${s}`, 100);
+    d('a');
+    await expect(d.flush()).resolves.toBe('saved:a');
+  });
+
+  it('flush with nothing pending is a no-op returning undefined', () => {
+    const fn = vi.fn();
+    const d = debounce(fn, 100);
+    expect(d.flush()).toBeUndefined();
+    d('x');
+    vi.advanceTimersByTime(100);
+    expect(d.flush()).toBeUndefined();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancel drops the pending call', () => {
+    const fn = vi.fn();
+    const d = debounce(fn, 100);
+    d('x');
+    d.cancel();
+    expect(d.pending()).toBe(false);
+    vi.advanceTimersByTime(200);
+    expect(fn).not.toHaveBeenCalled();
+    expect(d.flush()).toBeUndefined();
+  });
+
+  it('a call after cancel schedules normally', () => {
+    const fn = vi.fn();
+    const d = debounce(fn, 100);
+    d('x');
+    d.cancel();
+    d('y');
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith('y');
+  });
+
+  it('flush called from inside fn does not re-run it', () => {
+    let d!: ReturnType<typeof debounce<[string], void>>;
+    const fn = vi.fn(() => {
+      d.flush();
+    });
+    d = debounce(fn, 100);
+    d('x');
+    d.flush();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
