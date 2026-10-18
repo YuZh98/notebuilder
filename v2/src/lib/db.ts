@@ -278,7 +278,16 @@ export function loadReaderState(): Promise<ReaderStateMap> {
     );
     const map: ReaderStateMap = {};
     for (const r of rows) {
-      (map[r.card_id] ??= {})[r.slot_id] = JSON.parse(r.data);
+      let value: Record<string, unknown>;
+      try {
+        value = JSON.parse(r.data);
+      } catch {
+        // One unreadable progress row must not fail hydration (which would switch every save
+        // off); it is unrecoverable anyway, and the next full-replace save drops it.
+        console.warn('skipping unreadable reader state', r.card_id, r.slot_id);
+        continue;
+      }
+      (map[r.card_id] ??= {})[r.slot_id] = value;
     }
     return map;
   });

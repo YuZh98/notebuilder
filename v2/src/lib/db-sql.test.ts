@@ -302,6 +302,17 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect(await db.loadReaderState()).toEqual({});
   });
 
+  it('an unreadable reader-state row is skipped on load (it must not block hydration)', async () => {
+    await db.saveReaderState({ c1: { s1: { v: 1 } } });
+    const conn = inspect();
+    conn.exec("INSERT INTO reader_state (card_id, slot_id, data) VALUES ('c2', 's1', '{not json')");
+    conn.close();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await db.loadReaderState()).toEqual({ c1: { s1: { v: 1 } } });
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
   it('reader-state save strips volatile flip state but keeps progress', async () => {
     await db.saveReaderState({ c1: { [CARD_STATE_KEY]: { flipped: true, seenBack: true } } });
     expect(await db.loadReaderState()).toEqual({ c1: { [CARD_STATE_KEY]: { seenBack: true } } });
