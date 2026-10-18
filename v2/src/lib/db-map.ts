@@ -1,5 +1,6 @@
 import { derivedTagUnion } from './tags';
 import type { Notebook, Section, Card, Slot } from './types';
+import type { CardType } from './card-types';
 
 export type NotebookRow = {
   id: string;
@@ -22,7 +23,7 @@ export type CardRow = {
   section_id: string;
   type_id: string | null;
   position: number;
-  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent? }
+  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent?, w?, archived? }
 };
 
 type CardData = {
@@ -31,6 +32,7 @@ type CardData = {
   back?: Slot[];
   tags?: string[];
   accent?: string;
+  w?: number;
   archived?: boolean;
 };
 
@@ -86,6 +88,7 @@ export function notebookToRows(nb: Notebook): {
       if (c.back) data.back = c.back;
       if (c.tags) data.tags = c.tags;
       if (c.accent !== undefined) data.accent = c.accent;
+      if (c.w !== undefined) data.w = c.w;
       if (c.archived !== undefined) data.archived = c.archived;
       return {
         id: c.id,
@@ -124,6 +127,7 @@ export function rowsToNotebook(
         if (data.back !== undefined) card.back = data.back;
         if (data.tags !== undefined) card.tags = data.tags;
         if (data.accent !== undefined) card.accent = data.accent;
+        if (data.w !== undefined) card.w = data.w;
         if (data.archived !== undefined) card.archived = data.archived;
         return card;
       });
@@ -161,4 +165,17 @@ export function rowsToNotebook(
   // Pre-D26 blob: derive cats from card tags so it is never undefined downstream.
   notebook.cats = nbData.cats ?? derivedTagUnion(notebook);
   return notebook;
+}
+
+/**
+ * Writes that bring stored card types in line with `next` after an undo/redo swapped the whole
+ * list in memory: upsert every type that is new or differs, delete every type that vanished.
+ */
+export function cardTypeChanges(prev: CardType[], next: CardType[]): { upsert: CardType[]; remove: string[] } {
+  const before = new Map(prev.map((t) => [t.id, JSON.stringify(t)]));
+  const kept = new Set(next.map((t) => t.id));
+  return {
+    upsert: next.filter((t) => before.get(t.id) !== JSON.stringify(t)),
+    remove: prev.filter((t) => !kept.has(t.id)).map((t) => t.id),
+  };
 }

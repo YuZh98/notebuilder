@@ -47,7 +47,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22: db-sql.test.ts runs the real SQL through node:sqlite (skipped on older Node).
+          node-version: 22
           cache: npm
           cache-dependency-path: v2/package-lock.json
 
