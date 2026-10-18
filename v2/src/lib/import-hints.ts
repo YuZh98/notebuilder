@@ -42,14 +42,12 @@ export type CheckResult = {
 // Parsing
 // ---------------------------------------------------------------------------------------------
 
-/**
- * Where the JSON object sits in an AI reply: inside a ```fenced``` block that holds one (the
- * first that mentions "notebook", else the largest — a reply may also fence a small snippet),
- * else between the first `{` and the last `}` (prose around it is ignored).
- */
-function jsonRegion(text: string): { start: number; end: number } | null {
+type Range = { start: number; end: number };
+
+/** Content ranges of the ```/~~~ fenced blocks in a reply (an unclosed fence runs to the end). */
+function fencedBlocks(text: string): Range[] {
   const opening = /(^|\n)[ \t]*(`{3,}|~{3,})[^\n`]*\n/g;
-  const fenced: Array<{ start: number; end: number }> = [];
+  const blocks: Range[] = [];
   let m: RegExpExecArray | null;
   while ((m = opening.exec(text))) {
     const contentStart = m.index + m[0].length;
@@ -57,11 +55,80 @@ function jsonRegion(text: string): { start: number; end: number } | null {
     const closing = new RegExp(`\\n[ \\t]*\\${marker[0]}{${marker.length},}[ \\t]*(?=\\n|$)`, 'g');
     closing.lastIndex = contentStart - 1;
     const close = closing.exec(text);
-    const contentEnd = close ? close.index : text.length; // an unclosed fence runs to the end
-    const region = braceRegion(text, contentStart, contentEnd);
-    if (region) fenced.push(region);
+    blocks.push({ start: contentStart, end: close ? close.index : text.length });
     opening.lastIndex = close ? close.index + close[0].length : text.length;
   }
+  return blocks;
+}
+
+/**
+ * Text that continues JSON rather than starting prose (`,` `:` `]` `}` `"` or another object):
+ * an object that ends right before it closed early. A prose brace like {{r}} does not count.
+ */
+const JSON_CONTINUES = /^(?:[,:\]}"]|\{\s*["}])/;
+
+/**
+ * The complete JSON object starting at `start` (within `to`), or null. `continues` marks JSON
+ * right after it (`}, {…`, `} "key": …`, a second object): for a notebook that means it closed
+ * early or has a twin — a syntax error to report, never a notebook to cut short silently.
+ */
+function objectAt(text: string, start: number, to: number): { json: unknown; end: number; continues: boolean } | null {
+  const fail = findJsonSyntaxError(text.slice(start, to));
+  if (fail && !fail.trailing) return null;
+  const end = fail ? start + fail.offset : to;
+  try {
+    return { json: JSON.parse(text.slice(start, end)), end, continues: JSON_CONTINUES.test(text.slice(end, end + 64)) };
+  } catch {
+    return null;
+  }
+}
+
+const hasNotebookKey = (v: unknown): boolean =>
+  !!v && typeof v === 'object' && !Array.isArray(v) && Object.prototype.hasOwnProperty.call(v, 'notebook');
+
+/** Bare `{"` positions tried before giving up (a bound on rescanning a long broken reply). */
+const MAX_BARE_TRIES = 40;
+
+/**
+ * The notebook object in an AI reply, wherever it sits: in a fenced block first, else bare in the
+ * prose — which may hold braces of its own ({{r}}, a fenced example slot) before or after it.
+ * null when there is none, or when the one found is followed by more JSON (the caller reports it).
+ */
+function findNotebookObject(text: string): { json: unknown } | null {
+  const blocks = fencedBlocks(text);
+  for (const b of blocks) {
+    const at = text.indexOf('{', b.start);
+    if (at < 0 || at >= b.end) continue;
+    const hit = objectAt(text, at, b.end);
+    if (hit && hasNotebookKey(hit.json)) return hit.continues ? null : { json: hit.json };
+  }
+  // A notebook opens as `{"`; prose braces ({{r}}, {like this}) never do, so they cost nothing.
+  const objStart = /\{\s*"/g;
+  let m: RegExpExecArray | null;
+  for (let tries = 0; tries < MAX_BARE_TRIES && (m = objStart.exec(text)); ) {
+    const at = m.index;
+    const fence = blocks.find((b) => at >= b.start && at < b.end);
+    if (fence) {
+      objStart.lastIndex = fence.end;
+      continue;
+    }
+    tries++;
+    const hit = objectAt(text, at, text.length);
+    if (hit && hasNotebookKey(hit.json)) return hit.continues ? null : { json: hit.json };
+    objStart.lastIndex = hit ? hit.end : at + 1;
+  }
+  return null;
+}
+
+/**
+ * Where to report a syntax error when no complete notebook object was found: a fenced block that
+ * holds one (the first that mentions "notebook", else the largest — a reply may also fence a
+ * small snippet), else between the first `{` and the last `}` (prose around it is ignored).
+ */
+function jsonRegion(text: string): Range | null {
+  const fenced = fencedBlocks(text)
+    .map((b) => braceRegion(text, b.start, b.end))
+    .filter((r): r is Range => r !== null);
   if (fenced.length) {
     const named = fenced.find((r) => text.slice(r.start, r.end).includes('"notebook"'));
     return named ?? fenced.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a));
@@ -69,14 +136,19 @@ function jsonRegion(text: string): { start: number; end: number } | null {
   return braceRegion(text, 0, text.length);
 }
 
-function braceRegion(text: string, from: number, to: number): { start: number; end: number } | null {
-  const start = text.indexOf('{', from);
+/** From the first `{"` (a JSON object, not a prose brace like {{r}}) — else the first `{` — to the last `}`. */
+function braceRegion(text: string, from: number, to: number): Range | null {
+  const objStart = /\{\s*"/g;
+  objStart.lastIndex = from;
+  const m = objStart.exec(text);
+  const start = m && m.index < to ? m.index : text.indexOf('{', from);
   if (start < 0 || start >= to) return null;
   const last = text.lastIndexOf('}', to - 1);
   return { start, end: last >= start ? last + 1 : to };
 }
 
-type ScanFail = { offset: number; message: string; hint: string };
+/** `trailing`: the text holds one complete JSON value and more text after it, at `offset`. */
+type ScanFail = { offset: number; message: string; hint: string; trailing?: boolean };
 const isScanFail = (e: unknown): e is ScanFail =>
   !!e && typeof e === 'object' && typeof (e as ScanFail).offset === 'number' && typeof (e as ScanFail).hint === 'string';
 
@@ -276,7 +348,12 @@ export function findJsonSyntaxError(s: string): ScanFail | null {
     value('at the start');
     skipWs();
     if (i < n) {
-      fail(i, 'Unexpected text after the end of the JSON', 'The reply holds more than one JSON value or text after it: keep only the one notebook object.');
+      throw {
+        offset: i,
+        message: 'Unexpected text after the end of the JSON',
+        hint: 'The reply holds more than one JSON value or text after it: keep only the one notebook object.',
+        trailing: true,
+      } satisfies ScanFail;
     }
     return null;
   } catch (e) {
@@ -316,6 +393,8 @@ function excerptAt(text: string, offset: number): string {
  * are ignored. On failure, the position is computed here (line/column in the pasted text).
  */
 export function parseNotebookText(text: string): ParseResult {
+  const found = findNotebookObject(text);
+  if (found) return found;
   const region = jsonRegion(text);
   if (!region) {
     return {
