@@ -3,8 +3,12 @@ import type { NotebookJSON } from './json-io';
 export const PAYLOAD_ID = 'notebook-source';
 export const PAYLOAD_TYPE = 'application/notebuilder+json';
 
-/** Embedded share payload. T6's share.ts produces this; the Reader boots from it. */
-export type ReaderPayload = { shared: boolean; notebook: NotebookJSON; theme?: string };
+/**
+ * Embedded share payload. T6's share.ts produces this; the Reader boots from it. `docId` is the
+ * author's notebook id at share time — envelope only (the interchange JSON carries no ids); the
+ * Reader namespaces each student's locally saved progress by it. Absent in pre-docId files.
+ */
+export type ReaderPayload = { shared: boolean; notebook: NotebookJSON; theme?: string; docId?: string };
 
 // Match the payload <script> by its id, tolerant of attribute order, capturing its inner text.
 // The `\s` before `id=` guards against matching a longer attribute that merely ends in `id`.

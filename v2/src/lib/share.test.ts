@@ -52,6 +52,26 @@ describe('buildShareHtml', () => {
     expect(raw).not.toContain('progress');
   });
 
+  // The Reader namespaces each student's saved progress by docId, so re-sharing an edited
+  // notebook keeps progress on the cards that did not change.
+  it('carries the author notebook id as an envelope docId, outside the interchange JSON', () => {
+    const p = payloadOf(buildShareHtml(sample()));
+    expect(p.docId).toBe('nb_1');
+    expect(p.notebook.version).toBe(2);
+    expect(JSON.stringify(p.notebook)).not.toContain('nb_1');
+  });
+
+  it('keeps the docId stable across re-shares of an edited notebook', () => {
+    const a = payloadOf(buildShareHtml(sample('first draft')));
+    const b = payloadOf(buildShareHtml(sample('fixed a typo')));
+    expect(a.docId).toBe(b.docId);
+  });
+
+  it('still never embeds reader state with the docId present (only the four envelope keys)', () => {
+    const p = payloadOf(buildShareHtml(sample(), 'noir'));
+    expect(Object.keys(p).sort()).toEqual(['docId', 'notebook', 'shared', 'theme']);
+  });
+
   it('keeps a </script> inside card text from closing the payload tag early', () => {
     const html = buildShareHtml(sample('danger </script><script>alert(1)</script>'));
     expect(html).not.toContain('</script><script>alert(1)');

@@ -23,6 +23,8 @@ export function buildShareHtml(notebook: Notebook, theme?: string): string {
     shared: true,
     // exportNotebook is the document-only path: no readerState, no progress, no local fold state.
     notebook: exportNotebook(notebook),
+    // Envelope-only identity: lets a re-shared, edited copy keep students' saved progress.
+    docId: notebook.id,
     ...(theme ? { theme } : {}),
   };
   return injectNotebook(READER_TEMPLATE, JSON.stringify(payload));
