@@ -178,6 +178,16 @@ function importSlot(s: SlotJSON): Slot {
 
 export type ValidationResult = { errors: string[]; warnings: string[] };
 
+/**
+ * One validation finding. `code` is stable — hints and tooling key off it, never the prose.
+ * `path` locates the finding from the document root (`notebook.sections[0].cards[1].w`;
+ * `''` is the whole document). `message` is the sentence validateNotebook has always returned
+ * (it may abbreviate the path as `sections[0]…`). `subject` names the offending value when a
+ * fix needs it: the unknown slot type, the unwritten variable, the slot type whose props failed.
+ */
+export type Issue = { code: string; path: string; message: string; subject?: string };
+export type IssueReport = { errors: Issue[]; warnings: Issue[] };
+
 /** Validate JSON before importing, returning hard errors only (back-compat). */
 export function validateNotebookJSON(json: unknown): string[] {
   return validateNotebook(json).errors;
@@ -188,97 +198,118 @@ export function validateNotebookJSON(json: unknown): string[] {
  * (D24): cross-card variable reads are scope smells, not corruption, so they only warn.
  */
 export function validateNotebook(json: unknown): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const { errors, warnings } = validateNotebookIssues(json);
+  return { errors: errors.map((i) => i.message), warnings: warnings.map((i) => i.message) };
+}
+
+/** A location carried two ways: the rooted path for tooling, the legacy prefix for messages. */
+type Loc = { p: string; m: string };
+const key = (l: Loc, k: string): Loc => ({ p: `${l.p}.${k}`, m: `${l.m}.${k}` });
+const idx = (l: Loc, i: number): Loc => ({ p: `${l.p}[${i}]`, m: `${l.m}[${i}]` });
+type Report = (code: string, path: string, message: string, subject?: string) => void;
+
+/** Structured validation: the same checks as validateNotebook, as coded, path-addressed issues. */
+export function validateNotebookIssues(json: unknown): IssueReport {
+  const errors: Issue[] = [];
+  const warnings: Issue[] = [];
+  const into =
+    (list: Issue[]): Report =>
+    (code, path, message, subject) =>
+      list.push(subject === undefined ? { code, path, message } : { code, path, message, subject });
+  const err = into(errors);
+  const warn = into(warnings);
+
   if (!json || typeof json !== 'object') {
-    errors.push('JSON must be an object');
+    err('not-object', '', 'JSON must be an object');
     return { errors, warnings };
   }
   const obj = json as Record<string, unknown>;
-  if (typeof obj.version !== 'number') errors.push('Missing or invalid "version" field');
+  if (typeof obj.version !== 'number') err('version-missing', 'version', 'Missing or invalid "version" field');
   else if (obj.version > SCHEMA_VERSION) {
-    errors.push('This file is from a newer version of the app — update the app, then import');
+    err('version-newer', 'version', 'This file is from a newer version of the app — update the app, then import');
   }
   if (!obj.notebook || typeof obj.notebook !== 'object') {
-    errors.push('Missing "notebook" field');
+    err('notebook-missing', 'notebook', 'Missing "notebook" field');
     return { errors, warnings };
   }
   const nb = obj.notebook as Record<string, unknown>;
-  if (typeof nb.name !== 'string') errors.push('notebook.name must be a string');
+  if (typeof nb.name !== 'string') err('wrong-type', 'notebook.name', 'notebook.name must be a string');
   if (nb.subtitle !== undefined && typeof nb.subtitle !== 'string') {
-    errors.push('notebook.subtitle must be a string');
+    err('wrong-type', 'notebook.subtitle', 'notebook.subtitle must be a string');
   }
   if (nb.width !== undefined && !['narrow', 'medium', 'wide'].includes(nb.width as string)) {
-    errors.push("notebook.width must be 'narrow', 'medium', or 'wide'");
+    err('bad-value', 'notebook.width', "notebook.width must be 'narrow', 'medium', or 'wide'");
   }
-  if (nb.cats !== undefined && !(Array.isArray(nb.cats) && nb.cats.every((t) => typeof t === 'string'))) {
-    errors.push('notebook.cats must be an array of strings');
+  if (nb.cats !== undefined && !isStringArray(nb.cats)) {
+    err('wrong-type', 'notebook.cats', 'notebook.cats must be an array of strings');
   }
   if (!Array.isArray(nb.sections)) {
-    errors.push('notebook.sections must be an array');
+    err('wrong-type', 'notebook.sections', 'notebook.sections must be an array');
     return { errors, warnings };
   }
   nb.sections.forEach((s, si) => {
+    const sl: Loc = { p: `notebook.sections[${si}]`, m: `sections[${si}]` };
+    const at = (k: string) => key(sl, k);
     if (!s || typeof s !== 'object') {
-      errors.push(`sections[${si}] must be an object`);
+      err('wrong-type', sl.p, `${sl.m} must be an object`);
       return;
     }
     const sec = s as Record<string, unknown>;
     if (sec.kind !== undefined && sec.kind !== 'divider') {
-      errors.push(`sections[${si}].kind must be 'divider' if present`);
+      err('bad-value', at('kind').p, `${at('kind').m} must be 'divider' if present`);
     }
     if (sec.locked !== undefined && typeof sec.locked !== 'boolean') {
-      errors.push(`sections[${si}].locked must be a boolean`);
+      err('wrong-type', at('locked').p, `${at('locked').m} must be a boolean`);
     }
     if (sec.width !== undefined && (typeof sec.width !== 'number' || !Number.isFinite(sec.width) || sec.width <= 0)) {
-      errors.push(`sections[${si}].width must be a positive finite number`);
+      err('section-width-range', at('width').p, `${at('width').m} must be a positive finite number`);
     }
-    if (sec.title !== undefined && typeof sec.title !== 'string') {
-      errors.push(`sections[${si}].title must be a string`);
-    }
-    if (sec.subtitle !== undefined && typeof sec.subtitle !== 'string') {
-      errors.push(`sections[${si}].subtitle must be a string`);
+    for (const k of ['title', 'subtitle'] as const) {
+      if (sec[k] !== undefined && typeof sec[k] !== 'string') err('wrong-type', at(k).p, `${at(k).m} must be a string`);
     }
     if (sec.services !== undefined && !isBoolRecord(sec.services)) {
-      errors.push(`sections[${si}].services must be an object of booleans`);
+      err('wrong-type', at('services').p, `${at('services').m} must be an object of booleans`);
     }
     if (sec.svcOrder !== undefined && !isStringArray(sec.svcOrder)) {
-      errors.push(`sections[${si}].svcOrder must be an array of strings`);
+      err('wrong-type', at('svcOrder').p, `${at('svcOrder').m} must be an array of strings`);
     }
     if (sec.svcW !== undefined && !isNumberRecord(sec.svcW)) {
-      errors.push(`sections[${si}].svcW must be an object of finite numbers`);
+      err('wrong-type', at('svcW').p, `${at('svcW').m} must be an object of finite numbers`);
     }
     const cards = sec.cards;
     if (!Array.isArray(cards)) {
-      errors.push(`sections[${si}].cards must be an array`);
+      err('wrong-type', at('cards').p, `${at('cards').m} must be an array`);
       return;
     }
     cards.forEach((c, ci) => {
-      const where = `sections[${si}].cards[${ci}]`;
+      const cl = idx(at('cards'), ci);
+      const where = cl.m;
       if (!c || typeof c !== 'object') {
-        errors.push(`${where} must be an object`);
+        err('wrong-type', cl.p, `${where} must be an object`);
         return;
       }
-      const accent = (c as Record<string, unknown>).accent;
-      if (accent !== undefined && typeof accent !== 'string') {
-        errors.push(`${where}.accent must be a string`);
+      const card = c as Record<string, unknown>;
+      if (card.accent !== undefined && typeof card.accent !== 'string') {
+        err('wrong-type', key(cl, 'accent').p, `${where}.accent must be a string`);
       }
-      const archived = (c as Record<string, unknown>).archived;
-      if (archived !== undefined && typeof archived !== 'boolean') {
-        errors.push(`${where}.archived must be a boolean`);
+      if (card.archived !== undefined && typeof card.archived !== 'boolean') {
+        err('wrong-type', key(cl, 'archived').p, `${where}.archived must be a boolean`);
       }
       // resize engine range: card width in twelfths, clamped to [3, 12]
-      const w = (c as Record<string, unknown>).w;
+      const w = card.w;
       if (w !== undefined && (typeof w !== 'number' || !Number.isFinite(w) || w < 3 || w > 12)) {
-        errors.push(`${where}.w must be a number between 3 and 12`);
+        err('card-width-range', key(cl, 'w').p, `${where}.w must be a number between 3 and 12`);
       }
-      const slots = (c as Record<string, unknown>).slots;
-      validateSlotsField(errors, slots, `${where}.slots`);
-      const back = (c as Record<string, unknown>).back;
-      if (back !== undefined) validateSlotsField(errors, back, `${where}.back`);
+      if (card.tags !== undefined && !isStringArray(card.tags)) {
+        err('wrong-type', key(cl, 'tags').p, `${where}.tags must be an array of strings`);
+      }
+      validateCardVerbs(err, card.verbs, key(cl, 'verbs'));
+      const slots = card.slots;
+      validateSlotsField(err, slots, key(cl, 'slots'));
+      const back = card.back;
+      if (back !== undefined) validateSlotsField(err, back, key(cl, 'back'));
       // Both faces of a flip card share one scope, so the graph check spans them.
-      const allSlots = [...(Array.isArray(slots) ? slots : []), ...(Array.isArray(back) ? back : [])];
-      validateCardGraph(errors, warnings, allSlots, where);
+      validateCardGraph(err, warn, Array.isArray(slots) ? slots : [], Array.isArray(back) ? back : [], cl);
     });
   });
   return { errors, warnings };
@@ -288,61 +319,132 @@ export function validateNotebook(json: unknown): ValidationResult {
  * Static variable-graph check per card. Cycles are hard errors; missing dependencies
  * (a read with no writer in the card — a cross-card read) are downgraded to warnings (D24).
  */
-function validateCardGraph(errors: string[], warnings: string[], slots: unknown[], where: string): void {
+function validateCardGraph(err: Report, warn: Report, front: unknown[], back: unknown[], card: Loc): void {
   const decls: GraphDecl[] = [];
-  slots.forEach((slot, sli) => {
-    if (!slot || typeof slot !== 'object') return;
-    const { type, props } = slot as Record<string, unknown>;
-    const slotType = typeof type === 'string' ? getSlot(type) : undefined;
-    if (!slotType || !props || typeof props !== 'object') return;
-    try {
-      const { reads, writes } = slotType.variables(props as Record<string, unknown>);
-      decls.push({
-        id: `${where}.slots[${sli}] (${type})`,
-        reads: reads.map((r) => r.key),
-        writes: writes.map((w) => w.key),
-      });
-    } catch {
-      // invalid props already reported by slot validation; graph check skips them
-    }
-  });
+  const collect = (slots: unknown[], face: 'slots' | 'back') =>
+    slots.forEach((slot, sli) => {
+      if (!slot || typeof slot !== 'object') return;
+      const { type, props } = slot as Record<string, unknown>;
+      const slotType = typeof type === 'string' ? getSlot(type) : undefined;
+      if (!slotType || !props || typeof props !== 'object') return;
+      try {
+        const { reads, writes } = slotType.variables(props as Record<string, unknown>);
+        decls.push({
+          id: `${face}[${sli}] (${type})`,
+          reads: reads.map((r) => r.key),
+          writes: writes.map((w) => w.key),
+        });
+      } catch {
+        // invalid props already reported by slot validation; graph check skips them
+      }
+    });
+  collect(front, 'slots');
+  collect(back, 'back');
   for (const issue of findGraphIssues(decls)) {
-    if (issue.startsWith('missing dependency')) warnings.push(`${where}: ${issue}`);
-    else errors.push(`${where}: ${issue}`);
+    const missing = /^missing dependency: "([^"]*)"/.exec(issue);
+    if (missing) warn('cross-card-read', card.p, `${card.m}: ${issue}`, missing[1]);
+    else err('cycle', card.p, `${card.m}: ${issue}`);
   }
 }
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === 'object' && !Array.isArray(v);
 
 const isStringArray = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 const isBoolRecord = (v: unknown): v is Record<string, boolean> =>
-  !!v && typeof v === 'object' && !Array.isArray(v) &&
-  Object.values(v).every((x) => typeof x === 'boolean');
+  isPlainObject(v) && Object.values(v).every((x) => typeof x === 'boolean');
 
 const isNumberRecord = (v: unknown): v is Record<string, number> =>
-  !!v && typeof v === 'object' && !Array.isArray(v) &&
-  Object.values(v).every((x) => typeof x === 'number' && Number.isFinite(x));
+  isPlainObject(v) && Object.values(v).every((x) => typeof x === 'number' && Number.isFinite(x));
 
-function validateSlotsField(errors: string[], slots: unknown, where: string): void {
+const REVEAL_OPS = ['==', '!=', '>=', '<=', '>', '<'];
+const FLAG_VERBS = ['glow', 'emphasis', 'sequential', 'locked'] as const;
+
+/** Card verbs: `{ flip?: boolean, bare?: boolean }`. */
+function validateCardVerbs(err: Report, verbs: unknown, at: Loc): void {
+  if (verbs === undefined) return;
+  if (!isPlainObject(verbs)) {
+    err('bad-verbs', at.p, `${at.m} must be an object`);
+    return;
+  }
+  for (const k of ['flip', 'bare'] as const) {
+    if (verbs[k] !== undefined && typeof verbs[k] !== 'boolean') {
+      err('bad-verbs', key(at, k).p, `${key(at, k).m} must be a boolean`);
+    }
+  }
+}
+
+/** Slot verbs: boolean flags, `reveal: { key, op, val }`, `hint: { content }` (types.ts VerbConfig). */
+function validateSlotVerbs(err: Report, verbs: unknown, at: Loc): void {
+  if (verbs === undefined) return;
+  if (!isPlainObject(verbs)) {
+    err('bad-verbs', at.p, `${at.m} must be an object`);
+    return;
+  }
+  for (const k of FLAG_VERBS) {
+    if (verbs[k] !== undefined && typeof verbs[k] !== 'boolean') {
+      err('bad-verbs', key(at, k).p, `${key(at, k).m} must be a boolean`);
+    }
+  }
+  const r = verbs.reveal;
+  if (r !== undefined) {
+    // val is optional and may be null: an Infinity typed into the reveal field serializes as null.
+    const ok =
+      isPlainObject(r) &&
+      typeof r.key === 'string' &&
+      REVEAL_OPS.includes(r.op as string) &&
+      (r.val === undefined || r.val === null || ['number', 'string', 'boolean'].includes(typeof r.val));
+    if (!ok) {
+      const at2 = key(at, 'reveal');
+      err('bad-verbs', at2.p, `${at2.m} must be { key: string, op: one of ${REVEAL_OPS.join(' ')}, val: number | string | boolean }`);
+    }
+  }
+  const h = verbs.hint;
+  if (h !== undefined && !(isPlainObject(h) && typeof h.content === 'string')) {
+    err('bad-verbs', key(at, 'hint').p, `${key(at, 'hint').m} must be { content: string }`);
+  }
+}
+
+function validateSlotsField(err: Report, slots: unknown, where: Loc): void {
   if (!Array.isArray(slots)) {
-    errors.push(`${where} must be an array`);
+    err('wrong-type', where.p, `${where.m} must be an array`);
     return;
   }
   slots.forEach((slot, sli) => {
-    const at = `${where}[${sli}]`;
+    const at = idx(where, sli);
     if (!slot || typeof slot !== 'object') {
-      errors.push(`${at} must be an object`);
+      err('wrong-type', at.p, `${at.m} must be an object`);
       return;
     }
-    const type = (slot as Record<string, unknown>).type;
+    const s = slot as Record<string, unknown>;
+    const type = s.type;
     if (typeof type !== 'string') {
-      errors.push(`${at} is missing a string "type"`);
+      err('slot-type-missing', key(at, 'type').p, `${at.m} is missing a string "type"`);
       return;
     }
-    if (!getSlot(type)) errors.push(`${at} has unknown slot type: ${type}`);
-    const fuseW = (slot as Record<string, unknown>).fuseW;
+    const slotType = getSlot(type);
+    if (!slotType) err('slot-type-unknown', key(at, 'type').p, `${at.m} has unknown slot type: ${type}`, type);
+    const fuseW = s.fuseW;
     if (fuseW !== undefined && (typeof fuseW !== 'number' || !Number.isFinite(fuseW) || fuseW <= 0)) {
-      errors.push(`${at}.fuseW must be a positive number`);
+      err('fuse-width-range', key(at, 'fuseW').p, `${at.m}.fuseW must be a positive number`);
+    }
+    validateSlotVerbs(err, s.verbs, key(at, 'verbs'));
+    if (!slotType) return;
+    // Mirrors importSlot, which runs the same validate() and throws on any problem it reports.
+    if (!isPlainObject(s.props)) {
+      err('props-not-object', key(at, 'props').p, `${at.m}.props must be an object`, type);
+      return;
+    }
+    let problems: unknown = [];
+    try {
+      problems = slotType.validate?.(s.props) ?? [];
+    } catch (e) {
+      problems = [`props are malformed (${e instanceof Error ? e.message : String(e)})`];
+    }
+    for (const p of Array.isArray(problems) ? problems : []) {
+      err('slot-props', key(at, 'props').p, `${at.m}: ${type} slot — ${String(p)}`, type);
     }
   });
 }
