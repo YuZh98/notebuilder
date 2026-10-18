@@ -22,7 +22,7 @@ export type CardRow = {
   section_id: string;
   type_id: string | null;
   position: number;
-  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent? }
+  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent?, w?, archived? }
 };
 
 type CardData = {
@@ -31,6 +31,7 @@ type CardData = {
   back?: Slot[];
   tags?: string[];
   accent?: string;
+  w?: number;
   archived?: boolean;
 };
 
@@ -86,6 +87,7 @@ export function notebookToRows(nb: Notebook): {
       if (c.back) data.back = c.back;
       if (c.tags) data.tags = c.tags;
       if (c.accent !== undefined) data.accent = c.accent;
+      if (c.w !== undefined) data.w = c.w;
       if (c.archived !== undefined) data.archived = c.archived;
       return {
         id: c.id,
@@ -124,6 +126,7 @@ export function rowsToNotebook(
         if (data.back !== undefined) card.back = data.back;
         if (data.tags !== undefined) card.tags = data.tags;
         if (data.accent !== undefined) card.accent = data.accent;
+        if (data.w !== undefined) card.w = data.w;
         if (data.archived !== undefined) card.archived = data.archived;
         return card;
       });
