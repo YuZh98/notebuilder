@@ -96,13 +96,15 @@ describe('the schema itself', () => {
 
 describe('everything the app produces passes both the validator and the schema', () => {
   it('finds the v2 example notebooks', () => {
-    expect(examples.length).toBeGreaterThanOrEqual(2);
+    expect(examples.length).toBeGreaterThanOrEqual(3);
+    expect(examples).toContain('practice-lesson.json');
   });
 
+  // Examples are documentation: strict, so they also import without warnings (no cross-card reads).
   it.each(examples)('docs/examples/%s', (file) => {
     const json = JSON.parse(readFileSync(`${EXAMPLES_DIR}/${file}`, 'utf8') as string);
     expect(json.version).toBe(2);
-    expectValidBoth(json, file);
+    expectValidBoth(json, file, true);
   });
 
   it('the example in docs/FORMAT.md', () => {
