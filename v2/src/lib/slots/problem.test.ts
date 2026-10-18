@@ -8,6 +8,7 @@ import {
   nextSeed,
   readProblemState,
   formatAnswer,
+  freshLast,
   DEFAULT_SEED,
   MAX_REDRAWS,
   type ProblemProps,
@@ -372,6 +373,37 @@ describe('nextSeed', () => {
   it('still advances when no different numbers exist', () => {
     expect(nextSeed(P({ params: [], answer: '4' }), {}, 5)).toBe(6);
     expect(nextSeed(P({ params: [param('a', { min: 2, max: 2 })], answer: 'a' }), {}, 5)).toBe(6);
+  });
+});
+
+describe('freshLast', () => {
+  const props = P({ answer: 'a*k' });
+  const at = (k: number) => instantiate(props, { k }, 1);
+  const a = drawValues(props.params, 1).a;
+
+  it('keeps a correct check while its input still matches the expected answer', () => {
+    const last = { input: String(a * 3), ok: true };
+    expect(freshLast(props, at(3), last)).toBe(last);
+  });
+
+  it('drops a correct check once a card variable changed the expected answer', () => {
+    expect(freshLast(props, at(4), { input: String(a * 3), ok: true })).toBeUndefined();
+  });
+
+  it('keeps wrong checks and an absent last as they are', () => {
+    const wrong = { input: '1', ok: false };
+    expect(freshLast(props, at(4), wrong)).toBe(wrong);
+    expect(freshLast(props, at(4), undefined)).toBeUndefined();
+  });
+
+  it('drops a correct check when the problem cannot be instantiated', () => {
+    expect(freshLast(props, instantiate(props, {}, 1), { input: '1', ok: true })).toBeUndefined();
+  });
+
+  it('honours the tolerance', () => {
+    const tolProps = P({ answer: 'a*k', tol: 0.5 });
+    const inst = instantiate(tolProps, { k: 3 }, 1);
+    expect(freshLast(tolProps, inst, { input: String(a * 3 + 0.4), ok: true })).toBeDefined();
   });
 });
 

@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import {
     instantiate,
+    freshLast,
     readProblemState,
     nextSeed,
     isCorrect,
@@ -30,7 +31,9 @@
   const local = $derived({ ...scope, ...inst.values });
   const need = $derived(needOf(props));
   const hasParams = $derived(paramsOf(props).length > 0);
-  const solved = $derived(st.last?.ok === true);
+  // A ✓ only stands while the answer it matched still holds (a slider may have moved since).
+  const last = $derived(freshLast(props, inst, st.last));
+  const solved = $derived(last?.ok === true);
   const revealed = $derived(solved || st.revealed === true);
   const locked = $derived(!inst.ok || revealed);
   const done = $derived(st.correct >= need);
@@ -109,10 +112,10 @@
       <p class="problem-input-error" role="alert">{inputError}</p>
     {/if}
     <div class="problem-feedback" aria-live="polite">
-      {#if st.last?.ok}
+      {#if last?.ok}
         <span class="problem-ok">✓ Correct</span>
-      {:else if st.last}
-        <span class="problem-bad">✗ {st.last.input} is not right — try again</span>
+      {:else if last}
+        <span class="problem-bad">✗ {last.input} is not right — try again</span>
       {/if}
       {#if revealed}
         <span class="problem-answer">Answer: <b>{formatAnswer(inst.answer)}</b></span>

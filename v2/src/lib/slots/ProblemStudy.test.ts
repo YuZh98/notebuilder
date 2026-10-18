@@ -229,6 +229,28 @@ describe('ProblemStudy — new numbers', () => {
   });
 });
 
+describe('ProblemStudy — card variable changes', () => {
+  const over = { prompt: '{{a}} × {{k}}', answer: 'a*k', explain: 'why' };
+  const solved = { correct: 1, attempts: 1, last: { input: String(first.a * 12), ok: true } };
+
+  it('a correct check locks while the answer it matched still holds', () => {
+    const { input, container } = setup(over, solved, { k: 12 });
+    expect(input().disabled).toBe(true);
+    expect(container.querySelector('.problem-ok')).not.toBeNull();
+  });
+
+  it('a slider moving the expected answer reopens the problem instead of showing a stale ✓', async () => {
+    const { input, container, onState, type, check } = setup(over, solved, { k: 5 });
+    expect(input().disabled).toBe(false);
+    expect(container.querySelector('.problem-ok')).toBeNull();
+    expect(container.querySelector('.problem-answer')).toBeNull();
+    expect(container.querySelector('.problem-explain')).toBeNull();
+    await type(String(first.a * 5));
+    await check();
+    expect(onState).toHaveBeenCalledWith(expect.objectContaining({ correct: 2, attempts: 2 }));
+  });
+});
+
 describe('ProblemStudy — authoring errors', () => {
   it('a broken answer formula is reported instead of grading against 0', () => {
     const { container } = setup({ answer: 'a*' });

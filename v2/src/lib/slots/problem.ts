@@ -3,6 +3,7 @@ import type { VarDeclaration } from '../types';
 import type { Scope } from '../variable-graph';
 import { evalExpr, parseExpr, EXPR_BUILTINS } from '../expr';
 import { mulberry32, drawParam } from '../rng';
+import { parseNumericInput } from '../numeric-input';
 import { extractReads } from './identifiers';
 import ProblemEdit from './ProblemEdit.svelte';
 import ProblemStudy from './ProblemStudy.svelte';
@@ -145,6 +146,22 @@ export function isCorrect(expected: number, got: number, tol: number): boolean {
   if (!Number.isFinite(expected) || !Number.isFinite(got)) return false;
   const t = Number.isFinite(tol) && tol > 0 ? tol : 0;
   return Math.abs(got - expected) <= t + 1e-9 * Math.max(1, Math.abs(expected));
+}
+
+/**
+ * The last check, if it still applies. A correct check whose input no longer matches the expected
+ * answer (a card variable such as a slider, or the formula, changed since) is dropped, so the
+ * problem reopens instead of showing a stale ✓ and staying locked.
+ */
+export function freshLast(
+  props: ProblemProps,
+  inst: ProblemInstance,
+  last: ProblemState['last'],
+): ProblemState['last'] {
+  if (!last || !last.ok) return last;
+  if (!inst.ok) return undefined;
+  const p = parseNumericInput(last.input);
+  return p.ok && isCorrect(inst.answer, p.value, tolOf(props)) ? last : undefined;
 }
 
 /** An answer for display: 12 significant digits, no float noise, never "-0". */
