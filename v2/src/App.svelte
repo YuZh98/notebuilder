@@ -7,6 +7,9 @@
   import Stage from './lib/components/Stage.svelte';
   import Factory from './lib/components/Factory.svelte';
   import SealModal from './lib/components/SealModal.svelte';
+  import FromAiModal from './lib/components/FromAiModal.svelte';
+  import ImportReport from './lib/components/ImportReport.svelte';
+  import type { CheckResult } from './lib/import-hints';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -81,6 +84,7 @@
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
   import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
+  import { importNotebook, type NotebookJSON } from './lib/json-io';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
@@ -382,10 +386,28 @@
 
   // ---- import / export ----
 
+  // D2: "From AI" and readable import problems. Both are modal: app shortcuts pause while open.
+  let fromAiOpen = $state(false);
+  let importProblems: CheckResult | null = $state.raw(null);
+
+  function createFromAi(json: NotebookJSON) {
+    let nb: Notebook;
+    try {
+      nb = importNotebook(json);
+    } catch (e) {
+      toast(`Couldn’t create the notebook — ${e instanceof Error ? e.message : String(e)}`, 5000);
+      return;
+    }
+    fromAiOpen = false;
+    openNotebook(nb, false);
+    toast(`Created "${nb.name}" — review the cards, then Study`);
+  }
+
   async function handleImport() {
     const result = await importNotebookFromFile();
     if ('error' in result) {
-      toast(result.error, 4000);
+      if (result.report && (result.report.errors.length || result.report.syntax)) importProblems = result.report;
+      else toast(result.error, 4000);
     } else if ('notebook' in result) {
       openNotebook(result.notebook, false);
       const n = result.warnings.length;
@@ -910,6 +932,8 @@
       return [];
     }
     function handleKey(e: KeyboardEvent) {
+      // A modal dialog owns the keyboard: no undo, mode toggle or selection moves behind it.
+      if (fromAiOpen || importProblems) return;
       const el = e.target as HTMLElement | null;
       const inField =
         !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
@@ -1025,6 +1049,7 @@
   factoryPreview={factory.preview}
   onswitch={(id) => void switchNotebook(id)}
   oncreate={newNotebook}
+  onfromai={() => (fromAiOpen = true)}
   onsettheme={setTheme}
   onaddsection={() => {
     pushHistory();
@@ -1280,6 +1305,23 @@
     taken={sealTaken}
     onconfirm={confirmSeal}
     oncancel={() => (sealBenchId = null)}
+  />
+{/if}
+
+{#if fromAiOpen}
+  <FromAiModal
+    onclose={() => (fromAiOpen = false)}
+    oncreate={createFromAi}
+    oncopied={(what) => toast(what === 'prompt' ? 'Prompt copied — paste it into your AI chat' : 'Fix request copied — paste it back to your AI')}
+  />
+{/if}
+
+{#if importProblems}
+  <ImportReport
+    errors={importProblems.errors}
+    warnings={importProblems.warnings}
+    onclose={() => (importProblems = null)}
+    oncopied={() => toast('Fix request copied — paste it back to your AI')}
   />
 {/if}
 

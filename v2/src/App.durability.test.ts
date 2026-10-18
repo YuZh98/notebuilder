@@ -258,6 +258,7 @@ describe('App durability — flushes', () => {
     await hydrated(container, 'Alpha');
     await addNote(container);
     await fireEvent.click(container.querySelector('button[title="New notebook"]')!);
+    await fireEvent.click(await waitFor(() => container.querySelector('[data-new="blank"]')!));
     await wait(20);
     const ids = h.saves.map((s) => s.id);
     expect(ids[0]).toBe('nbA');

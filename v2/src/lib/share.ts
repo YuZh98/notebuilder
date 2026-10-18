@@ -5,11 +5,13 @@ import type { NotebookJSON } from './json-io';
 import { injectNotebook, extractNotebook, type ReaderPayload } from './html-io';
 import { READER_TEMPLATE } from './generated/reader-template';
 import { isTauri } from './db';
+import { checkNotebookText, type CheckResult } from './import-hints';
 import type { Notebook } from './types';
 
 export type ImportResult =
   | { notebook: Notebook; warnings: string[] }
-  | { error: string }
+  /** `report`: the same problems with paths and fix hints, for ImportReport (absent for I/O errors). */
+  | { error: string; report?: CheckResult }
   | { cancelled: true };
 export type ExportResult = { path: string } | { error: string } | { cancelled: true };
 
@@ -68,11 +70,16 @@ function importFromText(text: string, isHtml: boolean): ImportResult {
   try {
     json = isHtml ? payloadFromHtml(text) : JSON.parse(text);
   } catch (e) {
-    return { error: `Could not read notebook: ${message(e)}` };
+    return { error: `Could not read notebook: ${message(e)}`, report: isHtml ? undefined : checkNotebookText(text) };
   }
 
   const { errors, warnings } = validateNotebook(json);
-  if (errors.length > 0) return { error: `Invalid notebook file:\n${errors.join('\n')}` };
+  if (errors.length > 0) {
+    return {
+      error: `Invalid notebook file:\n${errors.join('\n')}`,
+      report: checkNotebookText(isHtml ? JSON.stringify(json, null, 2) : text),
+    };
+  }
 
   try {
     return { notebook: importNotebook(json as NotebookJSON), warnings };

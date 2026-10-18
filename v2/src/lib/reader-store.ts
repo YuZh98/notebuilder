@@ -4,7 +4,8 @@
  * browser's localStorage only and never enters an export or a share payload.
  *
  * importNotebook regenerates every id on each load, so ids can't key anything that must survive a
- * reload. Instead each card is keyed by a hash of its exported (interchange) JSON — plus an ordinal
+ * reload. Instead each card is keyed by a hash of its exported content (slots, props, verbs; not
+ * its width, color or tags) — plus an ordinal
  * for identical duplicates — and each slot by face + index (`f0`, `b1`). Editing a card's content
  * changes its key, which drops (carries, never deletes) only that card's progress; adding, removing
  * or moving other cards leaves the rest intact. Card keys are computed once from the pristine
@@ -88,6 +89,16 @@ export function readerStorageKey(docRef: string): string {
   return NAMESPACE + docRef;
 }
 
+/**
+ * What a card's identity hashes: its content and behaviour (slot types, props, verbs; card
+ * verbs), NOT its layout or labels. Resizing, recoloring, tagging or archiving a card must not
+ * cost students their progress on it; changing what it asks does.
+ */
+function contentSignature(card: ReturnType<typeof exportNotebook>['notebook']['sections'][number]['cards'][number]): string {
+  const slot = (s: { type: string; props: unknown; verbs?: unknown }) => ({ t: s.type, p: s.props, v: s.verbs ?? null });
+  return JSON.stringify({ s: card.slots.map(slot), b: (card.back ?? []).map(slot), v: card.verbs ?? null });
+}
+
 /** Map this load's card/slot ids ↔ reload-stable keys (see the module comment). */
 export function computeKeys(notebook: Notebook): ReaderKeys {
   const keys: ReaderKeys = { cardKey: new Map(), cardId: new Map(), slotKey: new Map(), slotId: new Map() };
@@ -95,7 +106,7 @@ export function computeKeys(notebook: Notebook): ReaderKeys {
   const seen = new Map<string, number>();
   notebook.sections.forEach((section, si) => {
     section.cards.forEach((card, ci) => {
-      const hash = cyrb53(JSON.stringify(exported[si].cards[ci]));
+      const hash = cyrb53(contentSignature(exported[si].cards[ci]));
       const dup = seen.get(hash) ?? 0;
       seen.set(hash, dup + 1);
       const key = dup === 0 ? hash : `${hash}.${dup}`;

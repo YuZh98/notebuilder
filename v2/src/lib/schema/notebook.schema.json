@@ -144,8 +144,8 @@
       "required": ["type", "props"],
       "properties": {
         "type": {
-          "enum": ["text", "list", "code", "table", "image", "choice", "slider", "text-input", "compute", "chart", "progress"],
-          "description": "Slot kind: text (markdown + math), list, code, table, image, choice (quiz), slider (number input that writes a variable), text-input (free answer), compute (formula that writes a variable), chart (plot of y = f(x)), progress (completion meter)."
+          "enum": ["text", "list", "code", "table", "image", "choice", "slider", "text-input", "compute", "chart", "progress", "problem"],
+          "description": "Slot kind: text (markdown + math), list, code, table, image, choice (quiz), slider (number input that writes a variable), text-input (free answer), compute (formula that writes a variable), chart (plot of y = f(x)), progress (completion meter), problem (randomized numeric practice: fresh numbers each attempt, answer checked)."
         },
         "props": {
           "type": "object",
@@ -180,7 +180,8 @@
         { "if": { "required": ["type"], "properties": { "type": { "const": "text-input" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/textInputProps" } } } },
         { "if": { "required": ["type"], "properties": { "type": { "const": "compute" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/computeProps" } } } },
         { "if": { "required": ["type"], "properties": { "type": { "const": "chart" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/chartProps" } } } },
-        { "if": { "required": ["type"], "properties": { "type": { "const": "progress" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/progressProps" } } } }
+        { "if": { "required": ["type"], "properties": { "type": { "const": "progress" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/progressProps" } } } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "problem" } } }, "then": { "properties": { "props": { "$ref": "#/$defs/problemProps" } } } }
       ]
     },
     "slotVerbs": {
@@ -369,6 +370,34 @@
           },
           "additionalProperties": false
         }
+      },
+      "additionalProperties": false
+    },
+    "problemProps": {
+      "type": "object",
+      "description": "A practice problem with randomized numbers: each attempt draws fresh values for params, the reader types a number and it is checked against answer. Retrieval practice with varied numbers. Params are local to this slot; they never become card variables.",
+      "required": ["prompt", "params", "answer"],
+      "properties": {
+        "prompt": { "type": "string", "description": "The question (markdown and $math$). Use {{name}} to show a drawn param, e.g. \"What is {{a}} × {{b}}?\"." },
+        "params": {
+          "type": "array",
+          "description": "Randomized parameters, each drawn from min..max on the step grid (step 1 gives whole numbers).",
+          "items": {
+            "type": "object",
+            "required": ["name", "min", "max"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "description": "Name used in prompt and answer: letters, digits, underscore; not a function/constant name (sin, e, pi, min, ...)." },
+              "min": { "type": "number", "description": "Smallest value." },
+              "max": { "type": "number", "description": "Largest value (at least min)." },
+              "step": { "type": "number", "exclusiveMinimum": 0, "description": "Grid spacing, e.g. 1 or 0.5 (default 1)." }
+            },
+            "additionalProperties": false
+          }
+        },
+        "answer": { "type": "string", "minLength": 1, "description": "Expression for the correct number over the params (and card variables), e.g. \"a*b\" or \"round(100*P*(1+r/100)^n)/100\" (round takes one argument; scale to keep decimals)." },
+        "tol": { "type": "number", "minimum": 0, "description": "Accepted absolute error, e.g. 0.01 for answers rounded to 2 decimals (default 0: exact up to float noise)." },
+        "need": { "type": "integer", "minimum": 1, "description": "Correct answers needed before the problem counts as done (default 1; use 3 for a short drill)." },
+        "explain": { "type": "string", "description": "Worked solution shown after a correct answer or when the reader gives up (markdown, $math$, {{name}} values)." }
       },
       "additionalProperties": false
     }

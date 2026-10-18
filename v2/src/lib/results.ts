@@ -51,11 +51,11 @@ export function buildResults(
   const byType: Record<string, GradeTally> = {};
   for (const card of cardSections.flatMap((s) => s.cards)) {
     for (const slot of [...card.slots, ...(card.back ?? [])]) {
-      const score = getSlot(slot.type)?.score;
-      if (!score) continue;
+      const type = getSlot(slot.type);
+      if (!type?.score) continue;
       let r: { correct: number; answered: number } | null;
       try {
-        r = score(slot.props, readerState[card.id]?.[slot.id]);
+        r = type.score(slot.props, readerState[card.id]?.[slot.id]);
       } catch {
         continue;
       }

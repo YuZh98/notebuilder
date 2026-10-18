@@ -214,6 +214,25 @@ describe('toStored / fromStored', () => {
     expect(Object.keys(carry.cards)).toHaveLength(1);
   });
 
+  it('keeps progress when the author only resizes, recolors or tags a card', () => {
+    const { a, b, c, json } = baseDeck();
+    const before = open(json);
+    const stored = toStored(answered(before), before);
+    const cosmetic = (x: Card): Card => ({
+      ...x,
+      w: 6,
+      accent: '#ff8800',
+      tags: ['revision'],
+      slots: x.slots.map((s) => ({ ...s, w: 6 })),
+    });
+    const after = open(exportNotebook(authorNb([cosmetic(a), cosmetic(b)], [cosmetic(c)])));
+    const { readerState } = fromStored(stored, after);
+    const [a2, b2, c2] = cardsOf(after);
+    expect(readerState[a2.id][a2.slots[1].id]).toEqual({ value: 'because' });
+    expect(readerState[b2.id][b2.slots[0].id]).toEqual({ selected: [1], submitted: true });
+    expect(readerState[c2.id][CARD_STATE_KEY]).toEqual({ seenBack: true });
+  });
+
   it('keeps progress when the author only moves a card to another section', () => {
     const { a, b, c, json } = baseDeck();
     const before = open(json);

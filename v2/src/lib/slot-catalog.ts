@@ -65,6 +65,20 @@ export const SLOT_CATALOG: Record<string, CatalogEntry> = {
     purpose: 'A completion meter for the section, chapter or notebook; put one at the end of a section.',
     example: { scope: 'section', label: 'Your progress' },
   },
+  problem: {
+    purpose:
+      'Practice with fresh numbers every attempt: params are drawn at random, the reader types a number and it is checked against answer. Use for drills and worked-example follow-ups; params stay inside this slot.',
+    example: {
+      prompt: 'A rectangle is {{w}} cm wide and {{h}} cm tall. What is its area in cm²?',
+      params: [
+        { name: 'w', min: 2, max: 12, step: 1 },
+        { name: 'h', min: 2, max: 12, step: 1 },
+      ],
+      answer: 'w*h',
+      need: 2,
+      explain: 'Area = width × height = {{w}} × {{h}}.',
+    },
+  },
 };
 
 /** Catalog text for one slot type: heading, purpose, props (from the schema) and an example. */
