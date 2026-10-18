@@ -388,6 +388,149 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect((await db.loadNotebook('nb1'))!.name).toBe('v5');
     expect(await db.getPreference('k')).toBe('b');
   });
+
+  // ---- W7 version history: the snapshots table (migration v6) ----
+
+  // Local noon, so the calendar-day retention rule cannot straddle a midnight in any TZ.
+  const T0 = new Date(2026, 9, 18, 12, 0).getTime();
+  const MIN = 60_000;
+  const DAY = 24 * 60 * MIN;
+  const snapshotIds = (conn: DatabaseSync, nbId: string) =>
+    conn
+      .prepare('SELECT id FROM snapshots WHERE notebook_id = $1 ORDER BY created_at')
+      .all({ $1: nbId })
+      .map((r) => r.id as string);
+  /** A stored snapshot row written straight to the file (for ages the queue would never produce). */
+  function plantSnapshot(conn: DatabaseSync, id: string, nbId: string, at: number, reason = 'auto') {
+    conn
+      .prepare('INSERT INTO snapshots (id, notebook_id, created_at, reason, hash, data) VALUES ($1, $2, $3, $4, $5, $6)')
+      .run({ $1: id, $2: nbId, $3: new Date(at).toISOString(), $4: reason, $5: 'h', $6: JSON.stringify(V1) });
+  }
+
+  it('migration v6 creates the snapshots table (no FK to notebooks) and its index', () => {
+    const conn = inspect();
+    const cols = conn.prepare("SELECT name FROM pragma_table_info('snapshots')").all().map((r) => r.name);
+    expect(cols).toEqual(['id', 'notebook_id', 'created_at', 'reason', 'hash', 'data']);
+    expect(conn.prepare("SELECT COUNT(*) n FROM pragma_foreign_key_list('snapshots')").all()[0].n).toBe(0);
+    const idx = conn.prepare("SELECT name FROM pragma_index_list('snapshots')").all().map((r) => r.name);
+    expect(idx).toContain('idx_snapshots_nb');
+    expect(conn.prepare("SELECT name FROM pragma_index_info('idx_snapshots_nb')").all().map((r) => r.name)).toEqual([
+      'notebook_id',
+      'created_at',
+    ]);
+    conn.close();
+  });
+
+  it('saveSnapshot stores the lossless notebook; the list is newest first, with card counts but no data', async () => {
+    expect(await db.saveSnapshot(V1, 'manual', T0)).toBe(true);
+    const edited = { ...V1, sections: [V1.sections[0]] };
+    expect(await db.saveSnapshot(edited, 'auto', T0 + 15 * MIN)).toBe(true);
+
+    const list = await db.listSnapshots('nb1');
+    expect(list.map((s) => [s.reason, s.cardCount, s.createdAt])).toEqual([
+      ['auto', 2, new Date(T0 + 15 * MIN).toISOString()],
+      ['manual', 3, new Date(T0).toISOString()],
+    ]);
+    const { contentHash } = await import('./snapshots');
+    expect(list[1].hash).toBe(contentHash(V1));
+    expect(Object.keys(list[0]).sort()).toEqual(['cardCount', 'createdAt', 'hash', 'id', 'reason']);
+    expect(list[0].id).not.toBe(list[1].id);
+
+    expect(await db.loadSnapshot(list[1].id)).toEqual(V1);
+    expect(await db.loadSnapshot(list[0].id)).toEqual(edited);
+    expect(await db.loadSnapshot('nope')).toBeNull();
+    expect(await db.listSnapshots('nb2')).toEqual([]);
+  });
+
+  it('the snapshot is taken when queued: a later mutation of the notebook cannot leak into it', async () => {
+    const live = structuredClone(V1);
+    const p = db.saveSnapshot(live, 'auto', T0);
+    live.name = 'mutated after queueing';
+    live.sections[0].cards[0].slots[0].props.text = 'changed';
+    expect(await p).toBe(true);
+    const [only] = await db.listSnapshots('nb1');
+    expect(await db.loadSnapshot(only.id)).toEqual(V1);
+  });
+
+  it('save + prune run as one batch: retention drops this notebook’s expired snapshots only', async () => {
+    const conn = inspect();
+    plantSnapshot(conn, 'old_auto', 'nb1', T0 - 40 * DAY);
+    plantSnapshot(conn, 'old_manual', 'nb1', T0 - 40 * DAY, 'manual');
+    plantSnapshot(conn, 'same_day_a', 'nb1', new Date(2026, 9, 15, 12, 0).getTime());
+    plantSnapshot(conn, 'same_day_b', 'nb1', new Date(2026, 9, 15, 11, 0).getTime());
+    plantSnapshot(conn, 'other_old', 'nb2', T0 - 40 * DAY);
+    expect(await db.saveSnapshot(V1, 'auto', T0)).toBe(true);
+    const ids = snapshotIds(conn, 'nb1');
+    expect(ids).toHaveLength(3);
+    expect(ids).toEqual(expect.arrayContaining(['old_manual', 'same_day_a']));
+    expect(ids).not.toContain('old_auto');
+    expect(ids).not.toContain('same_day_b');
+    expect(snapshotIds(conn, 'nb2')).toEqual(['other_old']); // pruning is per notebook
+    conn.close();
+  });
+
+  it('a failing snapshot batch inserts nothing and prunes nothing (ROLLBACK)', async () => {
+    let reported = '';
+    db.onDbError((m) => (reported = m));
+    const conn = inspect();
+    plantSnapshot(conn, 'old_auto', 'nb1', T0 - 40 * DAY);
+    // The prune DELETE fails AFTER the INSERT already ran inside the transaction.
+    conn.exec("CREATE TRIGGER no_delete BEFORE DELETE ON snapshots BEGIN SELECT RAISE(ABORT, 'refused'); END");
+    expect(await db.saveSnapshot(V1, 'manual', T0)).toBe(false);
+    expect(reported).toMatch(/version/);
+    expect(snapshotIds(conn, 'nb1')).toEqual(['old_auto']);
+    conn.exec('DROP TRIGGER no_delete');
+    conn.close();
+    // No connection is left inside the transaction: the next snapshot just works.
+    expect(await db.saveSnapshot(V1, 'manual', T0 + MIN)).toBe(true);
+    expect((await db.listSnapshots('nb1')).map((s) => s.reason)).toEqual(['manual']);
+  });
+
+  it('notebook saves never touch its snapshots (no FK, so the upsert cannot cascade)', async () => {
+    await db.saveNotebook(V1);
+    await db.saveSnapshot(V1, 'auto', T0);
+    await db.saveNotebook({ ...V1, name: 'Physics (edited)' });
+    const conn = inspect();
+    // Even the old INSERT OR REPLACE path would not reach it now.
+    conn.exec("INSERT OR REPLACE INTO notebooks (id, name, created_at, updated_at, data) VALUES ('nb1', 'x', 'c', 'u', '{}')");
+    expect(snapshotIds(conn, 'nb1')).toHaveLength(1);
+    conn.close();
+  });
+
+  it('deleteNotebook deletes that notebook’s snapshots by hand, and no other’s', async () => {
+    await db.saveNotebook(V1);
+    await db.saveNotebook(notebook('nb2', 'Other', [section('t1', 'nb2', 0, [card('k1', 't1', 0)])]));
+    await db.saveSnapshot(V1, 'auto', T0);
+    await db.saveSnapshot(V1, 'manual', T0 + MIN);
+    await db.saveSnapshot(notebook('nb2', 'Other', []), 'auto', T0);
+    expect(await db.deleteNotebook('nb1')).toBe(true);
+    expect(await db.listSnapshots('nb1')).toEqual([]);
+    expect((await db.listSnapshots('nb2')).map((s) => s.reason)).toEqual(['auto']);
+    // Tombstone: a late snapshot of the deleted notebook is never written.
+    expect(await db.saveSnapshot(V1, 'auto', T0 + 2 * MIN)).toBe(true);
+    expect(await db.listSnapshots('nb1')).toEqual([]);
+  });
+
+  it('a snapshot queued before the delete is removed with the notebook, not orphaned', async () => {
+    await db.saveNotebook(V1);
+    const snap = db.saveSnapshot(V1, 'auto', T0);
+    const del = db.deleteNotebook('nb1');
+    expect(await snap).toBe(true);
+    expect(await del).toBe(true);
+    const conn = inspect();
+    expect(count(conn, 'SELECT COUNT(*) n FROM snapshots')).toBe(0);
+    conn.close();
+  });
+
+  it('an unreadable snapshot lists with 0 cards and rejects on load', async () => {
+    const conn = inspect();
+    conn
+      .prepare("INSERT INTO snapshots (id, notebook_id, created_at, reason, hash, data) VALUES ('bad', 'nb1', $1, 'auto', 'h', '{oops')")
+      .run({ $1: new Date(T0).toISOString() });
+    conn.close();
+    expect((await db.listSnapshots('nb1')).map((s) => [s.id, s.cardCount])).toEqual([['bad', 0]]);
+    await expect(db.loadSnapshot('bad')).rejects.toThrow();
+  });
 });
 
 describe('adapter helpers', () => {

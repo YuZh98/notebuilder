@@ -4,6 +4,8 @@ import type { CardType } from './card-types';
 import { notebookToRows, rowsToNotebook } from './db-map';
 import type { NotebookRow, SectionRow, CardRow } from './db-map';
 import { stripPresentation } from './presentation';
+import { contentHash, pruneIds, type SnapshotMeta, type SnapshotReason } from './snapshots';
+import { uid } from './uid';
 
 /** True only inside the Tauri webview; false in a plain browser, tests, or SSR — so callers can skip DB I/O. */
 export function isTauri(): boolean {
@@ -59,7 +61,10 @@ INSERT INTO reader_state (card_id, slot_id, data)
   FROM json_each($1);
 COMMIT;`;
 
-/** reader_state/annotations have no FK: clear this notebook's rows before the cascade removes its cards. Arg: $1 id. */
+/**
+ * reader_state/annotations/snapshots have no FK: clear this notebook's rows by hand (the first two
+ * before the cascade removes its cards). Arg: $1 id.
+ */
 export const DELETE_NOTEBOOK_SQL = `BEGIN IMMEDIATE;
 DELETE FROM reader_state WHERE card_id IN (
   SELECT c.id FROM cards c JOIN sections s ON c.section_id = s.id WHERE s.notebook_id = $1
@@ -67,8 +72,35 @@ DELETE FROM reader_state WHERE card_id IN (
 DELETE FROM annotations WHERE card_id IN (
   SELECT c.id FROM cards c JOIN sections s ON c.section_id = s.id WHERE s.notebook_id = $1
 );
+DELETE FROM snapshots WHERE notebook_id = $1;
 DELETE FROM notebooks WHERE id = $1;
 COMMIT;`;
+
+/**
+ * Store one version and apply retention in the same transaction, so a crash can never leave the
+ * history pruned without the new version (or the other way round). Args: $1 id, $2 notebook_id,
+ * $3 created_at, $4 reason, $5 hash, $6 data, $7 JSON [id…] to delete (this notebook's only).
+ */
+export const SAVE_SNAPSHOT_SQL = `BEGIN IMMEDIATE;
+INSERT INTO snapshots (id, notebook_id, created_at, reason, hash, data) VALUES ($1, $2, $3, $4, $5, $6);
+DELETE FROM snapshots WHERE notebook_id = $2 AND id IN (SELECT value FROM json_each($7));
+COMMIT;`;
+
+/** What retention needs about a notebook's stored versions. Arg: $1 notebook_id. */
+export const SNAPSHOT_STAMPS_SQL = 'SELECT id, created_at, reason FROM snapshots WHERE notebook_id = $1';
+
+/**
+ * A notebook's versions, newest first, without their data — the card count is read inside SQLite
+ * (an unreadable blob counts 0 instead of failing the whole list). Arg: $1 notebook_id.
+ */
+export const LIST_SNAPSHOTS_SQL = `SELECT id, created_at, reason, hash,
+  (SELECT COALESCE(SUM(json_array_length(s.value, '$.cards')), 0)
+     FROM json_each(CASE WHEN json_valid(data) THEN data ELSE '{}' END, '$.sections') AS s) AS card_count
+  FROM snapshots WHERE notebook_id = $1
+  ORDER BY created_at DESC, id DESC`;
+
+/** One version's stored notebook. Arg: $1 id. */
+export const LOAD_SNAPSHOT_SQL = 'SELECT notebook_id, data FROM snapshots WHERE id = $1';
 
 /** Upsert keeps created_at (the gallery order) — INSERT OR REPLACE would reset it on every save. */
 export const SAVE_CARD_TYPE_SQL = `INSERT INTO card_types (id, name, data) VALUES ($1, $2, $3)
@@ -246,6 +278,60 @@ export function listNotebooks(): Promise<NotebookRow[]> {
   return read((d) =>
     d.select<NotebookRow[]>('SELECT id, name, created_at, updated_at, data FROM notebooks ORDER BY updated_at DESC'),
   );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Version history: local snapshots of a notebook (policy in snapshots.ts). Never exported.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Store `nb` as a version taken at `at` (ms) and prune that notebook's history under the
+ * retention rules — one atomic batch through the queue. The data is the lossless JSON of `nb`,
+ * frozen now. Resolves false (after reporting) when it could not be stored.
+ */
+export function saveSnapshot(nb: Notebook, reason: SnapshotReason, at: number = Date.now()): Promise<boolean> {
+  if (deletedNotebooks.has(nb.id)) return Promise.resolve(true);
+  const id = `${uid('snap')}_${Math.random().toString(36).slice(2, 8)}`;
+  const createdAt = new Date(at).toISOString();
+  const data = JSON.stringify(nb);
+  const hash = contentHash(nb);
+  // A unique key: versions never coalesce (a before-restore must not be replaced by a manual one).
+  return write(`snapshot:${id}`, 'a version of your notebook', async (d) => {
+    if (deletedNotebooks.has(nb.id)) return;
+    const stored = await d.select<{ id: string; created_at: string; reason: string }[]>(SNAPSHOT_STAMPS_SQL, [nb.id]);
+    const stamps = stored.filter((s) => s.id !== id).map((s) => ({ id: s.id, createdAt: s.created_at, reason: s.reason }));
+    const prune = pruneIds([...stamps, { id, createdAt, reason }], at).filter((x) => x !== id);
+    await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, JSON.stringify(prune)]);
+  });
+}
+
+/** A notebook's versions, newest first — metadata only (the data stays in SQLite). */
+export function listSnapshots(notebookId: string): Promise<SnapshotMeta[]> {
+  return read(async (d) => {
+    const rows = await d.select<
+      { id: string; created_at: string; reason: string; hash: string; card_count: number | null }[]
+    >(LIST_SNAPSHOTS_SQL, [notebookId]);
+    return rows.map((r) => ({
+      id: r.id,
+      createdAt: r.created_at,
+      reason: r.reason,
+      cardCount: Number(r.card_count ?? 0),
+      hash: r.hash,
+    }));
+  });
+}
+
+/** The notebook stored as version `id`; null when no such version exists (pruned meanwhile). */
+export function loadSnapshot(id: string): Promise<Notebook | null> {
+  return read(async (d) => {
+    const rows = await d.select<{ notebook_id: string; data: string }[]>(LOAD_SNAPSHOT_SQL, [id]);
+    if (!rows.length) return null;
+    const nb = JSON.parse(rows[0].data) as Notebook;
+    if (!nb || typeof nb !== 'object' || !Array.isArray(nb.sections)) {
+      throw new Error('that version is unreadable');
+    }
+    return nb;
+  });
 }
 
 // ---------------------------------------------------------------------------------------------
