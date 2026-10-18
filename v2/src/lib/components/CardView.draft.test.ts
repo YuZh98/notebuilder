@@ -57,14 +57,14 @@ describe('CardView — AI draft chip', () => {
     expect(chip(container)).not.toBeNull();
     expect(container.querySelector('.furn')).toHaveClass('draft');
     expect(screen.getByRole('group', { name: /draft/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reviewed' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark this card reviewed' })).toBeInTheDocument();
   });
 
   it('Reviewed calls onreviewed once — it neither selects nor mutates the card itself', async () => {
     const card = cardOf({ draft: true });
     const p = props(card);
     render(CardView, { props: p });
-    await fireEvent.click(screen.getByRole('button', { name: 'Reviewed' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Mark this card reviewed' }));
     expect(p.onreviewed).toHaveBeenCalledTimes(1);
     expect(p.onselect).not.toHaveBeenCalled();
     expect(card.draft).toBe(true);

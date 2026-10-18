@@ -54,6 +54,9 @@ vi.mock('./lib/db', () => ({
   saveAnnotation: vi.fn(async () => true),
   deleteAnnotation: vi.fn(async () => true),
   loadAnnotations: vi.fn(async () => []),
+  saveSnapshot: vi.fn(async () => true),
+  listSnapshots: vi.fn(async () => []),
+  loadSnapshot: vi.fn(async () => null),
 }));
 
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }));

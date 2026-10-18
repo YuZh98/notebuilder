@@ -641,7 +641,7 @@
     {#if showDraft}
       <div class="draft-chip" role="group" aria-label="Draft — made by AI, not yet reviewed">
         <span class="draft-tag" title="Made by AI and not yet reviewed — check it, edit it if needed, then mark it reviewed">Draft</span>
-        <button class="btn sm draft-ok" title="Mark this card reviewed (undoable)" onclick={() => onreviewed?.()}
+        <button class="btn sm draft-ok" aria-label="Mark this card reviewed" title="Mark this card reviewed (undoable)" onclick={() => onreviewed?.()}
           ><span aria-hidden="true">✓</span> Reviewed</button>
       </div>
     {/if}

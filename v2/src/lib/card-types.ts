@@ -188,7 +188,7 @@ export const builtinCardTypes: CardType[] = [
       { type: 'compute', props: { expr: 'round(1000 * ((1 + r/100)^t - 1))', out: 'gain', note: 'interest earned at r% =' }, verbs: { sequential: true }, w: 6 },
       { type: 'compute', props: { expr: 'round(1000 * ((1 + 2*r/100)^t - 1))', out: 'gain2', note: 'interest earned at 2r% =' }, verbs: { sequential: true }, w: 6 },
       { type: 'compute', props: { expr: 'round(gain2 / gain * 100) / 100', out: 'times', note: 'doubling the rate multiplies the interest by' }, verbs: { sequential: true } },
-      { type: 'chart', props: { fn: '((1 + 2*r/100)^x - 1) / ((1 + r/100)^x - 1)', x0: 1, x1: 40, xticks: 4, hover: true, label: 'interest at 2r% ÷ interest at r%, after x years' }, verbs: { sequential: true } },
+      { type: 'chart', props: { fn: '((1 + 2*r/100)^x - 1) / ((1 + r/100)^x - 1)', x0: 1, x1: 41, xticks: 4, hover: true, label: 'interest at 2r% ÷ interest at r%, after x years' }, verbs: { sequential: true } },
       { type: 'text', props: { text: '**Explain.** At **{{r}}%** for **{{t}}** years the interest is **{{gain}}**; at double the rate it is **{{gain2}}**, which is **{{times}}×** as much. Compare that with your prediction.\n\nFor more than one year, doubling the rate *more than* doubles the interest, because each year\'s interest also earns interest. Set t = 1: with nothing to compound yet, it is exactly 2×. Why does the gap widen as t grows?' }, verbs: { sequential: true } }] },
   // Worked example with self-explanation prompts; each step unlocks once the student has explained
   // the one before, and the example fades into a problem with the first step already done.

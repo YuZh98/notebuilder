@@ -66,7 +66,7 @@
                   "label": "net change for any starting price x: never above zero",
                   "x0": 0,
                   "x1": 200,
-                  "y0": -100,
+                  "y0": -200,
                   "y1": 0,
                   "xticks": 4,
                   "yticks": 4,
