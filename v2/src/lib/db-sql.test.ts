@@ -51,7 +51,7 @@ const hasNodeSqlite = sqlite !== null;
 env.sqlite = sqlite;
 
 /** Split a batch on `;` outside string literals. */
-export function splitStatements(sql: string): string[] {
+function splitStatements(sql: string): string[] {
   const out: string[] = [];
   let cur = '';
   let inStr = false;
@@ -67,7 +67,7 @@ export function splitStatements(sql: string): string[] {
 }
 
 /** Bind only the `$N` names a statement contains, from the batch's one shared argument list. */
-export function paramsFor(stmt: string, values: unknown[]): Row {
+function paramsFor(stmt: string, values: unknown[]): Row {
   const params: Row = {};
   const code = stmt.replace(/'(?:[^']|'')*'/g, "''");
   for (const m of code.matchAll(/\$(\d+)/g)) params[`$${m[1]}`] = values[Number(m[1]) - 1] ?? null;

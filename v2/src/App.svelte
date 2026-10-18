@@ -842,8 +842,11 @@
         } else {
           cardTypes = types;
         }
-        // Undo must never step back into the pre-hydration demo state (it would then be saved).
+        // Undo must never step back into the pre-hydration demo state (it would then be saved),
+        // and a selection made on the demo must not dangle into the loaded notebook.
         clearHistory();
+        selCard = null;
+        selSection = null;
         // Let the effects see the hydrated values while persistence is still off, and record
         // that storage holds exactly them — the first blur/flush then has nothing to rewrite.
         await tick();
