@@ -713,6 +713,59 @@ export function lintLatexEscapes(json: unknown): HintedIssue[] {
   return out;
 }
 
+/** Formula-holding slot types and the prop with the formula. */
+const EXPR_PROPS: Record<string, string> = { compute: 'expr', chart: 'fn' };
+/** A minus at the start or after an operator / `(` / `,`, applied to a name or number that is then raised: `-x^2`. */
+const UNARY_MINUS_POWER = /(?:^|[(,?:+\-*/%^=<>!&|])\s*-\s*([A-Za-z_]\w*|\d*\.?\d+)\s*\^/;
+
+/**
+ * Formulas that parse but compute something else than an author (or LLM) means: expr.ts binds a
+ * leading minus tighter than ^ (-x^2 is (-x)^2, so exp(-x^2) explodes instead of a bell curve)
+ * and has no ** operator (it silently yields a wrong number).
+ */
+export function lintExprPitfalls(json: unknown): HintedIssue[] {
+  const out: HintedIssue[] = [];
+  const sections = (json as { notebook?: { sections?: unknown } } | null)?.notebook?.sections;
+  if (!Array.isArray(sections)) return out;
+  sections.forEach((s, si) => {
+    const cards = (s as { cards?: unknown } | null)?.cards;
+    if (!Array.isArray(cards)) return;
+    cards.forEach((c, ci) => {
+      for (const face of ['slots', 'back'] as const) {
+        const slots = (c as Record<string, unknown> | null)?.[face];
+        if (!Array.isArray(slots)) continue;
+        slots.forEach((slot, k) => {
+          const { type, props } = (slot ?? {}) as { type?: unknown; props?: unknown };
+          const prop = typeof type === 'string' ? own(EXPR_PROPS, type) : undefined;
+          const src = prop && props && typeof props === 'object' ? (props as Record<string, unknown>)[prop] : undefined;
+          if (!prop || typeof src !== 'string') return;
+          const path = `notebook.sections[${si}].cards[${ci}].${face}[${k}].props.${prop}`;
+          if (src.includes('**')) {
+            out.push({
+              code: 'expr-pitfall',
+              path,
+              subject: '**',
+              message: `${path}: ** is not an operator in NoteBuilder formulas (the result is silently wrong)`,
+              hint: 'Write powers with ^: x^2, not x**2.',
+            });
+          }
+          const m = UNARY_MINUS_POWER.exec(src);
+          if (m) {
+            out.push({
+              code: 'expr-pitfall',
+              path,
+              subject: `-${m[1]}^`,
+              message: `${path}: "-${m[1]}^" raises (-${m[1]}) to the power, not ${m[1]}: a leading minus binds tighter than ^`,
+              hint: 'Put the power in parentheses: -(x^2), e.g. exp(-(x^2)/2) for a bell curve.',
+            });
+          }
+        });
+      }
+    });
+  });
+  return out;
+}
+
 /**
  * Everything the "From AI" check needs in one call: parse (fences and prose tolerated),
  * validate exactly as import does, then add the AI-path lints as warnings.
@@ -725,7 +778,7 @@ export function checkNotebookText(text: string): CheckResult {
   const { errors, warnings } = validateNotebookIssues(parsed.json);
   const lints = errors.some((e) => ['not-object', 'notebook-missing'].includes(e.code))
     ? []
-    : [...lintUnknownFields(parsed.json), ...lintLatexEscapes(parsed.json)];
+    : [...lintUnknownFields(parsed.json), ...lintLatexEscapes(parsed.json), ...lintExprPitfalls(parsed.json)];
   return { ok: errors.length === 0, json: parsed.json, errors, warnings: [...warnings, ...lints] };
 }
 

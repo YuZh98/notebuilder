@@ -117,7 +117,8 @@ Expression grammar ([`v2/src/lib/expr.ts`](../v2/src/lib/expr.ts) — a small pa
 | | |
 | --- | --- |
 | Numbers | `3`, `0.25`, `1000000` (no `1e6` exponent notation) |
-| Arithmetic | `+ - * /`, `^` power (right-associative), `%` or `mod` remainder, `//` floor division, unary `-` |
+| Arithmetic | `+ - * /`, `^` power (right-associative; not `**`), `%` or `mod` remainder, `//` floor division, unary `-` |
+| Precedence | A leading minus binds tighter than `^`: `-x^2` is `(-x)^2`. Write `-(x^2)`, e.g. `exp(-(x^2)/2)` for a bell curve. |
 | Comparison / logic | `== != < <= > >=`, `&& \|\| !`, `cond ? a : b` (comparisons yield `true` / `false`) |
 | Functions | `sin cos tan` (radians), `exp`, `log` (natural), `sqrt`, `abs`, `sign`, `round` (to integer), `floor`, `ceil`, `min(a, b, …)`, `max(a, b, …)`, `pow(a, b)`, `clamp(v, lo, hi)` |
 | Constants | `pi`, `e`, `true`, `false` |
@@ -137,8 +138,8 @@ Beyond the structure above, the app checks what a JSON Schema cannot express:
 - formula cycles within a card (error) and cross-card reads (warning).
 
 The From AI check additionally tolerates ```` ```json ```` fences and chatter around the object,
-reports JSON syntax errors with line and column, and warns about fields the schema does not define
-and about LaTeX that lost its backslash.
+reports JSON syntax errors with line and column, and warns about fields the schema does not define,
+about LaTeX that lost its backslash, and about formulas that use `**` or negate a power (`-x^2`).
 
 ## Minimal example
 
