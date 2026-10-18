@@ -51,6 +51,7 @@ export interface SlotType<P extends SlotProps = SlotProps> {
 
   /** Progress tracking — only required if completable */
   isDone?(props: P, state: Record<string, unknown>): boolean;
+  score?(props: P, state: Record<string, unknown> | undefined): { correct: number; answered: number } | null;
 
   /** Validate props, return errors */
   validate?(props: P): string[];

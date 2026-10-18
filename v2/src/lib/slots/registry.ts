@@ -11,6 +11,7 @@ import { textInputSlot } from './text-input';
 import { choiceSlot } from './choice';
 import { listSlot } from './list';
 import { progressSlot } from './progress';
+import { problemSlot } from './problem';
 
 /** A slot type erased to the base props shape for heterogeneous storage */
 export type AnySlotType = SlotType<SlotProps>;
@@ -52,3 +53,4 @@ registerSlot(textInputSlot);
 registerSlot(choiceSlot);
 registerSlot(listSlot);
 registerSlot(progressSlot);
+registerSlot(problemSlot);
