@@ -426,6 +426,47 @@ export function parseNotebookText(text: string): ParseResult {
   }
 }
 
+/**
+ * Blank out (with a space, so every offset stays put) each comma that directly precedes a `}` or
+ * `]`, whitespace allowed between them. Commas inside strings are left alone.
+ */
+export function stripTrailingCommas(s: string): { text: string; removed: number } {
+  const out = s.split('');
+  let removed = 0;
+  let inString = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inString) {
+      if (c === '\\') i++;
+      else if (c === '"') inString = false;
+    } else if (c === '"') {
+      inString = true;
+    } else if (c === ',') {
+      let j = i + 1;
+      while (j < s.length && (s[j] === ' ' || s[j] === '\t' || s[j] === '\n' || s[j] === '\r')) j++;
+      if (s[j] === '}' || s[j] === ']') {
+        out[i] = ' ';
+        removed++;
+      }
+    }
+  }
+  return { text: removed ? out.join('') : s, removed };
+}
+
+/**
+ * When the reply's syntax problem is trailing commas only, the notebook it would be without them
+ * (and how many there are) — so the report can also list what is wrong beyond the commas. null
+ * when the region has no trailing comma, or still fails to parse without them.
+ */
+function withoutTrailingCommas(text: string): { json: unknown; removed: number } | null {
+  const region = jsonRegion(text);
+  if (!region) return null;
+  const { text: body, removed } = stripTrailingCommas(text.slice(region.start, region.end));
+  if (!removed) return null;
+  const parsed = parseNotebookText(text.slice(0, region.start) + body + text.slice(region.end));
+  return 'json' in parsed ? { json: parsed.json, removed } : null;
+}
+
 /** A syntax problem as a report issue (path is the human locator `line L, column C`). */
 export function syntaxIssue(s: SyntaxProblem): HintedIssue {
   return { code: 'json-syntax', path: `line ${s.line}, column ${s.column}`, message: s.message, hint: s.hint, excerpt: s.excerpt };
@@ -794,20 +835,39 @@ export function lintExprPitfalls(json: unknown): HintedIssue[] {
   return out;
 }
 
+/** Validation exactly as import does it, plus the AI-path lints as warnings. */
+function notebookIssues(json: unknown): { errors: HintedIssue[]; warnings: HintedIssue[] } {
+  const { errors, warnings } = validateNotebookIssues(json);
+  const lints = errors.some((e) => ['not-object', 'notebook-missing'].includes(e.code))
+    ? []
+    : [...lintUnknownFields(json), ...lintLatexEscapes(json), ...lintExprPitfalls(json)];
+  return { errors, warnings: [...warnings, ...lints] };
+}
+
 /**
  * Everything the "From AI" check needs in one call: parse (fences and prose tolerated),
  * validate exactly as import does, then add the AI-path lints as warnings.
+ *
+ * A syntax error blocks the notebook. When it is only trailing commas, the problems of the
+ * comma-free notebook are listed after it as well, so one fix request covers everything; the
+ * result still carries no `json` and is never ok.
  */
 export function checkNotebookText(text: string): CheckResult {
   const parsed = parseNotebookText(text);
   if ('syntax' in parsed) {
-    return { ok: false, syntax: parsed.syntax, errors: [syntaxIssue(parsed.syntax)], warnings: [] };
+    let syntax = parsed.syntax;
+    const lenient = syntax.message.startsWith('Trailing comma') ? withoutTrailingCommas(text) : null;
+    if (!lenient || !hasNotebookKey(lenient.json)) {
+      return { ok: false, syntax, errors: [syntaxIssue(syntax)], warnings: [] };
+    }
+    if (lenient.removed > 1) {
+      syntax = { ...syntax, hint: `${syntax.hint} There are ${lenient.removed} trailing commas in all: remove each one.` };
+    }
+    const rest = notebookIssues(lenient.json);
+    return { ok: false, syntax, errors: [syntaxIssue(syntax), ...rest.errors], warnings: rest.warnings };
   }
-  const { errors, warnings } = validateNotebookIssues(parsed.json);
-  const lints = errors.some((e) => ['not-object', 'notebook-missing'].includes(e.code))
-    ? []
-    : [...lintUnknownFields(parsed.json), ...lintLatexEscapes(parsed.json), ...lintExprPitfalls(parsed.json)];
-  return { ok: errors.length === 0, json: parsed.json, errors, warnings: [...warnings, ...lints] };
+  const { errors, warnings } = notebookIssues(parsed.json);
+  return { ok: errors.length === 0, json: parsed.json, errors, warnings };
 }
 
 export type NotebookSummary = {
