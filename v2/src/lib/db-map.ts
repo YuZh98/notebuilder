@@ -23,7 +23,7 @@ export type CardRow = {
   section_id: string;
   type_id: string | null;
   position: number;
-  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent?, w?, archived? }
+  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent?, w?, archived?, draft? }
 };
 
 type CardData = {
@@ -34,6 +34,7 @@ type CardData = {
   accent?: string;
   w?: number;
   archived?: boolean;
+  draft?: boolean;
 };
 
 type SectionData = Pick<
@@ -90,6 +91,7 @@ export function notebookToRows(nb: Notebook): {
       if (c.accent !== undefined) data.accent = c.accent;
       if (c.w !== undefined) data.w = c.w;
       if (c.archived !== undefined) data.archived = c.archived;
+      if (c.draft !== undefined) data.draft = c.draft;
       return {
         id: c.id,
         section_id: s.id,
@@ -129,6 +131,7 @@ export function rowsToNotebook(
         if (data.accent !== undefined) card.accent = data.accent;
         if (data.w !== undefined) card.w = data.w;
         if (data.archived !== undefined) card.archived = data.archived;
+        if (data.draft !== undefined) card.draft = data.draft;
         return card;
       });
 

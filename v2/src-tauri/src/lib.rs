@@ -124,6 +124,24 @@ pub fn run() {
             ",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            // No FK to notebooks: a notebook upsert can never cascade into its history.
+            // DELETE_NOTEBOOK_SQL (db.ts) removes a deleted notebook's snapshots by hand.
+            description: "notebook version history (local snapshots)",
+            sql: "
+                CREATE TABLE IF NOT EXISTS snapshots (
+                    id TEXT PRIMARY KEY,
+                    notebook_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    hash TEXT NOT NULL,
+                    data TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_snapshots_nb ON snapshots(notebook_id, created_at);
+            ",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

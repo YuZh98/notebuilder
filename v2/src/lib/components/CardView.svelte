@@ -52,6 +52,7 @@
     showArch = false,
     onpin,
     onarchive,
+    onreviewed,
   }: {
     card: Card;
     surface: 'bench' | 'notebook' | 'read';
@@ -98,6 +99,11 @@
     showArch?: boolean;
     onpin?: () => void;
     onarchive?: () => void;
+    /**
+     * D2d — mark this AI draft card reviewed. The host clears Card.draft undoably; without it
+     * (the shared Reader, previews) no draft chip renders.
+     */
+    onreviewed?: () => void;
   } = $props();
 
   let newSlotType = $state('text');
@@ -109,6 +115,8 @@
   const showEditSlots = $derived(surface !== 'read' && !studying);
   const flipped = $derived(cardState[CARD_STATE_KEY]?.flipped === true);
   const done = $derived(studying && isCardDone(card, cardState));
+  // D2d: an unreviewed AI card is flagged while authoring only — never in Study, never on a bench.
+  const showDraft = $derived(card.draft === true && !studying && surface !== 'bench' && onreviewed !== undefined);
 
   // Scope failures (e.g. a cycle authored in Edit mode) must be visible, not silently empty.
   // Variables are card-scoped: both faces of a flip card share one scope.
@@ -473,6 +481,7 @@
   class:sel={selected && !studying}
   class:bare={card.verbs?.bare}
   class:done
+  class:draft={showDraft}
   class:dragging={resizing}
   style={styleVars}
   data-card={card.id}
@@ -629,6 +638,13 @@
         {/if}
       {/if}
     {/if}
+    {#if showDraft}
+      <div class="draft-chip" role="group" aria-label="Draft — made by AI, not yet reviewed">
+        <span class="draft-tag" title="Made by AI and not yet reviewed — check it, edit it if needed, then mark it reviewed">Draft</span>
+        <button class="btn sm draft-ok" title="Mark this card reviewed (undoable)" onclick={() => onreviewed?.()}
+          ><span aria-hidden="true">✓</span> Reviewed</button>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -666,6 +682,35 @@
     font-size: 12px;
     padding: 2px 6px;
     width: 140px;
+  }
+  /* D2d draft: a calm dashed halo plus a corner chip, both in the theme's secondary accent. */
+  .furn.draft {
+    outline: 1px dashed var(--accent2);
+    outline-offset: 3px;
+  }
+  .draft-chip {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .draft-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--accent2);
+    border: 1px dashed var(--accent2);
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+  @media print {
+    .furn.draft {
+      outline: none;
+    }
+    .draft-chip {
+      display: none;
+    }
   }
   .done-badge {
     position: absolute;

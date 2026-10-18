@@ -29,6 +29,7 @@ const CARD: Required<Card> = {
   accent: '#123456',
   w: 7,
   archived: true,
+  draft: true,
 };
 
 const SECTION: Required<Section> = {

@@ -776,6 +776,8 @@
 {/snippet}
 
 {#snippet cardView(section: Section, card: Card, editable: boolean)}
+  <!-- onreviewed is undefined on purpose: shared files never carry Card.draft (it is never
+       exported), so there is nothing to review and CardView renders no draft chip. -->
   <CardView
     {card}
     surface={editable ? 'notebook' : 'read'}
@@ -809,6 +811,7 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    onreviewed={void 0}
   />
 {/snippet}
 
