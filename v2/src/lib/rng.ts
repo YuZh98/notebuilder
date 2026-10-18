@@ -35,6 +35,9 @@ export function roundTo(x: number, places: number): number {
   return r === 0 ? 0 : r;
 }
 
+/** Most grid points drawParam distinguishes (the generator only has 32 bits anyway). */
+const MAX_STEPS = 2 ** 32;
+
 /** An inclusive numeric range sampled on a step grid. */
 export type ParamRange = { min: number; max: number; step?: number };
 
@@ -51,7 +54,8 @@ export function drawParam(rng: Rng, p: ParamRange): number {
   const hi = Math.max(a, b);
   const step = typeof p.step === 'number' && Number.isFinite(p.step) && p.step > 0 ? p.step : 1;
   const q = (hi - lo) / step;
-  const n = Math.floor(q + 1e-9 * Math.max(1, q));
+  // Capped: a range like ±1e308 overflows q to Infinity, and 0·Infinity would be NaN.
+  const n = Math.min(MAX_STEPS, Math.floor(q + 1e-9 * Math.max(1, q)));
   const k = Math.min(n, Math.floor(rng() * (n + 1)));
   const places = Math.max(decimalPlaces(step), decimalPlaces(lo));
   return Math.min(hi, roundTo(lo + k * step, places));

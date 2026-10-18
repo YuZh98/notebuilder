@@ -130,6 +130,24 @@ describe('drawParam', () => {
     expect(new Set(xs)).toEqual(new Set([0, 1, 2]));
   });
 
+  it('stays finite and in range for extreme ranges', () => {
+    for (const p of [
+      { min: -1e308, max: 1e308, step: 1 },
+      { min: 0, max: 1e300, step: 1e-300 },
+      { min: 0, max: 1e308, step: 1e308 },
+    ]) {
+      for (const x of draws(p, 50)) {
+        expect(Number.isFinite(x), JSON.stringify(p)).toBe(true);
+        expect(x).toBeGreaterThanOrEqual(p.min);
+        expect(x).toBeLessThanOrEqual(p.max);
+      }
+    }
+  });
+
+  it('survives an rng that returns exactly 0 on a huge grid', () => {
+    expect(drawParam(() => 0, { min: -1e308, max: 1e308, step: 1e-300 })).toBe(-1e308);
+  });
+
   it('is deterministic for a seed', () => {
     expect(draws({ min: 1, max: 100, step: 1 }, 20, 99)).toEqual(draws({ min: 1, max: 100, step: 1 }, 20, 99));
   });
