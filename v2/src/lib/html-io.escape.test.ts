@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { injectNotebook, extractNotebook } from './html-io';
 
-// Shaped like the real Reader template: the payload <script> is followed by the app's own module
-// script, so a payload that fails to close swallows the app and the shared file opens blank.
+// A payload <script> followed by another script, so a payload that fails to close visibly swallows
+// what comes after it. (The real Reader template puts its module in <head> and the payload last in
+// <body>; there the unclosed payload swallows the closing markup and JSON.parse fails — see
+// REAL_SHAPE below. Either way the shared file opens blank.)
 const TEMPLATE =
   '<!doctype html><html><head><meta charset="UTF-8"></head><body>' +
   '<div id="app"></div>' +
@@ -65,6 +67,19 @@ describe('injectNotebook — payload escaping survives a real HTML parser', () =
     expect(scripts).toEqual(['notebook-source', 'app-code']);
     expect(document.getElementById('app-code')?.textContent).toBe('/* reader bundle */');
     expect(JSON.parse(raw!)).toEqual(data);
+  });
+
+  it('round-trips in the real template shape (module in <head>, payload last in <body>)', () => {
+    const REAL_SHAPE =
+      '<!doctype html><html><head><meta charset="UTF-8"><script type="module">/* reader bundle */</script>' +
+      '</head><body><div id="app"></div>' +
+      '<script type="application/notebuilder+json" id="notebook-source"></script>\n</body>\n</html>\n';
+    const data = payload('<!--<script>alert(1)</script> and later </script>');
+    const { raw, document } = parsed(injectNotebook(REAL_SHAPE, JSON.stringify(data)));
+    // With only `</` escaped the payload text ran on past its own </script> to the end of the
+    // file, so JSON.parse threw before mount.
+    expect(JSON.parse(raw!)).toEqual(data);
+    expect(document.body.lastElementChild?.id).toBe('notebook-source');
   });
 
   it('round-trips every hostile string in one notebook', () => {
