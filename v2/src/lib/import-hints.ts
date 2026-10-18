@@ -483,6 +483,35 @@ const SLOT_ALIASES: Record<string, string> = {
   grid: 'table',
 };
 
+/**
+ * The slot type an unknown `type` most likely meant, or null. Tried in order: the name itself,
+ * then without a plural -es / -s, each as a type or a known alias ("checklists" → list); then
+ * the name fuzzy against the types ("slidr"); then each form fuzzy against the aliases, so a
+ * misspelled alias still lands ("quizz", "quizzes" → quiz → choice).
+ */
+function guessSlotType(bad: string, types: readonly string[]): string | null {
+  const key = bad.toLowerCase().replace(/[\s_]+/g, '-');
+  const forms = [key];
+  if (key.length > 3 && key.endsWith('es')) forms.push(key.slice(0, -2));
+  if (key.length > 2 && key.endsWith('s')) forms.push(key.slice(0, -1));
+  const known = (t: string | undefined): t is string => !!t && types.includes(t);
+  for (const f of forms) {
+    if (known(f)) return f;
+    const alias = own(SLOT_ALIASES, f);
+    if (known(alias)) return alias;
+  }
+  const near = didYouMean(key, types);
+  if (near) return near;
+  for (const f of forms) {
+    // A typo rarely hits the first letter, and a different one is usually another word (audio
+    // vs radio); short words are within two edits of too many short aliases, so allow one there.
+    const names = Object.keys(SLOT_ALIASES).filter((a) => a[0] === f[0]);
+    const alias = own(SLOT_ALIASES, didYouMean(f, names, f.length <= 4 ? 1 : 2) ?? '');
+    if (known(alias)) return alias;
+  }
+  return null;
+}
+
 function slotTypeHint(bad: string | undefined): string {
   const types = registeredTypes();
   const list = `Slot types are: ${types.join(', ')}.`;
@@ -491,8 +520,7 @@ function slotTypeHint(bad: string | undefined): string {
   if (/^flash-?cards?$/.test(key)) {
     return `A flashcard is not a slot type: make a card with "verbs": {"flip": true}, the question in "slots" and the answer in "back". ${list}`;
   }
-  const alias = own(SLOT_ALIASES, key);
-  const guess = alias && types.includes(alias) ? alias : didYouMean(bad, types);
+  const guess = guessSlotType(bad, types);
   return guess ? `Did you mean "${guess}"? ${list}` : list;
 }
 
