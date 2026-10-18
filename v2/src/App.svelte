@@ -9,7 +9,7 @@
   import SealModal from './lib/components/SealModal.svelte';
   import FromAiModal from './lib/components/FromAiModal.svelte';
   import ImportReport from './lib/components/ImportReport.svelte';
-  import type { CheckResult } from './lib/import-hints';
+  import type { HintedIssue } from './lib/import-hints';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -89,8 +89,9 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
-  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
-  import { importNotebook, type NotebookJSON } from './lib/json-io';
+  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile, shareDocId } from './lib/share';
+  import { createInstallId } from './lib/install-id';
+  import { importNotebook, exportNotebook, validateNotebookIssues, type NotebookJSON } from './lib/json-io';
   import { markAllDraft, clearDraft, clearAllDrafts, draftCards, nextDraft, hidingChapter } from './lib/drafts';
   import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
@@ -148,6 +149,14 @@
 
   /** May this write reach SQLite? Only inside Tauri, and only once hydration succeeded. */
   const persistOn = (): boolean => isTauri() && autosave.active;
+
+  /**
+   * This install's random id (preference 'install_id', created once, through the queued db
+   * functions). A shared file saves students' progress under `${installId}:${notebook.id}`, so
+   * two installs' demo notebooks (both 'nb_demo') never share it, while re-sharing one notebook
+   * keeps it. Per session wherever nothing can be stored (the browser build).
+   */
+  const getInstallId = createInstallId({ persistOn, get: getPreference, set: setPreference });
 
   // ---- version history (W7): local snapshots of the open notebook ----
   // The open notebook's versions, newest first; null while there is no storage to keep them in
@@ -477,8 +486,10 @@
   // ---- import / export ----
 
   // D2: "From AI" and readable import problems. Both are modal: app shortcuts pause while open.
+  // The report also lists what holds back a Share or Export (with its own title, no AI fix request).
+  type ProblemReport = { errors: HintedIssue[]; warnings: HintedIssue[]; title?: string; fixRequest?: boolean };
   let fromAiOpen = $state(false);
-  let importProblems: CheckResult | null = $state.raw(null);
+  let importProblems: ProblemReport | null = $state.raw(null);
 
   function createFromAi(json: NotebookJSON) {
     let nb: Notebook;
@@ -514,8 +525,25 @@
     }
   }
 
+  /**
+   * Held back by validation? The Reader validates a shared file before it shows anything, and
+   * Import validates a backup — but the Study view tolerates some invalid slots (a problem
+   * parameter named "e", step 0, an unfinished answer). Sharing such a notebook would give every
+   * student a blank page; exporting it, a backup that can't be re-imported. Errors are listed with
+   * their paths instead; warnings (a formula reading another card's variable) never block.
+   */
+  function heldBack(nb: Notebook, action: 'sharing' | 'exporting'): boolean {
+    const { errors, warnings } = validateNotebookIssues(exportNotebook(nb));
+    if (errors.length === 0) return false;
+    const what = errors.length === 1 ? 'this problem' : `these ${errors.length} problems`;
+    importProblems = { errors, warnings, title: `Fix ${what} before ${action}`, fixRequest: false };
+    return true;
+  }
+
   async function handleExport() {
-    const result = await exportNotebookToFile($state.snapshot(notebook));
+    const nb = $state.snapshot(notebook) as Notebook;
+    if (heldBack(nb, 'exporting')) return;
+    const result = await exportNotebookToFile(nb);
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
@@ -524,6 +552,9 @@
   }
 
   async function handleShare() {
+    // One snapshot: what was validated (and confirmed) is exactly what is written.
+    const nb = $state.snapshot(notebook) as Notebook;
+    if (heldBack(nb, 'sharing')) return;
     // D2d: AI-written cards nobody has checked should not reach students unnoticed.
     const n = draftsLeft;
     if (n > 0) {
@@ -535,7 +566,7 @@
       );
       if (!ok) return;
     }
-    const result = await shareNotebookToFile($state.snapshot(notebook), themeId);
+    const result = await shareNotebookToFile(nb, themeId, shareDocId(await getInstallId(), nb.id));
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
@@ -1493,6 +1524,8 @@
   <ImportReport
     errors={importProblems.errors}
     warnings={importProblems.warnings}
+    title={importProblems.title}
+    fixRequest={importProblems.fixRequest ?? true}
     onclose={() => (importProblems = null)}
     oncopied={() => toast('Fix request copied — paste it back to your AI')}
   />

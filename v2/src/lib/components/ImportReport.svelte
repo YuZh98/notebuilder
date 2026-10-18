@@ -3,7 +3,8 @@
    * Import problems, readable: every error and warning with where it is, what is wrong and how
    * to fix it, plus a one-click "fix request" to paste back into the author's LLM. Props and
    * callbacks only — the host decides what Close means. `inline` drops the modal chrome so the
-   * report can sit inside another dialog (FromAiModal).
+   * report can sit inside another dialog (FromAiModal). `fixRequest={false}` drops the AI fix
+   * request, for problems in the open notebook (a held-back Share or Export) that no AI wrote.
    */
   import { onMount } from 'svelte';
   import { buildFixRequest, describeIssue, hintFor, humanPath, type HintedIssue } from '../import-hints';
@@ -14,6 +15,7 @@
     warnings = [],
     title,
     inline = false,
+    fixRequest: offerFix = true,
     onclose,
     oncopied,
   }: {
@@ -21,6 +23,7 @@
     warnings?: HintedIssue[];
     title?: string;
     inline?: boolean;
+    fixRequest?: boolean;
     onclose: () => void;
     oncopied?: (text: string) => void;
   } = $props();
@@ -43,11 +46,12 @@
 
   let copyState: 'idle' | 'copied' | 'failed' = $state('idle');
   let copyBtn: HTMLButtonElement | undefined = $state();
+  let closeBtn: HTMLButtonElement | undefined = $state();
   const uid = $props.id();
   const headingId = `import-report-${uid}`;
 
   onMount(() => {
-    if (!inline) copyBtn?.focus();
+    if (!inline) (copyBtn ?? closeBtn)?.focus();
   });
 
   async function copyFix() {
@@ -108,10 +112,12 @@
   {/if}
   <div class="row ir-actions">
     <span class="spacer"></span>
-    {#if !inline}<button class="btn" onclick={onclose}>Close</button>{/if}
-    <button class="btn primary" data-act="copy-fix" bind:this={copyBtn} onclick={copyFix}>
-      {copyState === 'copied' ? 'Copied ✓' : 'Copy fix request for your AI'}
-    </button>
+    {#if !inline}<button class={offerFix ? 'btn' : 'btn primary'} bind:this={closeBtn} onclick={onclose}>Close</button>{/if}
+    {#if offerFix}
+      <button class="btn primary" data-act="copy-fix" bind:this={copyBtn} onclick={copyFix}>
+        {copyState === 'copied' ? 'Copied ✓' : 'Copy fix request for your AI'}
+      </button>
+    {/if}
     {#if inline}<button class="btn" onclick={onclose}>Close</button>{/if}
   </div>
 {/snippet}

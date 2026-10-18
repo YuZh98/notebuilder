@@ -272,6 +272,39 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect((await db.loadNotebook('nb1'))!.name).toBe('Physics III');
   });
 
+  // JSON.stringify writes a lone UTF-16 surrogate as the escape "\ud83e", and json_extract
+  // decodes that escape to bytes that are not valid UTF-8 (ED A0 BE). sqlx then reads the column
+  // back as null, and every later save of the tree failed NOT NULL. Names reach SQL well-formed.
+  it('a section name with a lone surrogate is stored as valid UTF-8, and saving twice works', async () => {
+    const odd = notebook('nbU', 'Book \uD83E', [
+      section('sU', 'nbU', 0, [card('cU', 'sU', 0)], { name: 'A\uD83EB' }),
+    ]);
+    expect(await db.saveNotebook(odd)).toBe(true);
+    const conn = inspect();
+    const hex = (sql: string) => conn.prepare(sql).all()[0].h;
+    expect(hex("SELECT hex(name) h FROM sections WHERE id = 'sU'")).toBe('41EFBFBD42'); // A U+FFFD B
+    expect(hex("SELECT hex(name) h FROM notebooks WHERE id = 'nbU'")).toBe('426F6F6B20EFBFBD'); // "Book " U+FFFD
+    expect(count(conn, "SELECT COUNT(*) n FROM sections WHERE name IS NULL OR instr(hex(name), 'EDA0') > 0")).toBe(0);
+    conn.close();
+
+    const back = await db.loadNotebook('nbU');
+    expect(back!.name).toBe('Book �');
+    expect(back!.sections[0].name).toBe('A�B');
+    // The next saves — of what was loaded, and of the in-memory original — both succeed.
+    expect(await db.saveNotebook({ ...back!, updatedAt: '2024-01-03T00:00:00Z' })).toBe(true);
+    expect(await db.saveNotebook({ ...odd, updatedAt: '2024-01-04T00:00:00Z' })).toBe(true);
+    expect((await db.loadNotebook('nbU'))!.updatedAt).toBe('2024-01-04T00:00:00Z');
+  });
+
+  it('a section row without a name is stored as "" instead of failing every later save (NOT NULL)', async () => {
+    const nameless = notebook('nbN', 'Nameless', [
+      section('sN', 'nbN', 0, [card('cN', 'sN', 0)], { name: null as unknown as string }),
+    ]);
+    expect(await db.saveNotebook(nameless)).toBe(true);
+    expect(await db.saveNotebook(nameless)).toBe(true);
+    expect((await db.loadNotebook('nbN'))!.sections[0].name).toBe('');
+  });
+
   it('upsert keeps rows of another table that references notebooks(id) ON DELETE CASCADE', async () => {
     const conn = inspect();
     conn.exec(`CREATE TABLE nb_children (

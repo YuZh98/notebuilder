@@ -1,4 +1,5 @@
 import { derivedTagUnion } from './tags';
+import { wellFormed } from './well-formed';
 import type { Notebook, Section, Card, Slot } from './types';
 import type { CardType } from './card-types';
 
@@ -54,9 +55,11 @@ export function notebookToRows(nb: Notebook): {
   if (nb.width !== undefined) nbData.width = nb.width;
   if (nb.cats !== undefined) nbData.cats = nb.cats;
 
+  // Names are bound as plain strings (notebook) or read out of a JSON array by json_extract
+  // (sections): a lone surrogate there would be invalid UTF-8 and break every later save.
   const notebook: NotebookRow = {
     id: nb.id,
-    name: nb.name,
+    name: wellFormed(nb.name),
     created_at: nb.createdAt,
     updated_at: nb.updatedAt,
     data: JSON.stringify(nbData),
@@ -76,7 +79,7 @@ export function notebookToRows(nb: Notebook): {
     return {
       id: s.id,
       notebook_id: nb.id,
-      name: s.name,
+      name: wellFormed(s.name),
       position: s.position,
       data: JSON.stringify(data),
     };
@@ -139,7 +142,8 @@ export function rowsToNotebook(
     const section: Section = {
       id: s.id,
       notebookId: notebookRow.id,
-      name: s.name,
+      // A column the driver could not decode comes back null; the next save stores '' instead.
+      name: s.name ?? '',
       position: s.position,
       cards: sectionCards,
     };
@@ -158,7 +162,7 @@ export function rowsToNotebook(
   const nbData: NotebookData = JSON.parse(notebookRow.data || '{}') as NotebookData;
   const notebook: Notebook = {
     id: notebookRow.id,
-    name: notebookRow.name,
+    name: notebookRow.name ?? '',
     createdAt: notebookRow.created_at,
     updatedAt: notebookRow.updated_at,
     sections,
