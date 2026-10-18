@@ -165,6 +165,7 @@
   const SLOT_ICONS: Record<string, string> = {
     text: '¶', list: '•', code: '‹›', table: '▦', image: '🖼', choice: '◉',
     slider: '⇄', 'text-input': '⌨', compute: '🟰', chart: '∿', progress: '▰',
+    problem: '🎲',
   };
   const SVERB_ICONS: Record<string, string> = {
     reveal: '👁', glow: '✦', emphasis: '❝', hint: '💡', sequential: '⏭', locked: '🔒',
