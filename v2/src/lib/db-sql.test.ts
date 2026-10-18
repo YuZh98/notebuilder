@@ -210,6 +210,17 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect(back!.sections[0].cards[0].w).toBe(6);
   });
 
+  it('missing positions/timestamps fall back to the column defaults instead of failing the batch', async () => {
+    const loose = notebook('nbL', 'Loose', [
+      section('sL', 'nbL', 0, [{ ...card('cL', 'sL', 0), position: undefined as unknown as number }]),
+    ]);
+    const { createdAt: _c, updatedAt: _u, ...rest } = loose;
+    expect(await db.saveNotebook(rest as Notebook)).toBe(true);
+    const back = await db.loadNotebook('nbL');
+    expect(back!.sections[0].cards[0].position).toBe(0);
+    expect(back!.createdAt).toMatch(/^\d{4}-/);
+  });
+
   it('a later save replaces the tree (removed sections/cards are gone)', async () => {
     await db.saveNotebook(V1);
     const v2 = notebook('nb1', 'Physics II', [section('s2', 'nb1', 0, [card('c3', 's2', 0)])]);

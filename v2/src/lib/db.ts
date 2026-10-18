@@ -30,9 +30,11 @@ const DB_URL = 'sqlite:notebuilder.db';
  * parent row first and cascades through every child table) and rewrite its whole tree from two
  * JSON arrays. Args: $1 id, $2 name, $3 created_at, $4 updated_at, $5 data,
  * $6 JSON [{id,name,position,data}], $7 JSON [{id,section_id,type_id,position,data}].
+ * COALESCE mirrors the column DEFAULTs, so one stray missing value cannot fail the whole save.
  */
 export const SAVE_NOTEBOOK_SQL = `BEGIN IMMEDIATE;
-INSERT INTO notebooks (id, name, created_at, updated_at, data) VALUES ($1, $2, $3, $4, $5)
+INSERT INTO notebooks (id, name, created_at, updated_at, data)
+  VALUES ($1, $2, COALESCE($3, datetime('now')), COALESCE($4, datetime('now')), $5)
   ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     created_at = excluded.created_at,
@@ -41,11 +43,11 @@ INSERT INTO notebooks (id, name, created_at, updated_at, data) VALUES ($1, $2, $
 DELETE FROM sections WHERE notebook_id = $1;
 INSERT INTO sections (id, notebook_id, name, position, data)
   SELECT json_extract(value, '$.id'), $1, json_extract(value, '$.name'),
-         json_extract(value, '$.position'), json_extract(value, '$.data')
+         COALESCE(json_extract(value, '$.position'), 0), COALESCE(json_extract(value, '$.data'), '{}')
   FROM json_each($6);
 INSERT INTO cards (id, section_id, type_id, position, data)
   SELECT json_extract(value, '$.id'), json_extract(value, '$.section_id'), json_extract(value, '$.type_id'),
-         json_extract(value, '$.position'), json_extract(value, '$.data')
+         COALESCE(json_extract(value, '$.position'), 0), COALESCE(json_extract(value, '$.data'), '{}')
   FROM json_each($7);
 COMMIT;`;
 
