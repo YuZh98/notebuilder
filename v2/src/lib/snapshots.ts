@@ -7,6 +7,7 @@
  * A snapshot's data is the lossless JSON of the notebook as it was in memory, so its card ids
  * are the ids reader_state rows are keyed by: restoring keeps the student-progress layer valid.
  */
+import { cyrb53 } from './hash';
 import { derivedTagUnion } from './tags';
 import type { Notebook } from './types';
 
@@ -42,26 +43,6 @@ export const MANUAL_KEEP = 20;
 // ---------------------------------------------------------------------------------------------
 // Content identity
 // ---------------------------------------------------------------------------------------------
-
-/**
- * cyrb53 (public-domain 53-bit string hash), base36. Not cryptographic — identity only.
- * The same function as reader-store's; a local copy keeps db.ts (which hashes every snapshot it
- * stores) off reader-store's import graph (json-io and the whole slot registry).
- */
-function cyrb53(str: string, seed = 0): string {
-  let h1 = 0xdeadbeef ^ seed;
-  let h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
-  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
 
 /** JSON with object keys sorted at every depth, so equal content always serializes equally. */
 export function stableStringify(value: unknown): string {

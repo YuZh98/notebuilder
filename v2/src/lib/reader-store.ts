@@ -12,6 +12,7 @@
  * notebook at open, so in-session document toggles (pin, archive) never shift them.
  */
 import { CARD_STATE_KEY } from './card-done';
+import { cyrb53 } from './hash';
 import { exportNotebook } from './json-io';
 import { stripPresentation } from './presentation';
 import { uid } from './uid';
@@ -60,22 +61,6 @@ export type LoadedProgress = {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
 const emptyBody = (): StoredBody => ({ cards: {}, notes: {} });
-
-/** cyrb53 (public-domain 53-bit string hash), base36. Not cryptographic — identity only. */
-export function cyrb53(str: string, seed = 0): string {
-  let h1 = 0xdeadbeef ^ seed;
-  let h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
-  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
 
 /**
  * The document identity a Reader namespaces by: the payload docId, else (pre-docId files, or a

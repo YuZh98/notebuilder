@@ -3,7 +3,6 @@ import {
   READER_PREFIX,
   computeKeys,
   createProgressStore,
-  cyrb53,
   fromStored,
   installFlushOnHide,
   loadProgress,
@@ -13,6 +12,7 @@ import {
   toStored,
   type StorageLike,
 } from './reader-store';
+import { cyrb53 } from './hash';
 import { exportNotebook, importNotebook, type NotebookJSON } from './json-io';
 import { CARD_STATE_KEY } from './card-done';
 import type { Annotation, Card, Notebook, Slot } from './types';

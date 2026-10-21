@@ -6,7 +6,7 @@ import { injectNotebook, extractNotebook, type ReaderPayload } from './html-io';
 import { READER_TEMPLATE } from './generated/reader-template';
 import { isTauri } from './db';
 import { checkNotebookText, type CheckResult } from './import-hints';
-import { cyrb53 } from './reader-store';
+import { cyrb53 } from './hash';
 import type { Notebook } from './types';
 
 export type ImportResult =
