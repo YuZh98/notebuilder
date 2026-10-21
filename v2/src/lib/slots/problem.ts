@@ -4,6 +4,7 @@ import type { Scope } from '../variable-graph';
 import { evalExpr, parseExpr, EXPR_BUILTINS } from '../expr';
 import { mulberry32, drawParam } from '../rng';
 import { parseNumericInput } from '../numeric-input';
+import { exprPitfalls } from '../expr-pitfalls';
 import { extractReads } from './identifiers';
 import ProblemEdit from './ProblemEdit.svelte';
 import ProblemStudy from './ProblemStudy.svelte';
@@ -241,7 +242,12 @@ export function problemIssues(props: ProblemProps, knownVars?: ReadonlySet<strin
         }
       }
     } catch (e) {
-      errors.push(`answer: ${e instanceof Error ? e.message : String(e)}`);
+      // "Unexpected "*"" says nothing to someone (or an LLM) who meant ** as a power.
+      errors.push(
+        props.answer.includes('**')
+          ? 'answer: ** is not an operator — write powers with ^, e.g. a^2'
+          : `answer: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 
@@ -263,6 +269,24 @@ export function problemIssues(props: ProblemProps, knownVars?: ReadonlySet<strin
     errors.push('need must be a whole number ≥ 1');
   }
   return errors;
+}
+
+/**
+ * Answers that are valid but probably not what the author meant — shown in the editor, never a
+ * validation error (an author may well mean (-a)^2, and errors hold back Share and Export).
+ * Today: a negated power, "-a^2 + b", which the grammar reads as (-a)^2 + b, so a student's
+ * correct −a² + b would be graded wrong on every draw. (`**` never parses: problemIssues has it.)
+ */
+export function problemWarnings(props: ProblemProps): string[] {
+  const answer = isObj(props) ? str(props.answer) : '';
+  try {
+    parseExpr(answer);
+  } catch {
+    return [];
+  }
+  return exprPitfalls(answer)
+    .filter((p) => p.kind === 'negated-power')
+    .map((p) => `answer: ${p.message}. To negate the power, parenthesize it: -(${p.name}^2), not -${p.name}^2.`);
 }
 
 export const problemSlot: SlotType<ProblemProps> = {

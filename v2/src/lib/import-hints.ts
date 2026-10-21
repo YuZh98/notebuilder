@@ -12,6 +12,7 @@ import { validateNotebookIssues, type Issue } from './json-io';
 import { allSlots } from './slots/registry';
 import { propsSignature } from './slot-catalog';
 import { NOTEBOOK_SCHEMA, resolveRef, type JsonSchema } from './schema/schema';
+import { exprPitfalls } from './expr-pitfalls';
 
 /** An issue that may carry its own fix hint (syntax and lint issues are created with one). */
 export type HintedIssue = Issue & { hint?: string; excerpt?: string };
@@ -784,14 +785,13 @@ export function lintLatexEscapes(json: unknown): HintedIssue[] {
 }
 
 /** Formula-holding slot types and the prop with the formula. */
-const EXPR_PROPS: Record<string, string> = { compute: 'expr', chart: 'fn' };
-/** A minus at the start or after an operator / `(` / `,`, applied to a name or number that is then raised: `-x^2`. */
-const UNARY_MINUS_POWER = /(?:^|[(,?:+\-*/%^=<>!&|])\s*-\s*([A-Za-z_]\w*|\d*\.?\d+)\s*\^/;
+const EXPR_PROPS: Record<string, string> = { compute: 'expr', chart: 'fn', problem: 'answer' };
 
 /**
  * Formulas that parse but compute something else than an author (or LLM) means: expr.ts binds a
- * leading minus tighter than ^ (-x^2 is (-x)^2, so exp(-x^2) explodes instead of a bell curve)
- * and has no ** operator (it silently yields a wrong number).
+ * leading minus tighter than ^ (-x^2 is (-x)^2, so exp(-x^2) explodes instead of a bell curve,
+ * and a problem answer "-a^2 + b" grades the right answer wrong) and has no ** operator (it
+ * silently yields a wrong number).
  */
 export function lintExprPitfalls(json: unknown): HintedIssue[] {
   const out: HintedIssue[] = [];
@@ -810,24 +810,10 @@ export function lintExprPitfalls(json: unknown): HintedIssue[] {
           const src = prop && props && typeof props === 'object' ? (props as Record<string, unknown>)[prop] : undefined;
           if (!prop || typeof src !== 'string') return;
           const path = `notebook.sections[${si}].cards[${ci}].${face}[${k}].props.${prop}`;
-          if (src.includes('**')) {
-            out.push({
-              code: 'expr-pitfall',
-              path,
-              subject: '**',
-              message: `${path}: ** is not an operator in NoteBuilder formulas (the result is silently wrong)`,
-              hint: 'Write powers with ^: x^2, not x**2.',
-            });
-          }
-          const m = UNARY_MINUS_POWER.exec(src);
-          if (m) {
-            out.push({
-              code: 'expr-pitfall',
-              path,
-              subject: `-${m[1]}^`,
-              message: `${path}: "-${m[1]}^" raises (-${m[1]}) to the power, not ${m[1]}: a leading minus binds tighter than ^`,
-              hint: 'Put the power in parentheses: -(x^2), e.g. exp(-(x^2)/2) for a bell curve.',
-            });
+          for (const p of exprPitfalls(src)) {
+            // A problem answer with ** never parses: validate refuses it with this same advice.
+            if (p.kind === 'power-op' && type === 'problem') continue;
+            out.push({ code: 'expr-pitfall', path, subject: p.subject, message: `${path}: ${p.message}`, hint: p.hint });
           }
         });
       }

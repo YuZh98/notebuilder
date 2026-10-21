@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     problemIssues,
+    problemWarnings,
     instantiate,
     formatAnswer,
     DEFAULT_SEED,
@@ -19,6 +20,8 @@
 
   const params = $derived<ProblemParam[]>(Array.isArray(props.params) ? props.params : []);
   const issues = $derived(problemIssues(props, new Set(Object.keys(scope))));
+  // Valid but probably unintended (-a^2 is (-a)^2): said here, never held against Share/Export.
+  const warnings = $derived(problemWarnings(props));
   // What a student sees first (the default seed), so the author can sanity-check the formula.
   const preview = $derived(instantiate(props, scope, DEFAULT_SEED));
   const previewText = $derived(
@@ -164,6 +167,13 @@
 
   {#if previewText}
     <p class="problem-preview">First draw: {previewText}</p>
+  {/if}
+  {#if warnings.length > 0}
+    <ul class="problem-warnings">
+      {#each warnings as msg, i (i)}
+        <li>{msg}</li>
+      {/each}
+    </ul>
   {/if}
   {#if issues.length > 0}
     <ul class="problem-issues">
@@ -311,10 +321,15 @@
     font-family: ui-monospace, monospace;
   }
 
-  .problem-issues {
+  .problem-issues,
+  .problem-warnings {
     margin: 0;
     padding-left: 18px;
     font-size: 12px;
     color: #f87171;
+  }
+
+  .problem-warnings {
+    color: #d97706;
   }
 </style>
