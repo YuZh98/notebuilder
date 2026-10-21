@@ -493,8 +493,12 @@
 
   function editCardInFactory(card: Card) {
     const ct = card.typeId ? cardTypes.find((t) => t.id === card.typeId) : null;
-    // structuredClone chokes on the $state proxy, so snapshot before capturing a typeless card.
-    addBench(typeToBench(ct ?? cardToType($state.snapshot(card) as Card, 'Untitled')));
+    // structuredClone chokes on $state proxies, so snapshot both branches at the boundary.
+    addBench(
+      typeToBench(
+        ct ? ($state.snapshot(ct) as CardType) : cardToType($state.snapshot(card) as Card, 'Untitled'),
+      ),
+    );
     setPlace('factory');
   }
 

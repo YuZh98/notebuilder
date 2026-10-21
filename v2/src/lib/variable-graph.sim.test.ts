@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { findGraphIssues, resolveGraph, type GraphDecl, type GraphNode, type Scope } from './variable-graph';
 import { buildCardScope } from './card-scope';

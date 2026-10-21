@@ -5,7 +5,7 @@ import App from '../../App.svelte';
 import { mode } from '../stores/mode';
 import { place } from '../stores/place';
 import { clearHistory, undo, canUndo } from '../history.svelte';
-import { hydrateFactory } from '../bench.svelte';
+import { factory, hydrateFactory } from '../bench.svelte';
 
 beforeEach(() => {
   vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -22,60 +22,80 @@ afterEach(() => {
 });
 
 const cardCount = (c: HTMLElement) => c.querySelectorAll('[data-card]').length;
-const sectionCount = (c: HTMLElement) => c.querySelectorAll('.room[data-section]').length;
+
+const stateShot = (c: HTMLElement) =>
+  [...c.querySelectorAll<HTMLElement>('.room[data-section]')].map((room) => ({
+    id: room.getAttribute('data-section'),
+    name: room.querySelector<HTMLInputElement>('input.section-name')?.value ?? '',
+    cards: [...room.querySelectorAll<HTMLElement>('.furn[data-card]')].map((f) => ({
+      id: f.getAttribute('data-card'),
+      body: [...f.querySelectorAll('.slot')].map((s) => s.textContent?.trim() ?? '').join('|'),
+    })),
+  }));
 
 describe('undo coverage — discrete author mutations', () => {
-  it('toolbar undo and Cmd+Z produce identical state', async () => {
+  it('toolbar undo and Cmd+Z land on the same state, not just the same count', async () => {
     const { container } = render(App);
     await tick();
-    const before = cardCount(container);
+    const before = stateShot(container);
     // Delete a card to create an undo step
     const del = container.querySelector<HTMLButtonElement>('button[title="Delete card"]')!;
     await fireEvent.click(del);
     await tick();
-    expect(cardCount(container)).toBe(before - 1);
+    expect(stateShot(container)).not.toEqual(before);
     // Undo via toolbar button
     const undoBtn = container.querySelector<HTMLButtonElement>('button[title="Undo"]')!;
     expect(undoBtn.disabled).toBe(false);
     await fireEvent.click(undoBtn);
     await tick();
-    expect(cardCount(container)).toBe(before);
+    const viaToolbar = stateShot(container);
+    expect(viaToolbar).toEqual(before);
     // Delete again, this time undo via Cmd+Z
     const del2 = container.querySelector<HTMLButtonElement>('button[title="Delete card"]')!;
     await fireEvent.click(del2);
     await tick();
-    expect(cardCount(container)).toBe(before - 1);
+    expect(stateShot(container)).not.toEqual(before);
     await fireEvent.keyDown(container, { key: 'z', metaKey: true });
     await tick();
-    expect(cardCount(container)).toBe(before);
+    expect(stateShot(container)).toEqual(viaToolbar);
   });
 
-  it('delete a card via the ✕ button, then undo restores it', async () => {
+  it('delete a card via the ✕ button, then undo restores it where it was', async () => {
     const { container } = render(App);
     await tick();
-    const before = cardCount(container);
-    expect(before).toBeGreaterThan(0);
-    const del = container.querySelector<HTMLButtonElement>('button[title="Delete card"]')!;
-    await fireEvent.click(del);
+    const room = container.querySelector<HTMLElement>('.room[data-section]')!;
+    const cardsOf = () =>
+      [...room.querySelectorAll<HTMLElement>('.furn[data-card]')].map((f) => f.getAttribute('data-card'));
+    const doomed = room.querySelector<HTMLElement>('.furn[data-card]')!;
+    const id = doomed.getAttribute('data-card')!;
+    const body = doomed.querySelector('.slot')!.textContent!.trim();
+    const idsBefore = cardsOf();
+    await fireEvent.click(doomed.querySelector<HTMLButtonElement>('button[title="Delete card"]')!);
     await tick();
-    expect(cardCount(container)).toBe(before - 1);
+    expect(container.querySelector(`[data-card="${id}"]`)).toBeNull();
     expect(canUndo()).toBe(true);
     undo();
     await tick();
-    expect(cardCount(container)).toBe(before);
+    const back = container.querySelector<HTMLElement>(`.furn[data-card="${id}"]`)!;
+    expect(back, 'the deleted card must come back').not.toBeNull();
+    expect(back.querySelector('.slot')!.textContent!.trim()).toBe(body);
+    expect(cardsOf(), 'and in its old position').toEqual(idsBefore);
   });
 
-  it('add a section, then undo removes it (single step)', async () => {
+  it('add a section, then undo removes that section (single step)', async () => {
     const { container } = render(App);
     await tick();
-    const before = sectionCount(container);
+    const before = stateShot(container);
     const add = container.querySelector<HTMLButtonElement>('button.add-section')!;
     await fireEvent.click(add);
     await tick();
-    expect(sectionCount(container)).toBe(before + 1);
+    const added = stateShot(container).filter((s) => !before.some((b) => b.id === s.id));
+    expect(added.map((s) => s.name), 'exactly one fresh, named section').toEqual([
+      `Section ${before.length + 1}`,
+    ]);
     undo();
     await tick();
-    expect(sectionCount(container)).toBe(before);
+    expect(stateShot(container)).toEqual(before);
     expect(canUndo()).toBe(false);
   });
 
@@ -97,18 +117,23 @@ describe('undo coverage — discrete author mutations', () => {
     expect(chip2.classList.contains('on')).toBe(false);
   });
 
-  it('coalesces a multi-keystroke tag edit into one undo step', async () => {
+  it('coalesces a multi-keystroke tag edit into one undo step, and undo reverts it', async () => {
     const { container } = render(App);
     await tick();
-    const tags = container.querySelector<HTMLInputElement>('input.tags-input')!;
+    const tagsOf = () => container.querySelector<HTMLInputElement>('.furn[data-card] .tags-input')!;
+    const tags = tagsOf();
+    const original = tags.value;
     tags.focus();
     await fireEvent.input(tags, { target: { value: 'a' } });
     await fireEvent.input(tags, { target: { value: 'ab' } });
     await fireEvent.input(tags, { target: { value: 'abc' } });
+    await fireEvent.change(tags);
     await tick();
+    expect(tagsOf().value, 'the edit must reach the card').toBe('abc');
     expect(canUndo()).toBe(true);
     undo();
     await tick();
+    expect(tagsOf().value).toBe(original);
     expect(canUndo()).toBe(false); // exactly one step
   });
 
@@ -119,9 +144,53 @@ describe('undo coverage — discrete author mutations', () => {
     // The demo flip card exposes a "click to flip" affordance in study mode.
     const fc = container.querySelector<HTMLElement>('.fc');
     expect(fc).not.toBeNull();
+    expect(fc!.classList.contains('flipped')).toBe(false);
     await fireEvent.click(fc!);
     await tick();
+    expect(
+      container.querySelector<HTMLElement>('.fc')!.classList.contains('flipped'),
+      'the card must actually flip',
+    ).toBe(true);
     expect(canUndo()).toBe(false);
+  });
+
+  it('deleting a card type from the Factory inventory is undoable', async () => {
+    const { container } = render(App);
+    place.set('factory');
+    await tick();
+    const chip = container.querySelector<HTMLElement>('.prodchip[data-prod="ct_note"]');
+    expect(chip, 'the Note product is missing from the Inventory').not.toBeNull();
+    const label = chip!.textContent!.trim();
+    clearHistory();
+    // The delete sits behind an async confirm, so the mutation lands a microtask after the click.
+    await fireEvent.click(chip!.parentElement!.querySelector<HTMLButtonElement>('.chipx')!);
+    await tick();
+    await tick();
+    expect(container.querySelector('[data-prod="ct_note"]'), 'the product must go').toBeNull();
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button[title="Undo"]')!);
+    await tick();
+    expect(container.querySelector('[data-prod="ct_note"]')?.textContent?.trim()).toBe(label);
+  });
+
+  it('adding a Factory container is undoable', async () => {
+    const { container } = render(App);
+    place.set('factory');
+    await tick();
+    const benchIds = () => factory.benches.map((b) => b.id);
+    const before = benchIds();
+    const activeBefore = factory.active;
+    expect(before.length, 'the Factory must open on a bench').toBeGreaterThan(0);
+    clearHistory();
+    await fireEvent.click(
+      container.querySelector<HTMLButtonElement>('button[title="Add a new product container"]')!,
+    );
+    await tick();
+    expect(benchIds().length).toBe(before.length + 1);
+    expect(before).not.toContain(factory.active);
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button[title="Undo"]')!);
+    await tick();
+    expect(benchIds()).toEqual(before);
+    expect(factory.active).toBe(activeBefore);
   });
 });
 
@@ -205,11 +274,33 @@ describe('tags panel — one undo step per operation (D)', () => {
   const cardTagsInput = (furn: HTMLElement) =>
     furn.querySelector<HTMLInputElement>('.tags-input')!;
 
+  const tagsOf = (container: HTMLElement, cardId: string) =>
+    container.querySelector<HTMLInputElement>(`.furn[data-card="${cardId}"] .tags-input`)!;
+
+  async function selectCard(container: HTMLElement, cardId: string) {
+    await fireEvent.click(container.querySelector<HTMLElement>(`.furn[data-card="${cardId}"]`)!);
+    await tick();
+  }
+
+  async function clickChip(container: HTMLElement, name: string) {
+    await fireEvent.click(container.querySelector(`.tags-panel [data-tag="${name}"]`)!);
+    await tick();
+  }
+
   /** D26: the add input creates a FREE tag; a chip click applies it to the selection. */
   async function addAndApply(container: HTMLElement, name: string) {
     await addTag(container, name);
-    await fireEvent.click(container.querySelector(`.tags-panel [data-tag="${name}"]`)!);
-    await tick();
+    await clickChip(container, name);
+  }
+
+  /** Put `name` on two demo cards, so an everywhere-op has more than one card to prove itself on. */
+  async function tagTwoCards(container: HTMLElement, name: string) {
+    await selectCard(container, 'card_1');
+    await addAndApply(container, name);
+    await selectCard(container, 'card_2');
+    await clickChip(container, name);
+    expect(tagsOf(container, 'card_1').value).toContain(name);
+    expect(tagsOf(container, 'card_2').value).toContain(name);
   }
 
   it('creating a free tag needs no selection, touches no card, and is one undo step', async () => {
@@ -228,11 +319,10 @@ describe('tags panel — one undo step per operation (D)', () => {
     expect(container.querySelector('.tags-panel [data-tag="algebra"]')).toBeNull();
   });
 
-  it('renaming updates every card and the chip in one undo step', async () => {
+  it('renaming updates every tagged card and the chip in one undo step', async () => {
     const { container } = render(App);
     await tick();
-    let furn = await selectFirstCard(container);
-    await addAndApply(container, 'old');
+    await tagTwoCards(container, 'old');
     clearHistory();
     const rename = container.querySelector<HTMLInputElement>(
       '.tags-panel [data-tag="old"] input',
@@ -240,33 +330,41 @@ describe('tags panel — one undo step per operation (D)', () => {
     rename.value = 'new';
     await fireEvent.change(rename);
     await tick();
-    furn = container.querySelector<HTMLElement>('.furn')!;
     expect(container.querySelector('.tags-panel [data-tag="new"]')).not.toBeNull();
     expect(container.querySelector('.tags-panel [data-tag="old"]')).toBeNull();
-    expect(cardTagsInput(furn).value).toContain('new');
+    for (const id of ['card_1', 'card_2']) {
+      expect(tagsOf(container, id).value).toContain('new');
+      expect(tagsOf(container, id).value).not.toContain('old');
+    }
     expect(canUndo()).toBe(true);
     undo();
     await tick();
     expect(canUndo(), 'rename must be exactly one undo entry').toBe(false);
-    expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).toContain('old');
+    for (const id of ['card_1', 'card_2']) {
+      expect(tagsOf(container, id).value).toContain('old');
+      expect(tagsOf(container, id).value).not.toContain('new');
+    }
   });
 
-  it('deleting a tag strips it everywhere behind a confirm, one undo step', async () => {
+  it('deleting a tag strips it from every card behind a confirm, one undo step', async () => {
     const { container } = render(App);
     await tick();
-    const furn = await selectFirstCard(container);
-    await addAndApply(container, 'gone');
+    await tagTwoCards(container, 'gone');
     clearHistory();
     await fireEvent.click(container.querySelector('.tags-panel [data-tag="gone"] .tagx')!);
     await tick();
     expect(window.confirm).toHaveBeenCalled();
     expect(container.querySelector('.tags-panel [data-tag="gone"]')).toBeNull();
-    expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).not.toContain('gone');
+    for (const id of ['card_1', 'card_2']) {
+      expect(tagsOf(container, id).value).not.toContain('gone');
+    }
     expect(canUndo()).toBe(true);
     undo();
     await tick();
     expect(canUndo(), 'delete must be exactly one undo entry').toBe(false);
-    expect(cardTagsInput(container.querySelector<HTMLElement>('.furn')!).value).toContain('gone');
+    for (const id of ['card_1', 'card_2']) {
+      expect(tagsOf(container, id).value).toContain('gone');
+    }
   });
 
   it('clicking a chip toggles the tag on the selected card; the free chip survives removal', async () => {

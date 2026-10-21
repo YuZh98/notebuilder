@@ -2,20 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { startHeaderDrag, dropIndex, _setElementFromPoint } from './header-drag';
 import * as history from './gesture-history';
 import { applyZoom } from '../zoom';
-
-// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
-function pev(type: string, x: number, y = 0, init: MouseEventInit = {}): PointerEvent {
-  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, ...init }) as PointerEvent;
-}
-
-function stubRect(el: Element, r: { left?: number; top?: number; width?: number; height?: number }) {
-  const left = r.left ?? 0;
-  const top = r.top ?? 0;
-  const width = r.width ?? 0;
-  const height = r.height ?? 0;
-  (el as HTMLElement).getBoundingClientRect = () =>
-    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
-}
+import { pev, stubRect } from '../test-utils';
 
 // A matrix with `n` column headers laid out horizontally, each 100px wide, and a grip in header 0.
 function colSetup(n = 3) {

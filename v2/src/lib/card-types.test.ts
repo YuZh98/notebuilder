@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES, templateSlot, stampSlot, LEGACY_SEEDED_BUILTINS, unseededBuiltins, parseSeededLedger } from './card-types';
 import type { CardType } from './card-types';
@@ -257,6 +258,14 @@ describe('unseededBuiltins', () => {
   it('legacy ledger covers no ids that are not real builtins', () => {
     const ids = new Set(builtinCardTypes.map((b) => b.id));
     for (const id of LEGACY_SEEDED_BUILTINS) expect(ids.has(id)).toBe(true);
+  });
+  // The ledger is history: it names what shipped before the ledger existed. Adding a new
+  // builtin to it would make old DBs skip seeding that builtin forever.
+  it('legacy ledger is exactly the pre-ledger builtin set', () => {
+    expect([...LEGACY_SEEDED_BUILTINS]).toEqual([
+      'ct_flashcard', 'ct_quiz', 'ct_note', 'ct_tracker', 'ct_mastery',
+      'ct_sliderlab', 'ct_gaussian', 'ct_payoff', 'ct_compound', 'ct_quizcard',
+    ]);
   });
 });
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { isCardDone, hasCompletableSlot, CARD_STATE_KEY } from './card-done';
 import type { Slot } from './types';

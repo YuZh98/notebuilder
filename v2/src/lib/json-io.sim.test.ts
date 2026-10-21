@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from './json-io';
 import { getSlot } from './slots/registry';
@@ -190,11 +191,16 @@ it('generates every structural feature the round-trip properties rely on', () =>
           if (card.tags?.length) seen.add('tags-nonempty');
           if (card.archived) seen.add('archived');
           if (card.accent !== undefined) seen.add('accent');
-          if (card.w !== undefined) seen.add('card-w');
-          if (card.typeId !== undefined) seen.add('typeId');
+          seen.add(card.w !== undefined ? 'card-w' : 'card-w-absent');
+          seen.add(card.typeId !== undefined ? 'typeId' : 'typeId-absent');
           for (const slot of [...card.slots, ...(card.back ?? [])]) {
             seen.add(`slot:${slot.type}`);
             if (slot.verbs?.reveal) seen.add('reveal');
+            if (slot.verbs?.glow !== undefined) seen.add('glow');
+            if (slot.verbs?.emphasis !== undefined) seen.add('emphasis');
+            if (slot.verbs?.hint) seen.add('hint');
+            if (slot.verbs?.sequential !== undefined) seen.add('sequential');
+            if (slot.verbs?.locked !== undefined) seen.add('verb-locked');
             if (slot.fuse !== undefined) seen.add('fuse');
             if (slot.fuseW !== undefined) seen.add('fuseW');
           }
@@ -205,8 +211,9 @@ it('generates every structural feature the round-trip properties rely on', () =>
   const required = [
     'cats-absent', 'cats-present', 'nb-subtitle', 'nb-width',
     'divider', 'folded', 'services', 'svcOrder', 'svcW', 'locked',
-    'flip', 'bare', 'back', 'tags-empty', 'tags-nonempty', 'archived', 'accent', 'card-w', 'typeId',
-    'reveal', 'fuse', 'fuseW',
+    'flip', 'bare', 'back', 'tags-empty', 'tags-nonempty', 'archived', 'accent',
+    'card-w', 'card-w-absent', 'typeId', 'typeId-absent',
+    'reveal', 'glow', 'emphasis', 'hint', 'sequential', 'verb-locked', 'fuse', 'fuseW',
     ...SLOT_TYPES.map((t) => `slot:${t}`),
   ];
   expect(required.filter((k) => !seen.has(k))).toEqual([]);

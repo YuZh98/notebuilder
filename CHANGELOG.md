@@ -29,12 +29,20 @@ Staged for the next release once a desktop verification pass signs it off.
 - **Styled DMG** — the disk image opens as a proper installer window with a
   drag-to-Applications layout; `docs/install-macos.md` documents the build.
 - **Simulation test tier** — seeded generative suites cover variable-graph resolution,
-  interchange round-trips, progress semantics, and expression evaluation (1487 tests total).
+  interchange round-trips, progress semantics, and expression evaluation.
 - **Card type binding survives export** — a card stamped from a Factory type now carries its
   `typeId` through JSON export and import, so the coverage matrix keeps its product dimension on
   a round trip. A recipient without that type reads the card as untyped.
 - **Design tokens** — spacing, type, radius and motion tokens with a written governance rule;
   components consolidated onto them with zero visual change.
+- **Fixed: card widths survive a relaunch** — a resized card's width was dropped by the database
+  mapping, so it silently snapped back to full width the next time the notebook loaded.
+- **Fixed: Edit-in-Factory on typed cards** — the 🏭 action on a card stamped from a card type
+  silently did nothing instead of forking the type into a Factory bench.
+- **Hardened test suite** — the SQLite persistence layer, every example notebook, the Iron
+  Butterfly payoff math, undo restoration of card types and Factory benches, the shortcut
+  overlay, Reader authoring after Remix, and all eleven slot components are now under test;
+  the suite (1735 tests across 119 files) runs in ~15 seconds.
 
 ## [0.2.0] — 2026-07-23
 

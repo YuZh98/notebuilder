@@ -194,3 +194,36 @@ describe('Card notes are opt-in per section', () => {
     expect(deleted).toEqual(['ann1']);
   });
 });
+
+describe('edit a typed card in the Factory (🏭)', () => {
+  // Regression: a live $state CardType proxy reaching typeToBench's structuredClone throws.
+  it('forks the card type into a bench and moves to the Factory', async () => {
+    const { container } = render(App);
+
+    const before = new Set(
+      Array.from(container.querySelectorAll('[data-card]')).map((el) =>
+        el.getAttribute('data-card'),
+      ),
+    );
+    const addNote = Array.from(container.querySelectorAll<HTMLButtonElement>('button.add-card')).find(
+      (b) => b.textContent?.trim() === '+ note',
+    );
+    expect(addNote, 'no + note control').not.toBeUndefined();
+    await fireEvent.click(addNote!);
+
+    const stamped = Array.from(container.querySelectorAll<HTMLElement>('[data-card]')).find(
+      (el) => !before.has(el.getAttribute('data-card')),
+    );
+    expect(stamped, 'stamping + note added no card').not.toBeUndefined();
+    await fireEvent.click(stamped!);
+
+    const toFactory = container.querySelector<HTMLButtonElement>('[title="Edit in Factory"]');
+    expect(toFactory, 'no Edit in Factory control for the typed card').not.toBeNull();
+    await fireEvent.click(toFactory!);
+
+    expect(get(place)).toBe('factory');
+    const forked = factory.benches.find((b) => b.id === factory.active);
+    expect(forked?.src?.id).toBe('ct_note');
+    expect(forked?.verbs).toEqual({ bare: true });
+  });
+});

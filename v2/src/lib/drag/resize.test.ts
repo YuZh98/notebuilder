@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { startEdgeResize } from './resize';
-
-// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
-function pev(type: string, x: number, y = 0, init: MouseEventInit = {}): PointerEvent {
-  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, ...init }) as PointerEvent;
-}
+import { pev } from '../test-utils';
 
 function begin(x = 100, y = 50) {
   const onDelta = vi.fn();

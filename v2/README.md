@@ -35,7 +35,6 @@ literal. A literal that genuinely cannot be a token must carry a trailing
 
 - Architecture map: Part B of [`../docs/CODE-MAP.md`](../docs/CODE-MAP.md) — source layout, data
   shapes, the `SlotType` contract, drag engine, invariants.
-- Product spec: [`../docs/spec/v2-spec.md`](../docs/spec/v2-spec.md).
 - Interchange format: versioned JSON (`src/lib/json-io.ts`); a shared notebook is a self-contained
   Reader `.html` with the same payload embedded.
 

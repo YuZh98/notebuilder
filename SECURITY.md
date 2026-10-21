@@ -7,7 +7,8 @@ Please do not file public issues for vulnerabilities. We aim to acknowledge with
 
 ## Threat model
 
-NoteBuilder is local-first: there is no server, no account, and no network call at runtime. The
+NoteBuilder is local-first: there is no server and no account. The only runtime network requests
+are theme webfonts and remote images a notebook may embed. The
 desktop app (`v2/`) persists to a local SQLite database; the legacy web prototype (repository root)
 persists to `localStorage`. The main attack surface in both is **rendering untrusted notebook
 content** — an imported JSON file or a shared Reader `.html` may contain attacker-authored text and
@@ -21,7 +22,8 @@ Mitigations in the code:
 - **Escape-first rendering.** All user text is HTML-escaped before markdown/KaTeX markup is applied
   and before it reaches any `{@html}` / `innerHTML` sink (`v2/src/lib/markdown.ts`).
 - **No remote code.** KaTeX is bundled at build time; rendered markdown links carry
-  `rel="noopener noreferrer"`, and notebook content cannot pull in remote assets.
+  `rel="noopener noreferrer"`. Notebook images may load from remote URLs, but nothing remote
+  executes.
 - **Parameterized SQL** for all database access; ids are sanitized on import.
 - **Slim export.** A shared file embeds only the exported notebook — never other notebooks, the
   card-type library, or the reader's local state.

@@ -1,7 +1,7 @@
 # NoteBuilder
 
 [![CI](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-1367-brightgreen)](v2/)
+[![Tests](https://img.shields.io/badge/tests-1735-brightgreen)](v2/)
 [![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](v2/package.json)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](v2/src-tauri/)
 [![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)](v2/)
@@ -107,7 +107,7 @@ SQLite keeps its own `notebuilder.db-wal` and `notebuilder.db-shm` companion fil
 
 ## Built to last
 
-1367 tests across 91 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
+1735 tests across 119 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
 
 The long-form guides:
 
@@ -132,13 +132,13 @@ v2/src-tauri/          Rust shell: SQLite (migrations in lib.rs), native print, 
 - **Security posture.** No `eval` on user content; formulas run through a small own-keys-only expression evaluator. All user text is escaped before markdown or KaTeX markup is applied. Parameterized SQL throughout. See [SECURITY.md](SECURITY.md).
 - **Guard tests.** Source-level sweep tests lock invariants: no props mutation in Edit components, no native drag outside the Factory inventory chips, Reader/App prop parity. Regressions fail loudly.
 
-Architecture map: [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Product spec: [`docs/spec/v2-spec.md`](docs/spec/v2-spec.md). Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Architecture map: [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 </details>
 
 ## The original prototype
 
-The repository root holds the first NoteBuilder: a single-file web app (vanilla JS, localStorage, the whole product in one `index.html`) that proved the slot/card model and the one-file sharing story. Its Playwright suite still gates CI, but it is legacy. New work happens in [`v2/`](v2/).
+The repository root holds the first NoteBuilder: a single-file web app (vanilla JS, localStorage, the whole product in one `index.html`) that proved the slot/card model and the one-file sharing story. Its Playwright suite still gates CI whenever the root app changes, but it is legacy. New work happens in [`v2/`](v2/).
 
 ## License
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { visibleSections, visibleSectionCards, shuffledCards, type SectionView } from './visible-cards';
 import type { Card, Notebook, Section } from './types';

@@ -3,21 +3,7 @@ import { startPointerDrag, isDragging, flipGrid, _setElementFromPoint } from './
 import type { DragSource, EngineCallbacks } from './engine';
 import { dustState } from './dust.svelte';
 import { applyZoom } from '../zoom';
-
-// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
-function pev(type: string, x: number, y = 0, init: MouseEventInit = {}): PointerEvent {
-  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, ...init }) as PointerEvent;
-}
-
-// jsdom has no layout: rect-dependent gesture math reads getBoundingClientRect, stubbed here.
-function stubRect(el: Element, r: { left?: number; top?: number; width?: number; height?: number }) {
-  const left = r.left ?? 0;
-  const top = r.top ?? 0;
-  const width = r.width ?? 0;
-  const height = r.height ?? 0;
-  (el as HTMLElement).getBoundingClientRect = () =>
-    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
-}
+import { pev, stubRect } from '../test-utils';
 
 function mkFurn(id: string): HTMLElement {
   const el = document.createElement('div');

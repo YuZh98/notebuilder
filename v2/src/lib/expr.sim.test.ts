@@ -1,5 +1,6 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { evalExpr } from './expr';
+import { evalExpr, FN_ARITY, OP_NAMES } from './expr';
 import { makeRng, SEEDS, type Rng } from './sim-rng';
 
 /** Generated expressions per property, per seed. */
@@ -26,6 +27,7 @@ const K: Record<string, Value> = { pi: Math.PI, e: Math.E, true: true, false: fa
 
 const FN1 = ['sin', 'cos', 'tan', 'exp', 'log', 'sqrt', 'abs', 'sign', 'round', 'floor', 'ceil'];
 const FN2 = ['min', 'max', 'pow'];
+const FN3 = ['clamp'];
 const BIN = ['+', '-', '*', '/', '%', '//', '^', '==', '!=', '<', '<=', '>', '>='];
 const LOGIC = ['&&', '||'];
 const LITERALS = [0, 1, 2, 3, 10, 0.5, 1.5, 2.25];
@@ -146,7 +148,7 @@ function genNode(r: Rng, depth: number): Node {
     case 3:
       return {
         k: 'call',
-        f: 'clamp',
+        f: FN3[0],
         a: [genNode(r, depth - 1), genNode(r, depth - 1), genNode(r, depth - 1)],
       };
     case 4:
@@ -239,4 +241,15 @@ describe.each(SEEDS)('evalExpr simulation (seed %i)', (seed) => {
       expect(evalExpr(`${a} mod ${b}`, {}), `seed ${seed} case ${c}`).toBe(a % b);
     }
   });
+});
+// The pools hand-mirror expr.ts's tables: without this, a builtin added there would go
+// ungenerated and every property above would still pass.
+it('the generator pools cover expr.ts’s call and operator tables', () => {
+  const byArity = (n: number): string[] =>
+    Object.keys(FN_ARITY).filter((f) => FN_ARITY[f] === n).sort();
+  expect([...FN1, ...FN2, ...FN3].sort()).toEqual(Object.keys(FN_ARITY).sort());
+  expect([...FN1].sort()).toEqual(byArity(1));
+  expect([...FN2].sort()).toEqual(byArity(2));
+  expect([...FN3].sort()).toEqual(byArity(3));
+  expect([...BIN, ...LOGIC].sort()).toEqual([...OP_NAMES].sort());
 });

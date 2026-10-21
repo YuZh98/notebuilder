@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
 import { session, sessionView, shuffleSection, clearSectionView, resetSession } from './session.svelte';
 import type { Section, Card } from './types';

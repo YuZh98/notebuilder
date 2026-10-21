@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { hasCompletableSlot, isCardDone } from './card-done';
 import { chapterOf } from './notebook-ops';

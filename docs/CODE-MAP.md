@@ -218,12 +218,13 @@ import time.
 v2/
   src/
     main.ts              Svelte mount
-    App.svelte           Root component (32KB): mode/place routing, notebook CRUD, effects
+    App.svelte           Root component (~48KB): mode/place routing, notebook CRUD, effects
     app.css              Global stylesheet
     lib/
       types.ts           Core type definitions (Slot, Card, Section, Notebook — incl. Notebook.cats)
       card-types.ts      CardType, stampCard, placeType, builtinCardTypes
       bench.svelte.ts    Factory workbench state (Svelte 5 $state rune)
+      seal.ts            Seal-modal draft: bench → CardType metadata capture
       session.svelte.ts  Study session state (shuffle, search, archive toggle, collapse, live values)
       notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, duplicateCard, etc.
       tags.ts            The ONE tag write path: apply/remove/rename/delete/create/reorder + cats upkeep
@@ -246,18 +247,25 @@ v2/
       uid.ts             ID generator
       debounce.ts        Utility
       annotations.ts     Reader annotations (local-only)
+      presentation.ts    Volatile presentation keys stripped from persisted reader state
+      demo.ts            First-run seed notebook
       history.svelte.ts  Undo/redo stacks: pushHistory/pushSnapshot/beginEdit (focus-coalesced)
       history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
       keyboard.ts        Pure key dispatcher: the v1 shortcut map as a decision over a KeyCtx
       study-keys.ts      Study cursor: focus order, stepping, per-key reader-state effect
       card-reveal.ts     Scroll a just-placed card into view and flash the study ring on it
       modal-inert.ts     `inert` on the shell behind a modal overlay, so Tab cannot reach it
+      zoom.ts            App zoom factor (Cmd/Ctrl +/-/0) + viewport↔zoom-space conversion
+      print.ts           Print: native print_page on desktop, window.print() in browser
       visible-cards.ts   The one render order: sections/cards the Stage shows (and the cursor walks)
       shell.ts           Shell/container styling logic
       slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, stateLayer, render*
       progress.ts        Notebook/section/chapter progress computation
       card-done.ts       Per-card completion logic
       var-colors.ts      Variable key → color assignment
+      sim-notebook.ts    Seeded notebook generator + canonical form (sim test tier)
+      sim-rng.ts         Deterministic RNG + seed sweep for the sim suites
+      test-utils.ts      Shared test scaffolding (pev, stubRect)
 
       slots/             Per-slot-type modules (11 types):
         registry.ts      Slot type registry (registerSlot / getSlot / allSlots)
@@ -400,8 +408,8 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 3. **Coverage matrix** (`coverage-matrix.ts`) — same 3 axes as v1 (section/product/tag). Appears when
    ≥2 axes have ≥2 values.
 
-4. **Service bar** (`services.ts` + `service-ops.ts`) — 6 services (pin, shuffle, flipAll, reset,
-   search, archive). Features decorate cards; actions fire once. Custom order via `svcOrder`.
+4. **Service bar** (`services.ts` + `service-ops.ts`) — 7 services (pin, shuffle, flipAll, reset,
+   search, archive, notes). Features decorate cards; actions fire once. Custom order via `svcOrder`.
 
 5. **JSON interchange** (`json-io.ts`) — versioned export/import with full validation including
    variable-graph cycle detection. Static analysis catches broken variable references before notebooks
@@ -478,11 +486,10 @@ Every slot type implements `SlotType<P>` (`slot-contract.ts`):
 docs/
   CODE-MAP.md           this file
   adr/                  architecture decision records
-  spec/v2-spec.md       v2 product spec
-  research/             market analysis, v1 feature inventory
-  examples/             sample JSON notebook
+  spec/                 v2 product spec (local, untracked)
+  research/             market analysis, v1 feature inventory (local, untracked)
+  examples/             example notebooks
   DEBT.md               debt ledger (local, untracked)
-  superpowers/plans/    task plans (local, untracked)
 
 scripts/
   build.mjs             v1 concatenation build
@@ -492,10 +499,11 @@ scratch/
   p3-gate/ … p6-gate/  visual QA screenshots (v1 vs v2 side-by-side)
   HANDOFF.md            developer handoff notes
 
-tests/                  v1 Playwright BDD suite (~65 specs)
+tests/                  v1 Playwright BDD suite (66 specs, 240 tests)
 
 .github/
-  workflows/ci.yml      CI: build + test on push/PR
+  workflows/ci.yml      CI: v2 check/test/build (path-filtered to v2/**)
+  workflows/v1.yml      CI: v1 build/lint/test (path-filtered to root app paths)
   ISSUE_TEMPLATE/       bug/feature templates
   pull_request_template.md
 ```
