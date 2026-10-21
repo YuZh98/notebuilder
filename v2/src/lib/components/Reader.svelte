@@ -213,10 +213,10 @@
     }
   });
 
-  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
-  // behind it and Enter activates whatever it lands on.
+  // The overlays are modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind them and Enter activates whatever it lands on.
   $effect(() => {
-    setAppInert(helpOpen);
+    setAppInert(helpOpen || resultsOpen);
     return () => setAppInert(false);
   });
 
@@ -268,6 +268,9 @@
   // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
+    // The results dialog owns the keyboard (it closes itself on Escape): keys pressed in it bubble
+    // here, and must not answer, flip or move the card the cursor was on behind it.
+    if (resultsOpen) return;
     const el = e.target as HTMLElement | null;
     const inField = isFieldTarget(el);
     const ctx: KeyCtx = {
