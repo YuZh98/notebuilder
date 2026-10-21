@@ -49,20 +49,32 @@ describe('importNotebook — lone surrogates', () => {
   });
 });
 
-describe('notebookToRows — names are stored well-formed', () => {
+// Names and ids are bound by db.ts, which makes every string argument well-formed (db-sql.test.ts).
+describe('notebookToRows — the JSON blobs are written well-formed', () => {
   const nb: Notebook = {
     id: 'nb_x',
     name: 'Book \uD83E',
+    subtitle: 'sub \uD83E',
     createdAt: 'c',
     updatedAt: 'u',
     cats: [],
-    sections: [{ id: 's1', notebookId: 'nb_x', name: 'Sec \uDD14', position: 0, cards: [] }],
+    sections: [
+      {
+        id: 's1',
+        notebookId: 'nb_x',
+        name: 'Sec \uDD14',
+        title: 'T \uD800',
+        position: 0,
+        cards: [{ id: 'c1', sectionId: 's1', position: 0, slots: [{ id: 'x', type: 'text', props: { text: 'body \uD83E 🧠' } }] }],
+      },
+    ],
   };
 
-  it('replaces lone surrogates in the notebook and section names', () => {
+  it('replaces lone surrogates inside the notebook, section and card data', () => {
     const rows = notebookToRows(nb);
-    expect(rows.notebook.name).toBe('Book �');
-    expect(rows.sections[0].name).toBe('Sec �');
+    expect(JSON.parse(rows.notebook.data).subtitle).toBe('sub �');
+    expect(JSON.parse(rows.sections[0].data).title).toBe('T �');
+    expect(JSON.parse(rows.cards[0].data).slots[0].props.text).toBe('body � 🧠');
   });
 
   it('does not mutate the notebook', () => {

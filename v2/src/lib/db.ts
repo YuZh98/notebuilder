@@ -6,6 +6,7 @@ import type { NotebookRow, SectionRow, CardRow } from './db-map';
 import { stripPresentation } from './presentation';
 import { contentHash, pruneIds, type SnapshotMeta, type SnapshotReason } from './snapshots';
 import { uid } from './uid';
+import { wellFormed, wellFormedJson } from './well-formed';
 
 /** True only inside the Tauri webview; false in a plain browser, tests, or SSR — so callers can skip DB I/O. */
 export function isTauri(): boolean {
@@ -111,11 +112,25 @@ export const SAVE_CARD_TYPE_SQL = `INSERT INTO card_types (id, name, data) VALUE
 // Handle, queue, error hook
 // ---------------------------------------------------------------------------------------------
 
+/** The part of the plugin handle a query uses. */
+type Conn = Pick<Database, 'execute' | 'select'>;
+
 // Single lazily-opened handle to the migration-managed SQLite file (see src-tauri/src/lib.rs).
 let _db: Database | null = null;
-async function db(): Promise<Database> {
+
+/**
+ * The handle, with every string argument made well-formed on its way out: the IPC refuses a
+ * lone surrogate, so such a write failed on every retry. JSON arguments are built with
+ * wellFormedJson, so json_extract never decodes one into invalid UTF-8 either.
+ */
+async function db(): Promise<Conn> {
   if (!_db) _db = await Database.load(DB_URL);
-  return _db;
+  const d = _db;
+  const args = (values?: unknown[]) => values?.map((v) => (typeof v === 'string' ? wellFormed(v) : v));
+  return {
+    execute: (query, values) => d.execute(query, args(values)),
+    select: <T>(query: string, values?: unknown[]) => d.select<T>(query, args(values)),
+  };
 }
 
 /** Drop the cached handle and close its pool — closing rolls back a transaction a failed batch left open. */
@@ -154,7 +169,7 @@ export function dbIdle(): Promise<void> {
 }
 
 /** Reads reject on failure (the caller decides what that means); the handle is reset first. */
-function read<T>(query: (d: Database) => Promise<T>): Promise<T> {
+function read<T>(query: (d: Conn) => Promise<T>): Promise<T> {
   return serial(async () => {
     try {
       return await query(await db());
@@ -168,7 +183,7 @@ function read<T>(query: (d: Database) => Promise<T>): Promise<T> {
 type QueuedWrite = {
   key: string;
   what: string;
-  job: (d: Database) => Promise<unknown>;
+  job: (d: Conn) => Promise<unknown>;
   promise: Promise<boolean>;
   /** Set when an earlier failing write already ran this one as its retry. */
   result?: boolean;
@@ -177,7 +192,7 @@ type QueuedWrite = {
 // Writes waiting their turn, by key. A newer write for the same key replaces the job (latest wins).
 const queued = new Map<string, QueuedWrite>();
 
-function write(key: string, what: string, job: (d: Database) => Promise<unknown>): Promise<boolean> {
+function write(key: string, what: string, job: (d: Conn) => Promise<unknown>): Promise<boolean> {
   const pending = queued.get(key);
   if (pending) {
     pending.job = job;
@@ -248,8 +263,8 @@ export function saveNotebook(nb: Notebook): Promise<boolean> {
     notebook.created_at,
     notebook.updated_at,
     notebook.data,
-    JSON.stringify(sections.map((s) => ({ id: s.id, name: s.name, position: s.position, data: s.data }))),
-    JSON.stringify(cards),
+    wellFormedJson(sections.map((s) => ({ id: s.id, name: s.name, position: s.position, data: s.data }))),
+    wellFormedJson(cards),
   ];
   return unlessDeleted(nb.id, () =>
     write(`notebook:${nb.id}`, `notebook “${nb.name}”`, async (d) => {
@@ -314,7 +329,7 @@ export function listNotebooks(): Promise<NotebookRow[]> {
 export function saveSnapshot(nb: Notebook, reason: SnapshotReason, at: number = Date.now()): Promise<boolean> {
   const id = `${uid('snap')}_${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = new Date(at).toISOString();
-  const data = JSON.stringify(nb);
+  const data = wellFormedJson(nb);
   const hash = contentHash(nb);
   // A unique key: versions never coalesce (a before-restore must not be replaced by a manual one).
   return unlessDeleted(nb.id, () =>
@@ -323,7 +338,7 @@ export function saveSnapshot(nb: Notebook, reason: SnapshotReason, at: number = 
       const stored = await d.select<{ id: string; created_at: string; reason: string }[]>(SNAPSHOT_STAMPS_SQL, [nb.id]);
       const stamps = stored.filter((s) => s.id !== id).map((s) => ({ id: s.id, createdAt: s.created_at, reason: s.reason }));
       const prune = pruneIds([...stamps, { id, createdAt, reason }], at).filter((x) => x !== id);
-      await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, JSON.stringify(prune)]);
+      await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, wellFormedJson(prune)]);
     }),
   );
 }
@@ -373,10 +388,10 @@ export function saveReaderState(map: ReaderStateMap): Promise<boolean> {
     for (const slotId of Object.keys(slots)) {
       const value = slots[slotId];
       if (value === undefined) continue;
-      rows.push({ card_id: cardId, slot_id: slotId, data: JSON.stringify(value) });
+      rows.push({ card_id: cardId, slot_id: slotId, data: wellFormedJson(value) });
     }
   }
-  const json = JSON.stringify(rows);
+  const json = wellFormedJson(rows);
   return write('reader_state', 'your study progress', (d) => d.execute(SAVE_READER_STATE_SQL, [json]));
 }
 
@@ -425,7 +440,7 @@ export function setPreference(key: string, value: string): Promise<boolean> {
 
 export function saveCardType(ct: CardType): Promise<boolean> {
   const { id, name, ...data } = ct;
-  const json = JSON.stringify(data);
+  const json = wellFormedJson(data);
   // Same key as deleteCardType, so save/delete of one type coalesce to the latest intent.
   return write(`card_type:${id}`, `card type “${name}”`, (d) => d.execute(SAVE_CARD_TYPE_SQL, [id, name, json]));
 }
