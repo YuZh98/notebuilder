@@ -23,6 +23,18 @@ export type EditComponent<P extends SlotProps> = Component<{
   onState?: (next: Record<string, unknown>) => void;
 }>;
 
+/**
+ * One graded slot's result for the results export. A slot is ONE question: `answered` and
+ * `correct` are each 0 or 1 (correct only if answered), and results.ts drops any other value
+ * rather than add tries to answers. A slot that can be practised over and over reports its raw
+ * counts as `practice` instead, which the export tallies apart from the questions.
+ */
+export type SlotScore = {
+  correct: number;
+  answered: number;
+  practice?: { correct: number; attempts: number };
+};
+
 /** The contract every slot type must implement */
 export interface SlotType<P extends SlotProps = SlotProps> {
   type: string;
@@ -51,8 +63,8 @@ export interface SlotType<P extends SlotProps = SlotProps> {
 
   /** Progress tracking — only required if completable */
   isDone?(props: P, state: Record<string, unknown>): boolean;
-  /** Graded result for results export; null when the slot has no answer key. */
-  score?(props: P, state: Record<string, unknown> | undefined): { correct: number; answered: number } | null;
+  /** Graded result for results export (see SlotScore); null when the slot has no answer key. */
+  score?(props: P, state: Record<string, unknown> | undefined): SlotScore | null;
 
   /** Validate props, return errors */
   validate?(props: P): string[];

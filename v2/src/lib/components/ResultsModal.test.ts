@@ -61,6 +61,25 @@ describe('ResultsModal', () => {
     expect(text).toContain('Cells');
   });
 
+  it('shows practice tries on their own row, apart from the graded questions', () => {
+    const book = nb();
+    book.sections[0].cards.push({
+      id: 'c3',
+      sectionId: 's1',
+      position: 2,
+      slots: [{ id: 'p3', type: 'problem', props: { prompt: 'x', params: [], answer: '6', tol: 0, need: 1 } }],
+    });
+    const { container } = setup({ notebook: book, readerState: { ...state, c3: { p3: { seed: 1, correct: 2, attempts: 5 } } } });
+    const graded = container.querySelector('[data-results="graded"]')?.textContent ?? '';
+    expect(graded).toContain('2 of 2 answered correct');
+    expect(graded).toContain('3 questions');
+    expect(container.querySelector('[data-results="practice"]')?.textContent).toContain('2 correct in 5 tries');
+  });
+
+  it('has no practice row when nothing was practised', () => {
+    expect(setup().container.querySelector('[data-results="practice"]')).toBeNull();
+  });
+
   it('copies the plain-text summary, including the optional name', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     setClipboard({ writeText });

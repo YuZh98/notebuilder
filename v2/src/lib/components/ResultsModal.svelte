@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { buildResults, formatResultsText, type Results } from '../results';
+  import { buildResults, formatResultsText, practiceLine, type Results } from '../results';
   import { copyText } from '../clipboard';
   import { toast } from '../toast.svelte';
   import type { ReaderStateMap } from '../reader-store';
@@ -28,6 +28,7 @@
 
   const results = $derived(buildResults(notebook, readerState, { docId, student, now: new Date() }));
   const graded = $derived(results.graded);
+  const practised = $derived(practiceLine(results.practice));
 
   // Exports are stamped at the moment of the click, not when the dialog opened.
   const fresh = (): Results => buildResults(notebook, readerState, { docId, student, now: new Date() });
@@ -112,6 +113,12 @@
         {/if}
       </span>
     </div>
+    {#if practised}
+      <div class="results-row">
+        <strong>Practice</strong>
+        <span data-results="practice">{practised}</span>
+      </div>
+    {/if}
 
     {#if results.perSection.length > 0}
       <ul class="results-sections">
