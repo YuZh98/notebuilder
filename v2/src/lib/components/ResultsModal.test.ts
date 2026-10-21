@@ -2,7 +2,14 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ResultsModal from './ResultsModal.svelte';
+import { copyText } from '../clipboard';
 import type { Notebook } from '../types';
+
+// A pass-through spy: the dialog must copy through the shared helper, not a private copy of it.
+vi.mock('../clipboard', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../clipboard')>();
+  return { copyText: vi.fn(actual.copyText) };
+});
 
 function nb(): Notebook {
   return {
@@ -66,6 +73,15 @@ describe('ResultsModal', () => {
     const copied = writeText.mock.calls[0][0] as string;
     expect(copied).toContain('Student: Ada');
     expect(copied).toContain('Quiz: Cells');
+  });
+
+  it('copies through the shared clipboard helper', async () => {
+    setClipboard({ writeText: vi.fn().mockResolvedValue(undefined) });
+    const { container } = setup();
+    await fireEvent.click(container.querySelector('[data-act="copy-results"]') as Element);
+    await tick();
+    expect(vi.mocked(copyText)).toHaveBeenCalledOnce();
+    expect(vi.mocked(copyText).mock.calls[0][0]).toContain('Quiz: Cells');
   });
 
   it('falls back to showing selectable text when the clipboard is unavailable', async () => {

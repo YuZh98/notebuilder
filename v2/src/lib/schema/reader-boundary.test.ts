@@ -1,16 +1,18 @@
 /**
- * The Reader bundle (reader-main.ts → json-io.ts) must not grow by the schema or the AI kit:
- * walk json-io.ts's static import graph over the sources and assert none of them is reached.
+ * The Reader bundle (reader-main.ts → Reader.svelte, json-io.ts, …) must not grow by the schema or
+ * the AI kit: walk the static import graph over the sources and assert none of them is reached.
  */
 import { describe, it, expect } from 'vitest';
 
-const sources = import.meta.glob(['/src/lib/**/*.ts', '/src/lib/**/*.svelte', '!/src/lib/**/*.test.ts'], {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
+const sources = import.meta.glob(
+  ['/src/reader-main.ts', '/src/lib/**/*.ts', '/src/lib/**/*.svelte', '!/src/lib/**/*.test.ts'],
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>;
 
-const FORBIDDEN = /\/(schema\/|ai-prompt|import-hints|slot-catalog|clipboard)/;
+// clipboard.ts is deliberately NOT here. It is a dependency-free copy helper, not part of the kit,
+// and the Reader's results dialog copies with it; banning it only bred a private duplicate in
+// ResultsModal. What keeps it harmless is that it imports nothing — asserted below.
+const FORBIDDEN = /\/(schema\/|ai-prompt|import-hints|slot-catalog)/;
 
 function resolve(from: string, spec: string): string | null {
   if (!spec.startsWith('.')) return null; // packages are not ours to police here
@@ -52,6 +54,19 @@ describe('Reader bundle boundary', () => {
     expect(graph.size).toBeGreaterThan(5); // walked into the slot registry
     const leaks = [...graph].filter((f) => FORBIDDEN.test(f));
     expect(leaks, `json-io.ts now imports ${leaks.join(', ')}; keep it out of the Reader bundle`).toEqual([]);
+  });
+
+  it('the whole Reader, from its entry, never reaches the schema, the AI prompt kit or the import hints', () => {
+    const graph = importGraph('/src/reader-main.ts');
+    expect(graph).toContain('/src/lib/components/Reader.svelte'); // walked into the components
+    expect(graph).toContain('/src/lib/json-io.ts');
+    const leaks = [...graph].filter((f) => FORBIDDEN.test(f));
+    expect(leaks, `the Reader now imports ${leaks.join(', ')}; keep it out of the Reader bundle`).toEqual([]);
+  });
+
+  it('clipboard.ts, which the Reader shares, imports nothing that could drag the kit in', () => {
+    expect(sources['/src/lib/clipboard.ts']).toBeDefined();
+    expect(importGraph('/src/lib/clipboard.ts')).toEqual(new Set(['/src/lib/clipboard.ts']));
   });
 
   it('the walker does see the kit from its real importers (no false negative)', () => {
