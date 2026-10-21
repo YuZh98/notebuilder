@@ -139,6 +139,23 @@ describe('Reader — the open results dialog owns the keyboard', () => {
     expect(flipped(container)).toBe(true);
   });
 
+  it('Escape closes it even when focus has left the dialog, and touches nothing behind it', async () => {
+    const { container } = render(Reader, { props: { notebook: deck(), shared: true } });
+    await tick();
+    await press('j');
+    expect(focused(container)).toBe('q');
+
+    await openResults(container);
+    // Focus can drop to <body> with the dialog still open (the copy fallback selects, then
+    // removes, a hidden textarea); the dialog's own Escape handler then never sees the key.
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+    await press('Escape', document.body);
+
+    expect(dialog()).toBeNull();
+    expect(focused(container)).toBe('q'); // the cursor behind it was not cleared by that Escape
+  });
+
   it('takes the shell behind it out of the focus order, and gives it back on close', async () => {
     const { container } = render(Reader, { props: { notebook: deck(), shared: true } });
     await tick();
