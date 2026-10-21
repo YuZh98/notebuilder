@@ -413,7 +413,22 @@ export function listCardTypes(): Promise<CardType[]> {
     const rows = await d.select<{ id: string; name: string; data: string }[]>(
       'SELECT id, name, data FROM card_types ORDER BY created_at',
     );
-    return rows.map((r) => ({ id: r.id, name: r.name, ...JSON.parse(r.data) }));
+    const types: CardType[] = [];
+    for (const r of rows) {
+      let data: unknown;
+      try {
+        data = JSON.parse(r.data);
+      } catch {
+        data = null;
+      }
+      // One unreadable row must not fail hydration (which would switch every save off).
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        console.warn('skipping unreadable card type', r.id);
+        continue;
+      }
+      types.push({ id: r.id, name: r.name, ...data } as CardType);
+    }
+    return types;
   });
 }
 

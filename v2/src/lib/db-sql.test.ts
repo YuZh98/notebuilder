@@ -406,6 +406,22 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect((await db.listCardTypes()).map((t) => t.id)).toEqual(['B']);
   });
 
+  it('an unreadable card type row is skipped on load (it must not block hydration)', async () => {
+    await db.saveCardType({ id: 'A', name: 'Alpha', slots: [] } as never);
+    const conn = inspect();
+    conn.exec("INSERT INTO card_types (id, name, data) VALUES ('bad', 'Broken', '{not json')");
+    conn.exec("INSERT INTO card_types (id, name, data) VALUES ('str', 'Stringy', '\"abc\"')");
+    conn.close();
+    await db.saveCardType({ id: 'B', name: 'Beta', slots: [] } as never);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await db.listCardTypes()).toEqual([
+      { id: 'A', name: 'Alpha', slots: [] },
+      { id: 'B', name: 'Beta', slots: [] },
+    ]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
   // Ported from the statement-matching db.test.ts (retired: it faked the per-row SQL that the
   // atomic batches replaced); these run the same behaviours against real SQLite instead.
   it('loadNotebook returns null for an unknown id', async () => {
