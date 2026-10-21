@@ -1,6 +1,8 @@
 // Pure keyboard dispatcher — the full v1 map (src/app/120-keyboard.js) as a decision
 // over a context snapshot. App builds the ctx, runs this, and executes the returned action.
 
+import type { StudySurfaces } from './study-keys';
+
 export type KeyboardEventLike = {
   key: string;
   metaKey: boolean;
@@ -24,14 +26,14 @@ export type KeyCtx = {
   cardIdsOfSelectedSection: string[];
   /** Study cursor: the keyboard-focused card id, or null when the session has no cursor yet. */
   studyFocus: string | null;
-  /** The focused card can flip — Space only flips (and only preventDefaults) when it can. */
-  focusedFlipCapable: boolean;
-  /** Options in the focused card's first open choice slot; digits above it address nothing. */
-  focusedChoiceOptions: number;
-  /** The focused card has an answered, unsubmitted choice slot for Enter. */
-  focusedCanSubmit: boolean;
-  /** The focused card has a check list with an item still unticked for `x`. */
-  focusedCanTick: boolean;
+  /**
+   * What the focused card can answer (study-keys `studySurfaces`): Space/f flip only a card that
+   * flips, digits stop at its last option, Enter needs a selection, `x` an unticked item. A thunk,
+   * because computing it builds the card's variable scope: it is called at most once, and only
+   * when a bare card key reaches a focused card — never for typing in a field, a chord, a cursor
+   * move or Edit mode.
+   */
+  focusedSurfaces: () => StudySurfaces;
   /** The key landed on a control the browser activates itself (button, link, …) — see
    * `isInteractiveTarget`. Space and Enter belong to that control, not to the study cursor. */
   targetInteractive: boolean;
@@ -89,6 +91,11 @@ export type KeyAction =
   | { kind: 'study-submit'; preventDefault: boolean }
   | { kind: 'study-tick'; preventDefault: boolean }
   | { kind: 'study-help'; preventDefault: boolean };
+
+/** The keys that act on the focused card itself: flip, submit, tick and the option digits. */
+function isCardKey(key: string): boolean {
+  return key === 'f' || key === ' ' || key === 'Enter' || key === 'x' || /^[1-9]$/.test(key);
+}
 
 function step(ids: string[], current: string, delta: number): string | null {
   const i = ids.indexOf(current);
@@ -154,28 +161,25 @@ export function handleAppKey(e: KeyboardEventLike, ctx: KeyCtx): KeyAction | nul
     if (e.key === 'k' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
       return { kind: 'study-focus-step', delta: -1, preventDefault: true };
     }
-    if (ctx.studyFocus) {
+    if (ctx.studyFocus && isCardKey(e.key)) {
       // A key with no surface on the focused card returns nothing at all, so the browser keeps
       // whatever it would have done with it: Space scrolls, Enter and Space activate a control the
       // reader has tabbed to, and a digit past the last option is simply not ours.
+      const card = ctx.focusedSurfaces();
       if (e.key === 'f' || e.key === ' ') {
-        if (!ctx.focusedFlipCapable) return null;
+        if (!card.flip) return null;
         if (e.key === ' ' && ctx.targetInteractive) return null;
         return { kind: 'study-flip', preventDefault: true };
       }
       if (e.key === 'Enter') {
-        if (!ctx.focusedCanSubmit || ctx.targetInteractive) return null;
+        if (!card.canSubmit || ctx.targetInteractive) return null;
         return { kind: 'study-submit', preventDefault: true };
       }
       if (e.key === 'x') {
-        return ctx.focusedCanTick ? { kind: 'study-tick', preventDefault: true } : null;
+        return card.canTick ? { kind: 'study-tick', preventDefault: true } : null;
       }
-      if (/^[1-9]$/.test(e.key)) {
-        const digit = Number(e.key);
-        return digit <= ctx.focusedChoiceOptions
-          ? { kind: 'study-choice', digit, preventDefault: true }
-          : null;
-      }
+      const digit = Number(e.key);
+      return digit <= card.choiceOptions ? { kind: 'study-choice', digit, preventDefault: true } : null;
     }
   }
   // Escape outside a field: clear the matrix filter, else clear selection (v1 120:15).

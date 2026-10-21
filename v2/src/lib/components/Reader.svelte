@@ -270,11 +270,6 @@
   function handleKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
     const inField = isFieldTarget(el);
-    const focusedCard = focusedStudyCard();
-    const focusedLive = focusedCard ? (session.live[focusedCard.id] ?? {}) : {};
-    const surfaces = focusedCard
-      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {}, focusedLive)
-      : NO_SURFACES;
     const ctx: KeyCtx = {
       inField,
       singleLineField: false,
@@ -287,10 +282,14 @@
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
       studyFocus,
-      focusedFlipCapable: surfaces.flip,
-      focusedChoiceOptions: surfaces.choiceOptions,
-      focusedCanSubmit: surfaces.canSubmit,
-      focusedCanTick: surfaces.canTick,
+      // Called only for a card key on a focused card: it builds the card's scope, which
+      // every keystroke typed into a field would otherwise pay for.
+      focusedSurfaces: () => {
+        const card = focusedStudyCard();
+        return card
+          ? studySurfaces(card, readerState[card.id] ?? {}, session.live[card.id] ?? {})
+          : NO_SURFACES;
+      },
       targetInteractive: isInteractiveTarget(el),
       helpOpen,
     };
