@@ -45,12 +45,22 @@ export type ProblemState = {
    * would still be accepted (see carryShown): a correct check then earns no credit.
    */
   shown?: number;
+  /**
+   * Fingerprints (instanceKey) of every set of numbers whose answer was shown, most recent last,
+   * at most SEEN_CAP. Kept across "New numbers": in a small range the same numbers come back
+   * within a click or two, and the answer shown for them must not earn credit then either.
+   */
+  seen?: number[];
 };
 
 /** The starting seed where there is no practice salt (storage unavailable): the same for everyone. */
 export const DEFAULT_SEED = 1;
 /** How many successive seeds (seed+1 … seed+N) to try when the answer is not finite. */
 export const MAX_REDRAWS = 20;
+/** Most revealed number sets a problem remembers (ProblemState.seen); older ones drop first. */
+export const SEEN_CAP = 32;
+/** How many seeds ahead shownStatus looks for numbers that would still earn credit. */
+const SHOWN_SCAN = 4 * SEEN_CAP;
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const KEY_RE = /\{\{(\w+)\}\}/g;
@@ -107,6 +117,10 @@ export function readProblemState(state: Record<string, unknown> | undefined, sta
   }
   if (s.revealed === true) out.revealed = true;
   if (typeof s.shown === 'number' && Number.isFinite(s.shown)) out.shown = s.shown;
+  if (Array.isArray(s.seen)) {
+    const seen = s.seen.filter((k): k is number => Number.isSafeInteger(k) && k >= 0 && k < 2 ** 32);
+    if (seen.length > 0) out.seen = seen.slice(-SEEN_CAP);
+  }
   return out;
 }
 
@@ -179,20 +193,59 @@ export function isCorrect(expected: number, got: number, tol: number): boolean {
 const givesAway = (props: ProblemProps, inst: ProblemInstance, shown: number | undefined): boolean =>
   shown !== undefined && inst.ok && isCorrect(inst.answer, shown, tolOf(props));
 
-export type ShownStatus = 'none' | 'try-new' | 'fixed';
+/**
+ * A fingerprint of one concrete problem: its drawn values and its expected answer (a card
+ * variable can move the answer under the same values). What ProblemState.seen stores.
+ */
+export function instanceKey(inst: Extract<ProblemInstance, { ok: true }>): number {
+  const values = Object.keys(inst.values)
+    .sort()
+    .map((k) => [k, inst.values[k]]);
+  return hashString(JSON.stringify([values, inst.answer]));
+}
+
+/** `seen` with the numbers of `inst` added: most recent last, no duplicates, at most SEEN_CAP. */
+export function withSeen(seen: readonly number[] | undefined, inst: ProblemInstance): number[] {
+  if (!inst.ok) return [...(seen ?? [])];
+  const key = instanceKey(inst);
+  return [...(seen ?? []).filter((k) => k !== key), key].slice(-SEEN_CAP);
+}
+
+export type ShownStatus = 'none' | 'try-new' | 'all-shown' | 'fixed';
 
 /**
- * Whether a correct answer on the numbers at `seed` counts. 'none': it does. Otherwise the
- * answer "Show answer" revealed (`shown`) would itself pass here, so a correct check shows ✓ but
- * earns nothing toward `need` or the results — else a student could copy what they were just
- * shown. 'try-new': "New numbers" would give a problem with another answer. 'fixed': it would
- * not (no params, single-value ranges, or an answer that does not depend on them). Decided on
- * the expected answer, never on seeds: seeds always differ, and different numbers with the same
- * answer give it away just the same.
+ * Whether a correct answer on the numbers at `seed` counts. 'none': it does. Otherwise these
+ * numbers had their answer shown (`seen`), or the answer "Show answer" just revealed (`shown`)
+ * would itself pass here, so a correct check shows ✓ but earns nothing toward `need` or the
+ * results — else a student could copy what they were shown. Looking ahead along what "New
+ * numbers" draws: 'try-new' when some numbers there would still count; 'all-shown' when the
+ * answers vary but every one was shown; 'fixed' when the answer never changes (no params,
+ * single-value ranges, or an answer that does not depend on them). Decided on numbers and
+ * answers, never on seeds: seeds always differ, and the same numbers come back in a small range.
  */
-export function shownStatus(props: ProblemProps, scope: Scope, seed: number, shown: number | undefined): ShownStatus {
-  if (shown === undefined || !givesAway(props, instantiate(props, scope, seed), shown)) return 'none';
-  return givesAway(props, instantiate(props, scope, nextSeed(props, scope, seed)), shown) ? 'fixed' : 'try-new';
+export function shownStatus(
+  props: ProblemProps,
+  scope: Scope,
+  seed: number,
+  shown: number | undefined,
+  seen: readonly number[] = [],
+): ShownStatus {
+  if (shown === undefined && seen.length === 0) return 'none';
+  const isSeen = (inst: ProblemInstance): boolean => inst.ok && seen.includes(instanceKey(inst));
+  const cur = instantiate(props, scope, seed);
+  if (!cur.ok || !(givesAway(props, cur, shown) || isSeen(cur))) return 'none';
+  // Every seed New numbers can reach is one of seed+1, seed+2, …; the ones it skips repeat the
+  // numbers before them. The carried answer drops at the first draw it does not fit (carryShown).
+  let carry = shown;
+  let answerVaries = false;
+  for (let k = 1; k <= SHOWN_SCAN; k++) {
+    const nx = instantiate(props, scope, seed + k);
+    if (!nx.ok) continue;
+    if (!isCorrect(cur.answer, nx.answer, tolOf(props))) answerVaries = true;
+    if (!givesAway(props, nx, carry)) carry = undefined;
+    if (carry === undefined && !isSeen(nx)) return 'try-new';
+  }
+  return answerVaries ? 'all-shown' : 'fixed';
 }
 
 /**

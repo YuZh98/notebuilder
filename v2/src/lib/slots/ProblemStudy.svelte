@@ -7,6 +7,7 @@
     nextSeed,
     shownStatus,
     carryShown,
+    withSeen,
     isCorrect,
     formatAnswer,
     needOf,
@@ -43,8 +44,8 @@
   const revealed = $derived(solved || st.revealed === true);
   const locked = $derived(!inst.ok || revealed);
   const done = $derived(st.correct >= need);
-  // After "Show answer", numbers whose answer is the one shown are practice: ✓ but no credit.
-  const shown = $derived(shownStatus(props, scope, st.seed, st.shown));
+  // After "Show answer", numbers whose answer was shown are practice: ✓ but no credit.
+  const shown = $derived(shownStatus(props, scope, st.seed, st.shown, st.seen));
 
   // Transient typing buffer; seeded once from the last checked input so a reload shows it.
   let draft = $state(untrack(() => readProblemState(saved).last?.input ?? ''));
@@ -78,17 +79,33 @@
   }
 
   function newNumbers() {
-    const { last: _last, revealed: _revealed, shown: _shown, ...rest } = saved;
+    const { last: _last, revealed: _revealed, shown: _shown, seen: _seen, ...rest } = saved;
     const seed = nextSeed(props, scope, st.seed);
     const carry = carryShown(props, inst, st, instantiate(props, scope, seed));
+    // The numbers on screen now, if their answer is showing (a slider may have moved it since).
+    const seen = st.revealed ? withSeen(st.seen, inst) : st.seen;
     draft = '';
     inputError = '';
-    onState?.({ ...rest, seed, correct: st.correct, attempts: st.attempts, ...(carry !== undefined && { shown: carry }) });
+    onState?.({
+      ...rest,
+      seed,
+      correct: st.correct,
+      attempts: st.attempts,
+      ...(carry !== undefined && { shown: carry }),
+      ...(seen && seen.length > 0 && { seen }),
+    });
   }
 
   function showAnswer() {
     if (locked) return;
-    onState?.({ ...saved, seed: st.seed, correct: st.correct, attempts: st.attempts, revealed: true });
+    onState?.({
+      ...saved,
+      seed: st.seed,
+      correct: st.correct,
+      attempts: st.attempts,
+      revealed: true,
+      seen: withSeen(st.seen, inst),
+    });
   }
 </script>
 
@@ -135,7 +152,9 @@
         <span class="problem-shown">
           {shown === 'fixed'
             ? 'This problem has fixed numbers and its answer was shown, so it no longer counts'
-            : 'Answer was shown — try new numbers to earn credit'}
+            : shown === 'all-shown'
+              ? 'Every answer this problem can have was shown, so it no longer counts'
+              : 'Answer was shown — try new numbers to earn credit'}
         </span>
       {/if}
     </div>

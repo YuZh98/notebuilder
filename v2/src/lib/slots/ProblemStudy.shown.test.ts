@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, screen, cleanup } from '@testing-library/svelte';
 import ProblemStudy from './ProblemStudy.svelte';
-import { instantiate, nextSeed, type ProblemProps } from './problem';
+import { instantiate, instanceKey, nextSeed, type ProblemProps } from './problem';
 
 // Review fix (PR #1, F4): "Show answer", then "Try again" / "New numbers" on a problem whose
 // numbers cannot change used to reopen it, and typing the answer just shown earned credit toward
@@ -75,9 +75,12 @@ async function revealThenRetype(props: ProblemProps, button: string, typed: stri
 describe('ProblemStudy — no credit for an answer that was shown', () => {
   it('fixed numbers: Try again, typing the shown answer shows ✓ but earns nothing', async () => {
     const { reopened, noteBefore, checked, after } = await revealThenRetype(fixed, 'Try again', '4');
-    expect(reopened).toEqual({ seed: 2, correct: 0, attempts: 0, shown: 4 });
+    const inst = instantiate(fixed, {}, 1);
+    if (!inst.ok) throw new Error('setup');
+    const seen = [instanceKey(inst)];
+    expect(reopened).toEqual({ seed: 2, correct: 0, attempts: 0, shown: 4, seen });
     expect(noteBefore).toMatch(/fixed numbers.*answer was shown/i);
-    expect(checked).toEqual({ seed: 2, correct: 0, attempts: 0, shown: 4, last: { input: '4', ok: true } });
+    expect(checked).toEqual({ seed: 2, correct: 0, attempts: 0, shown: 4, seen, last: { input: '4', ok: true } });
     expect(after.container.querySelector('.problem-ok')?.textContent).toContain('✓');
     expect(after.streak()).toContain('0 / 1 correct');
     expect(after.note()).toMatch(/fixed numbers/i);
