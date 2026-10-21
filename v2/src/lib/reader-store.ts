@@ -56,6 +56,11 @@ export type LoadedProgress = {
   carry?: StoredBody;
   /** False when localStorage is unreachable or refuses writes; the Reader then says so quietly. */
   available?: boolean;
+  /**
+   * The keys this load mapped stored progress through (absent when nothing needed mapping).
+   * createProgressStore reuses them from `initial`, so a boot exports and hashes every card once.
+   */
+  keys?: ReaderKeys;
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -231,7 +236,7 @@ function probe(storage: StorageLike): boolean {
 /** Synchronous load, run before the Reader mounts. Never throws. */
 export function loadProgress(
   key: string,
-  notebook: Notebook,
+  notebook: Notebook | ReaderKeys,
   storage: StorageLike | null = safeLocalStorage(),
 ): LoadedProgress {
   const empty = (available: boolean): LoadedProgress => ({ readerState: {}, annotations: {}, carry: emptyBody(), available });
@@ -251,7 +256,8 @@ export function loadProgress(
   }
   if (!isRecord(parsed) || parsed.v !== STORED_VERSION) return empty(true);
   try {
-    return { ...fromStored(parsed, notebook), available: true };
+    const keys = keysOf(notebook);
+    return { ...fromStored(parsed, keys), keys, available: true };
   } catch {
     return empty(true);
   }
@@ -300,6 +306,7 @@ export function createProgressStore(opts: {
   key: string;
   /** The pristine notebook as opened — keys are fixed from it for the whole session. */
   notebook: Notebook;
+  /** loadProgress's result for this same notebook; the keys it computed are reused, not redone. */
   initial?: LoadedProgress;
   storage?: StorageLike | null;
   delay?: number;
@@ -311,7 +318,7 @@ export function createProgressStore(opts: {
   const storage = opts.storage === undefined ? safeLocalStorage() : opts.storage;
   const delay = opts.delay ?? DEFAULT_DELAY;
   const now = opts.now ?? Date.now;
-  const keys = computeKeys(opts.notebook);
+  const keys = opts.initial?.keys ?? computeKeys(opts.notebook);
   let carry: StoredBody = opts.initial?.carry ?? emptyBody();
   let pending: { state: ReaderStateMap; notes: AnnotationMap } | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
