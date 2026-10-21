@@ -35,6 +35,11 @@ export type ProblemState = {
   last?: { input: string; ok: boolean };
   /** The student chose "Show answer" on the current numbers; cleared by "New numbers". */
   revealed?: boolean;
+  /**
+   * The answer "Show answer" put on screen, carried across "New numbers" / "Try again" while it
+   * would still be accepted (see carryShown): a correct check then earns no credit.
+   */
+  shown?: number;
 };
 
 /** Seed used until the student first asks for new numbers — fixed, so mounting writes nothing. */
@@ -81,6 +86,7 @@ export function readProblemState(state: Record<string, unknown> | undefined): Pr
     out.last = { input: last.input, ok: last.ok };
   }
   if (s.revealed === true) out.revealed = true;
+  if (typeof s.shown === 'number' && Number.isFinite(s.shown)) out.shown = s.shown;
   return out;
 }
 
@@ -147,6 +153,40 @@ export function isCorrect(expected: number, got: number, tol: number): boolean {
   if (!Number.isFinite(expected) || !Number.isFinite(got)) return false;
   const t = Number.isFinite(tol) && tol > 0 ? tol : 0;
   return Math.abs(got - expected) <= t + 1e-9 * Math.max(1, Math.abs(expected));
+}
+
+/** Would typing the shown answer pass on this instance? */
+const givesAway = (props: ProblemProps, inst: ProblemInstance, shown: number | undefined): boolean =>
+  shown !== undefined && inst.ok && isCorrect(inst.answer, shown, tolOf(props));
+
+export type ShownStatus = 'none' | 'try-new' | 'fixed';
+
+/**
+ * Whether a correct answer on the numbers at `seed` counts. 'none': it does. Otherwise the
+ * answer "Show answer" revealed (`shown`) would itself pass here, so a correct check shows ✓ but
+ * earns nothing toward `need` or the results — else a student could copy what they were just
+ * shown. 'try-new': "New numbers" would give a problem with another answer. 'fixed': it would
+ * not (no params, single-value ranges, or an answer that does not depend on them). Decided on
+ * the expected answer, never on seeds: seeds always differ, and different numbers with the same
+ * answer give it away just the same.
+ */
+export function shownStatus(props: ProblemProps, scope: Scope, seed: number, shown: number | undefined): ShownStatus {
+  if (shown === undefined || !givesAway(props, instantiate(props, scope, seed), shown)) return 'none';
+  return givesAway(props, instantiate(props, scope, nextSeed(props, scope, seed)), shown) ? 'fixed' : 'try-new';
+}
+
+/**
+ * What "New numbers" / "Try again" carries from `cur` to `next`: the answer revealed on the
+ * current numbers (or one carried from before), kept only while it would still pass on `next`.
+ */
+export function carryShown(
+  props: ProblemProps,
+  cur: ProblemInstance,
+  st: ProblemState,
+  next: ProblemInstance,
+): number | undefined {
+  const shown = st.revealed && cur.ok ? cur.answer : st.shown;
+  return givesAway(props, next, shown) ? shown : undefined;
 }
 
 /**

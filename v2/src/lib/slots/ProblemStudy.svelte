@@ -5,6 +5,8 @@
     freshLast,
     readProblemState,
     nextSeed,
+    shownStatus,
+    carryShown,
     isCorrect,
     formatAnswer,
     needOf,
@@ -37,6 +39,8 @@
   const revealed = $derived(solved || st.revealed === true);
   const locked = $derived(!inst.ok || revealed);
   const done = $derived(st.correct >= need);
+  // After "Show answer", numbers whose answer is the one shown are practice: ✓ but no credit.
+  const shown = $derived(shownStatus(props, scope, st.seed, st.shown));
 
   // Transient typing buffer; seeded once from the last checked input so a reload shows it.
   let draft = $state(untrack(() => readProblemState(saved).last?.input ?? ''));
@@ -51,11 +55,13 @@
     }
     inputError = '';
     const ok = isCorrect(inst.answer, parsed.value, tolOf(props));
+    // Practice on a shown answer is off the record: neither a credit nor a counted attempt.
+    const counts = shown === 'none';
     onState?.({
       ...saved,
       seed: st.seed,
-      correct: st.correct + (ok ? 1 : 0),
-      attempts: st.attempts + 1,
+      correct: st.correct + (ok && counts ? 1 : 0),
+      attempts: st.attempts + (counts ? 1 : 0),
       last: { input: draft.trim(), ok },
     });
   }
@@ -68,11 +74,12 @@
   }
 
   function newNumbers() {
-    const { last: _last, revealed: _revealed, ...rest } = saved;
+    const { last: _last, revealed: _revealed, shown: _shown, ...rest } = saved;
     const seed = nextSeed(props, scope, st.seed);
+    const carry = carryShown(props, inst, st, instantiate(props, scope, seed));
     draft = '';
     inputError = '';
-    onState?.({ ...rest, seed, correct: st.correct, attempts: st.attempts });
+    onState?.({ ...rest, seed, correct: st.correct, attempts: st.attempts, ...(carry !== undefined && { shown: carry }) });
   }
 
   function showAnswer() {
@@ -119,6 +126,13 @@
       {/if}
       {#if revealed}
         <span class="problem-answer">Answer: <b>{formatAnswer(inst.answer)}</b></span>
+      {/if}
+      {#if shown !== 'none' && !st.revealed}
+        <span class="problem-shown">
+          {shown === 'fixed'
+            ? 'This problem has fixed numbers and its answer was shown, so it no longer counts'
+            : 'Answer was shown — try new numbers to earn credit'}
+        </span>
       {/if}
     </div>
   {/if}
@@ -210,6 +224,10 @@
 
   .problem-bad {
     color: #f87171;
+  }
+
+  .problem-shown {
+    opacity: 0.75;
   }
 
   .problem-foot {
