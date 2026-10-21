@@ -108,6 +108,11 @@
     confirmDiscard = false;
     refocus?.focus();
   }
+
+  /** The dialog scrolls: a question asked below the fold would let the next Escape answer it unseen. */
+  function reveal(el: HTMLElement) {
+    el.scrollIntoView?.({ block: 'nearest' });
+  }
 </script>
 
 <svelte:window onkeydown={onEscape} />
@@ -225,7 +230,7 @@
     </section>
 
     {#if confirmDiscard}
-      <div class="row fa-discard" data-fa="discard" role="alert">
+      <div class="row fa-discard" data-fa="discard" role="alert" {@attach reveal}>
         <span>Discard what you typed? <span class="muted">Esc again discards it.</span></span>
         <span class="spacer"></span>
         <button class="btn sm" data-act="keep" onclick={keepEditing}>Keep editing</button>

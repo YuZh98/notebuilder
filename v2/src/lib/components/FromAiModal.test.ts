@@ -182,6 +182,23 @@ describe('FromAiModal — Escape never silently discards what was typed', () => 
     expect(onclose).toHaveBeenCalledOnce();
   });
 
+  it('the question is scrolled into view: a second Escape never answers one that was off screen', async () => {
+    // jsdom has no layout, so no scrollIntoView: record which element asks to be shown.
+    const native = Element.prototype.scrollIntoView;
+    const shown: Element[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      shown.push(this);
+    };
+    try {
+      const { container } = mount();
+      await paste(container, 'a long reply');
+      await escape(q(container, '[data-fa="reply"]'));
+      expect(shown).toEqual([q(container, '[data-fa="discard"]')]);
+    } finally {
+      Element.prototype.scrollIntoView = native;
+    }
+  });
+
   it('a held-down Escape (auto-repeat) does not answer its own question', async () => {
     const { container, onclose } = mount();
     await fireEvent.input(q(container, '[data-fa="topic"]'), { target: { value: 'Fractions' } });
