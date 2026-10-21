@@ -5,13 +5,18 @@
     freshLast,
     readProblemState,
     nextSeed,
+    shownStatus,
+    carryShown,
+    withSeen,
     isCorrect,
     formatAnswer,
     needOf,
     tolOf,
     paramsOf,
+    baseSeed,
     type ProblemProps,
   } from './problem';
+  import { practiceSalt } from '../practice-salt';
   import { parseNumericInput } from '../numeric-input';
   import { renderMarkdown } from '../markdown';
   import type { Scope } from '../variable-graph';
@@ -24,8 +29,10 @@
     onState?: (next: Record<string, unknown>) => void;
   }>();
 
-  // Values are redrawn from the stored seed on every render — never stored themselves.
-  const st = $derived(readProblemState(saved));
+  // Values are redrawn from the stored seed on every render — never stored themselves. With no
+  // stored seed yet, this reader's own starting seed (salt + problem): nothing is written on mount.
+  const salt = practiceSalt();
+  const st = $derived(readProblemState(saved, baseSeed(props, salt)));
   const inst = $derived(instantiate(props, scope, st.seed));
   // Params shadow card variables inside this slot only.
   const local = $derived({ ...scope, ...inst.values });
@@ -37,6 +44,8 @@
   const revealed = $derived(solved || st.revealed === true);
   const locked = $derived(!inst.ok || revealed);
   const done = $derived(st.correct >= need);
+  // After "Show answer", numbers whose answer was shown are practice: ✓ but no credit.
+  const shown = $derived(shownStatus(props, scope, st.seed, st.shown, st.seen));
 
   // Transient typing buffer; seeded once from the last checked input so a reload shows it.
   let draft = $state(untrack(() => readProblemState(saved).last?.input ?? ''));
@@ -51,11 +60,13 @@
     }
     inputError = '';
     const ok = isCorrect(inst.answer, parsed.value, tolOf(props));
+    // Practice on a shown answer is off the record: neither a credit nor a counted attempt.
+    const counts = shown === 'none';
     onState?.({
       ...saved,
       seed: st.seed,
-      correct: st.correct + (ok ? 1 : 0),
-      attempts: st.attempts + 1,
+      correct: st.correct + (ok && counts ? 1 : 0),
+      attempts: st.attempts + (counts ? 1 : 0),
       last: { input: draft.trim(), ok },
     });
   }
@@ -68,16 +79,33 @@
   }
 
   function newNumbers() {
-    const { last: _last, revealed: _revealed, ...rest } = saved;
+    const { last: _last, revealed: _revealed, shown: _shown, seen: _seen, ...rest } = saved;
     const seed = nextSeed(props, scope, st.seed);
+    const carry = carryShown(props, inst, st, instantiate(props, scope, seed));
+    // The numbers on screen now, if their answer is showing (a slider may have moved it since).
+    const seen = st.revealed ? withSeen(st.seen, inst) : st.seen;
     draft = '';
     inputError = '';
-    onState?.({ ...rest, seed, correct: st.correct, attempts: st.attempts });
+    onState?.({
+      ...rest,
+      seed,
+      correct: st.correct,
+      attempts: st.attempts,
+      ...(carry !== undefined && { shown: carry }),
+      ...(seen && seen.length > 0 && { seen }),
+    });
   }
 
   function showAnswer() {
     if (locked) return;
-    onState?.({ ...saved, seed: st.seed, correct: st.correct, attempts: st.attempts, revealed: true });
+    onState?.({
+      ...saved,
+      seed: st.seed,
+      correct: st.correct,
+      attempts: st.attempts,
+      revealed: true,
+      seen: withSeen(st.seen, inst),
+    });
   }
 </script>
 
@@ -119,6 +147,15 @@
       {/if}
       {#if revealed}
         <span class="problem-answer">Answer: <b>{formatAnswer(inst.answer)}</b></span>
+      {/if}
+      {#if shown !== 'none' && !st.revealed}
+        <span class="problem-shown">
+          {shown === 'fixed'
+            ? 'This problem has fixed numbers and its answer was shown, so it no longer counts'
+            : shown === 'all-shown'
+              ? 'Every answer this problem can have was shown, so it no longer counts'
+              : 'Answer was shown — try new numbers to earn credit'}
+        </span>
       {/if}
     </div>
   {/if}
@@ -210,6 +247,10 @@
 
   .problem-bad {
     color: #f87171;
+  }
+
+  .problem-shown {
+    opacity: 0.75;
   }
 
   .problem-foot {

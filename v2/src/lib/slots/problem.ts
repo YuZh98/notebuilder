@@ -4,6 +4,8 @@ import type { Scope } from '../variable-graph';
 import { evalExpr, parseExpr, EXPR_BUILTINS } from '../expr';
 import { mulberry32, drawParam } from '../rng';
 import { parseNumericInput } from '../numeric-input';
+import { exprPitfalls } from '../expr-pitfalls';
+import { hashString } from '../practice-salt';
 import { extractReads } from './identifiers';
 import ProblemEdit from './ProblemEdit.svelte';
 import ProblemStudy from './ProblemStudy.svelte';
@@ -25,7 +27,11 @@ export type ProblemProps = {
   explain?: string;
 };
 
-/** Reader (progress-layer) state. Only the seed is stored — values are always redrawn from it. */
+/**
+ * Reader (progress-layer) state. Only the seed is stored — values are always redrawn from it.
+ * Until the student first checks or asks for new numbers there is no seed: the problem starts
+ * from baseSeed, so mounting writes nothing.
+ */
 export type ProblemState = {
   seed: number;
   correct: number;
@@ -34,12 +40,27 @@ export type ProblemState = {
   last?: { input: string; ok: boolean };
   /** The student chose "Show answer" on the current numbers; cleared by "New numbers". */
   revealed?: boolean;
+  /**
+   * The answer "Show answer" put on screen, carried across "New numbers" / "Try again" while it
+   * would still be accepted (see carryShown): a correct check then earns no credit.
+   */
+  shown?: number;
+  /**
+   * Fingerprints (instanceKey) of every set of numbers whose answer was shown, most recent last,
+   * at most SEEN_CAP. Kept across "New numbers": in a small range the same numbers come back
+   * within a click or two, and the answer shown for them must not earn credit then either.
+   */
+  seen?: number[];
 };
 
-/** Seed used until the student first asks for new numbers — fixed, so mounting writes nothing. */
+/** The starting seed where there is no practice salt (storage unavailable): the same for everyone. */
 export const DEFAULT_SEED = 1;
 /** How many successive seeds (seed+1 … seed+N) to try when the answer is not finite. */
 export const MAX_REDRAWS = 20;
+/** Most revealed number sets a problem remembers (ProblemState.seen); older ones drop first. */
+export const SEEN_CAP = 32;
+/** How many seeds ahead shownStatus looks for numbers that would still earn credit. */
+const SHOWN_SCAN = 4 * SEEN_CAP;
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const KEY_RE = /\{\{(\w+)\}\}/g;
@@ -67,11 +88,26 @@ export function tolOf(props: unknown): number {
   return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : 0;
 }
 
-/** Tolerant read of reader state: anything malformed falls back to its default. */
-export function readProblemState(state: Record<string, unknown> | undefined): ProblemState {
+/**
+ * The seed a reader starts from until they check or ask for new numbers: hashed from this
+ * browser's practice salt (practice-salt.ts) and what shapes the numbers (prompt, params,
+ * answer). Each reader gets their own numbers, in their own order, so one shared answer list no
+ * longer reaches `need` for a whole class; one reader gets the same numbers on every reload; two
+ * different problems on one page start apart. No salt: DEFAULT_SEED, as before.
+ */
+export function baseSeed(props: ProblemProps, salt: string | null): number {
+  if (salt === null) return DEFAULT_SEED;
+  const p: Record<string, unknown> = isObj(props) ? props : {};
+  // Arrays, not objects: the key order of a param as written must not change the numbers.
+  const params = paramsOf(props).map((q) => [q.name, q.min, q.max, q.step]);
+  return hashString(`${salt}:${JSON.stringify([str(p.prompt), params, str(p.answer)])}`);
+}
+
+/** Tolerant read of reader state: anything malformed falls back to its default (no seed: `start`). */
+export function readProblemState(state: Record<string, unknown> | undefined, start = DEFAULT_SEED): ProblemState {
   const s = isObj(state) ? state : {};
   const out: ProblemState = {
-    seed: Number.isSafeInteger(s.seed) ? (s.seed as number) : DEFAULT_SEED,
+    seed: Number.isSafeInteger(s.seed) ? (s.seed as number) : start,
     correct: count(s.correct),
     attempts: count(s.attempts),
   };
@@ -80,6 +116,11 @@ export function readProblemState(state: Record<string, unknown> | undefined): Pr
     out.last = { input: last.input, ok: last.ok };
   }
   if (s.revealed === true) out.revealed = true;
+  if (typeof s.shown === 'number' && Number.isFinite(s.shown)) out.shown = s.shown;
+  if (Array.isArray(s.seen)) {
+    const seen = s.seen.filter((k): k is number => Number.isSafeInteger(k) && k >= 0 && k < 2 ** 32);
+    if (seen.length > 0) out.seen = seen.slice(-SEEN_CAP);
+  }
   return out;
 }
 
@@ -146,6 +187,79 @@ export function isCorrect(expected: number, got: number, tol: number): boolean {
   if (!Number.isFinite(expected) || !Number.isFinite(got)) return false;
   const t = Number.isFinite(tol) && tol > 0 ? tol : 0;
   return Math.abs(got - expected) <= t + 1e-9 * Math.max(1, Math.abs(expected));
+}
+
+/** Would typing the shown answer pass on this instance? */
+const givesAway = (props: ProblemProps, inst: ProblemInstance, shown: number | undefined): boolean =>
+  shown !== undefined && inst.ok && isCorrect(inst.answer, shown, tolOf(props));
+
+/**
+ * A fingerprint of one concrete problem: its drawn values and its expected answer (a card
+ * variable can move the answer under the same values). What ProblemState.seen stores.
+ */
+export function instanceKey(inst: Extract<ProblemInstance, { ok: true }>): number {
+  const values = Object.keys(inst.values)
+    .sort()
+    .map((k) => [k, inst.values[k]]);
+  return hashString(JSON.stringify([values, inst.answer]));
+}
+
+/** `seen` with the numbers of `inst` added: most recent last, no duplicates, at most SEEN_CAP. */
+export function withSeen(seen: readonly number[] | undefined, inst: ProblemInstance): number[] {
+  if (!inst.ok) return [...(seen ?? [])];
+  const key = instanceKey(inst);
+  return [...(seen ?? []).filter((k) => k !== key), key].slice(-SEEN_CAP);
+}
+
+export type ShownStatus = 'none' | 'try-new' | 'all-shown' | 'fixed';
+
+/**
+ * Whether a correct answer on the numbers at `seed` counts. 'none': it does. Otherwise these
+ * numbers had their answer shown (`seen`), or the answer "Show answer" just revealed (`shown`)
+ * would itself pass here, so a correct check shows ✓ but earns nothing toward `need` or the
+ * results — else a student could copy what they were shown. Looking ahead along what "New
+ * numbers" draws: 'try-new' when some numbers there would still count; 'all-shown' when the
+ * answers vary but every one was shown; 'fixed' when the answer never changes (no params,
+ * single-value ranges, or an answer that does not depend on them). Decided on numbers and
+ * answers, never on seeds: seeds always differ, and the same numbers come back in a small range.
+ */
+export function shownStatus(
+  props: ProblemProps,
+  scope: Scope,
+  seed: number,
+  shown: number | undefined,
+  seen: readonly number[] = [],
+): ShownStatus {
+  if (shown === undefined && seen.length === 0) return 'none';
+  const isSeen = (inst: ProblemInstance): boolean => inst.ok && seen.includes(instanceKey(inst));
+  const cur = instantiate(props, scope, seed);
+  if (!cur.ok || !(givesAway(props, cur, shown) || isSeen(cur))) return 'none';
+  // Every seed New numbers can reach is one of seed+1, seed+2, …; the ones it skips repeat the
+  // numbers before them. The carried answer drops at the first draw it does not fit (carryShown).
+  let carry = shown;
+  let answerVaries = false;
+  for (let k = 1; k <= SHOWN_SCAN; k++) {
+    const nx = instantiate(props, scope, seed + k);
+    if (!nx.ok) continue;
+    if (!isCorrect(cur.answer, nx.answer, tolOf(props))) answerVaries = true;
+    if (!givesAway(props, nx, carry)) carry = undefined;
+    if (carry === undefined && !isSeen(nx)) return 'try-new';
+  }
+  return answerVaries ? 'all-shown' : 'fixed';
+}
+
+/**
+ * What "New numbers" / "Try again" carries from `cur` to `next`: the answer revealed on the
+ * current numbers (or one carried from before), kept only while it would still pass on `next`.
+ */
+export function carryShown(
+  props: ProblemProps,
+  cur: ProblemInstance,
+  st: ProblemState,
+  next: ProblemInstance,
+): number | undefined {
+  const shown = st.revealed && cur.ok ? cur.answer : st.shown;
+  return givesAway(props, next, shown) ? shown : undefined;
 }
 
 /**
@@ -241,7 +355,12 @@ export function problemIssues(props: ProblemProps, knownVars?: ReadonlySet<strin
         }
       }
     } catch (e) {
-      errors.push(`answer: ${e instanceof Error ? e.message : String(e)}`);
+      // "Unexpected "*"" says nothing to someone (or an LLM) who meant ** as a power.
+      errors.push(
+        props.answer.includes('**')
+          ? 'answer: ** is not an operator — write powers with ^, e.g. a^2'
+          : `answer: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 
@@ -263,6 +382,24 @@ export function problemIssues(props: ProblemProps, knownVars?: ReadonlySet<strin
     errors.push('need must be a whole number ≥ 1');
   }
   return errors;
+}
+
+/**
+ * Answers that are valid but probably not what the author meant — shown in the editor, never a
+ * validation error (an author may well mean (-a)^2, and errors hold back Share and Export).
+ * Today: a negated power, "-a^2 + b", which the grammar reads as (-a)^2 + b, so a student's
+ * correct −a² + b would be graded wrong on every draw. (`**` never parses: problemIssues has it.)
+ */
+export function problemWarnings(props: ProblemProps): string[] {
+  const answer = isObj(props) ? str(props.answer) : '';
+  try {
+    parseExpr(answer);
+  } catch {
+    return [];
+  }
+  return exprPitfalls(answer)
+    .filter((p) => p.kind === 'negated-power')
+    .map((p) => `answer: ${p.message}. To negate the power, parenthesize it: -(${p.name}^2), not -${p.name}^2.`);
 }
 
 export const problemSlot: SlotType<ProblemProps> = {

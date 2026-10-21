@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/svelte';
 import ProblemStudy from './ProblemStudy.svelte';
-import { drawValues, instantiate, nextSeed, DEFAULT_SEED, type ProblemProps } from './problem';
+import { drawValues, instantiate, instanceKey, nextSeed, DEFAULT_SEED, type ProblemProps } from './problem';
+
+// These tests pin the numbers at DEFAULT_SEED: the start where no practice salt can be stored.
+// Per-reader starting seeds are covered by ProblemStudy.salt.test.ts.
+vi.mock('../practice-salt', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../practice-salt')>()),
+  practiceSalt: () => null,
+}));
 
 const base = (over: Partial<ProblemProps> = {}): ProblemProps => ({
   prompt: 'What is {{a}} × {{b}}?',
@@ -37,6 +44,12 @@ function setup(over: Partial<ProblemProps> = {}, state: Record<string, unknown> 
 
 const first = drawValues(base().params, DEFAULT_SEED);
 const firstAnswer = first.a * first.b;
+/** The fingerprint Show answer records for the first numbers. */
+const firstKey = (() => {
+  const inst = instantiate(base(), {}, DEFAULT_SEED);
+  if (!inst.ok) throw new Error('setup');
+  return instanceKey(inst);
+})();
 
 describe('ProblemStudy — rendering', () => {
   it('renders the prompt with the drawn values interpolated', () => {
@@ -175,7 +188,13 @@ describe('ProblemStudy — feedback and reveal', () => {
   it('"Show answer" records the give-up without credit', async () => {
     const { onState } = setup({}, { seed: DEFAULT_SEED, correct: 0, attempts: 2 });
     await fireEvent.click(screen.getByRole('button', { name: 'Show answer' }));
-    expect(onState).toHaveBeenCalledWith({ seed: DEFAULT_SEED, correct: 0, attempts: 2, revealed: true });
+    expect(onState).toHaveBeenCalledWith({
+      seed: DEFAULT_SEED,
+      correct: 0,
+      attempts: 2,
+      revealed: true,
+      seen: [firstKey],
+    });
   });
 
   it('once revealed, shows the value and explanation and locks the numbers', () => {
@@ -197,7 +216,15 @@ describe('ProblemStudy — new numbers', () => {
     const { onState } = setup({}, state);
     await fireEvent.click(screen.getByRole('button', { name: 'New numbers' }));
     const want = nextSeed(base(), {}, DEFAULT_SEED);
-    expect(onState).toHaveBeenCalledWith({ seed: want, correct: 1, attempts: 2 });
+    // The numbers whose answer was on screen are remembered: they earn nothing if they come back.
+    expect(onState).toHaveBeenCalledWith({ seed: want, correct: 1, attempts: 2, seen: [firstKey] });
+  });
+
+  it('without a reveal, New numbers remembers nothing', async () => {
+    const state = { seed: DEFAULT_SEED, correct: 1, attempts: 1, last: { input: String(firstAnswer), ok: true } };
+    const { onState } = setup({}, state);
+    await fireEvent.click(screen.getByRole('button', { name: 'New numbers' }));
+    expect(onState).toHaveBeenCalledWith({ seed: nextSeed(base(), {}, DEFAULT_SEED), correct: 1, attempts: 1 });
   });
 
   it('the new seed deterministically shows different numbers', async () => {
