@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   handleAppKey,
   isFieldTarget,
@@ -6,12 +6,18 @@ import {
   type KeyCtx,
   type KeyboardEventLike,
 } from './keyboard';
+import { NO_SURFACES, type StudySurfaces } from './study-keys';
 
 function key(k: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventLike {
   return { key: k, metaKey: false, ctrlKey: false, shiftKey: false, ...mods };
 }
 
-function ctx(over: Partial<KeyCtx> = {}): KeyCtx {
+/** A context override; `surfaces` sets what the focused card can answer. */
+type CtxOver = Partial<Omit<KeyCtx, 'focusedSurfaces'>> & { surfaces?: Partial<StudySurfaces> };
+
+function ctx(over: CtxOver = {}): KeyCtx {
+  const { surfaces, ...rest } = over;
+  const focused: StudySurfaces = { ...NO_SURFACES, ...surfaces };
   return {
     inField: false,
     singleLineField: false,
@@ -24,25 +30,20 @@ function ctx(over: Partial<KeyCtx> = {}): KeyCtx {
     sectionIds: [],
     cardIdsOfSelectedSection: [],
     studyFocus: null,
-    focusedFlipCapable: false,
-    focusedChoiceOptions: 0,
-    focusedCanSubmit: false,
-    focusedCanTick: false,
+    focusedSurfaces: () => focused,
     targetInteractive: false,
     helpOpen: false,
-    ...over,
+    ...rest,
   };
 }
 
 /** Study context with a cursor on a card that can answer every study key. */
-function studying(over: Partial<KeyCtx> = {}): KeyCtx {
+function studying(over: CtxOver = {}): KeyCtx {
   return ctx({
     mode: 'study',
     studyFocus: 'c1',
-    focusedChoiceOptions: 3,
-    focusedCanSubmit: true,
-    focusedCanTick: true,
     ...over,
+    surfaces: { choiceOptions: 3, canSubmit: true, canTick: true, ...over.surfaces },
   });
 }
 
@@ -310,14 +311,14 @@ describe('handleAppKey — study cursor movement (v0.3.0 keyboard-first Study)',
 
 describe('handleAppKey — study card keys', () => {
   it('f flips a flip-capable card', () => {
-    expect(handleAppKey(key('f'), studying({ focusedFlipCapable: true }))).toEqual({
+    expect(handleAppKey(key('f'), studying({ surfaces: { flip: true } }))).toEqual({
       kind: 'study-flip',
       preventDefault: true,
     });
   });
 
   it('Space flips a flip-capable card', () => {
-    expect(handleAppKey(key(' '), studying({ focusedFlipCapable: true }))).toEqual({
+    expect(handleAppKey(key(' '), studying({ surfaces: { flip: true } }))).toEqual({
       kind: 'study-flip',
       preventDefault: true,
     });
@@ -334,7 +335,7 @@ describe('handleAppKey — study card keys', () => {
       digit: 1,
       preventDefault: true,
     });
-    expect(handleAppKey(key('9'), studying({ focusedChoiceOptions: 9 }))!).toEqual({
+    expect(handleAppKey(key('9'), studying({ surfaces: { choiceOptions: 9 } }))!).toEqual({
       kind: 'study-choice',
       digit: 9,
       preventDefault: true,
@@ -354,7 +355,7 @@ describe('handleAppKey — study card keys', () => {
   });
 
   it('card keys are inert with no cursor', () => {
-    const none = ctx({ mode: 'study', focusedFlipCapable: true });
+    const none = ctx({ mode: 'study', surfaces: { flip: true } });
     for (const k of [' ', 'f', 'x', '1', 'Enter']) {
       expect(handleAppKey(key(k), none), k).toBeNull();
     }
@@ -387,7 +388,7 @@ describe('handleAppKey — shortcut overlay', () => {
   });
 
   it('is modal: with it open every other key is inert', () => {
-    const open = studying({ helpOpen: true, focusedFlipCapable: true });
+    const open = studying({ helpOpen: true, surfaces: { flip: true } });
     for (const k of ['j', 'k', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', ' ', 'f', 'x', '1', '9', 'Enter']) {
       expect(handleAppKey(key(k), open), k).toBeNull();
     }
@@ -413,7 +414,7 @@ describe('handleAppKey — shortcut overlay', () => {
 
 describe('handleAppKey — study bindings are Edit-mode and field inert', () => {
   it('every study key is unbound in Edit mode', () => {
-    const edit = ctx({ studyFocus: 'c1', focusedFlipCapable: true, helpOpen: true });
+    const edit = ctx({ studyFocus: 'c1', surfaces: { flip: true }, helpOpen: true });
     for (const k of ['j', 'k', ' ', 'f', 'x', '1', '?', 'Enter']) {
       expect(handleAppKey(key(k), edit), k).toBeNull();
     }
@@ -432,14 +433,14 @@ describe('handleAppKey — study bindings are Edit-mode and field inert', () => 
   });
 
   it('the factory has no study cursor (its stage shows benches, not the notebook)', () => {
-    const fac = studying({ place: 'factory', focusedFlipCapable: true });
+    const fac = studying({ place: 'factory', surfaces: { flip: true } });
     for (const k of ['j', 'k', ' ', 'x', '1', '?']) {
       expect(handleAppKey(key(k), fac), k).toBeNull();
     }
   });
 
   it('study keys are swallowed inside a text field', () => {
-    const field = studying({ inField: true, focusedFlipCapable: true });
+    const field = studying({ inField: true, surfaces: { flip: true } });
     for (const k of ['j', 'k', ' ', 'x', '1', '?']) {
       expect(handleAppKey(key(k), field), k).toBeNull();
     }
@@ -449,26 +450,66 @@ describe('handleAppKey — study bindings are Edit-mode and field inert', () => 
 
 describe('handleAppKey — a key with no surface on the focused card is not ours', () => {
   it('a digit past the last option falls through', () => {
-    const three = studying({ focusedChoiceOptions: 3 });
+    const three = studying({ surfaces: { choiceOptions: 3 } });
     expect(handleAppKey(key('3'), three)!.kind).toBe('study-choice');
     expect(handleAppKey(key('4'), three)).toBeNull();
   });
 
   it('digits are inert on a card with no open choice slot (none, or all submitted)', () => {
-    expect(handleAppKey(key('1'), studying({ focusedChoiceOptions: 0 }))).toBeNull();
+    expect(handleAppKey(key('1'), studying({ surfaces: { choiceOptions: 0 } }))).toBeNull();
   });
 
   it('Enter is inert until a choice slot carries a selection', () => {
-    expect(handleAppKey(key('Enter'), studying({ focusedCanSubmit: false }))).toBeNull();
+    expect(handleAppKey(key('Enter'), studying({ surfaces: { canSubmit: false } }))).toBeNull();
   });
 
   it('x is inert with no tickable checklist', () => {
-    expect(handleAppKey(key('x'), studying({ focusedCanTick: false }))).toBeNull();
+    expect(handleAppKey(key('x'), studying({ surfaces: { canTick: false } }))).toBeNull();
+  });
+});
+
+describe('handleAppKey — the focused card is inspected only for its own keys', () => {
+  // focusedSurfaces builds the card's variable scope: typing, chords, cursor moves and the overlay
+  // must never pay for it, only a card key that reaches a focused card.
+  const ALL: StudySurfaces = { flip: true, choiceOptions: 9, canSubmit: true, canTick: true };
+  const probe = (over: CtxOver = {}) => {
+    const spy = vi.fn(() => ALL);
+    return { spy, c: { ...studying(over), focusedSurfaces: spy } };
+  };
+  const CARD_KEYS = [' ', 'f', 'x', '1', '9', 'Enter'];
+
+  it('typing in a field never asks, card keys included', () => {
+    const { spy, c } = probe({ inField: true });
+    for (const k of ['a', 'Z', 'Backspace', 'Escape', 'j', ...CARD_KEYS]) handleAppKey(key(k), c);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('nor do chords, cursor moves, ?, Escape or keys no card answers', () => {
+    const { spy, c } = probe();
+    for (const k of ['Enter', 's', 'z', '=', '1']) handleAppKey(key(k, { metaKey: true }), c);
+    for (const k of ['j', 'k', 'ArrowUp', 'ArrowDown', '?', 'Escape', 'a', '0', 'Tab']) handleAppKey(key(k), c);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('nor does any key in Edit mode, in the factory, under the overlay or without a cursor', () => {
+    for (const over of [{ mode: 'edit' as const }, { place: 'factory' as const }, { helpOpen: true }, { studyFocus: null }]) {
+      const { spy, c } = probe(over);
+      for (const k of CARD_KEYS) handleAppKey(key(k), c);
+      expect(spy, JSON.stringify(over)).not.toHaveBeenCalled();
+    }
+  });
+
+  it('a card key on a focused card asks exactly once', () => {
+    for (const k of CARD_KEYS) {
+      const { spy, c } = probe();
+      expect(handleAppKey(key(k), c), k).not.toBeNull();
+      expect(spy, k).toHaveBeenCalledOnce();
+    }
   });
 });
 
 describe('handleAppKey — a tab-focused control keeps Space and Enter', () => {
-  const onButton = studying({ focusedFlipCapable: true, targetInteractive: true });
+  const onButton = studying({ surfaces: { flip: true }, targetInteractive: true });
 
   it('Space and Enter go to the control, not the cursor', () => {
     expect(handleAppKey(key(' '), onButton)).toBeNull();

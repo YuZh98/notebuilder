@@ -2,7 +2,14 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ResultsModal from './ResultsModal.svelte';
+import { copyText } from '../clipboard';
 import type { Notebook } from '../types';
+
+// A pass-through spy: the dialog must copy through the shared helper, not a private copy of it.
+vi.mock('../clipboard', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../clipboard')>();
+  return { copyText: vi.fn(actual.copyText) };
+});
 
 function nb(): Notebook {
   return {
@@ -54,6 +61,25 @@ describe('ResultsModal', () => {
     expect(text).toContain('Cells');
   });
 
+  it('shows practice tries on their own row, apart from the graded questions', () => {
+    const book = nb();
+    book.sections[0].cards.push({
+      id: 'c3',
+      sectionId: 's1',
+      position: 2,
+      slots: [{ id: 'p3', type: 'problem', props: { prompt: 'x', params: [], answer: '6', tol: 0, need: 1 } }],
+    });
+    const { container } = setup({ notebook: book, readerState: { ...state, c3: { p3: { seed: 1, correct: 2, attempts: 5 } } } });
+    const graded = container.querySelector('[data-results="graded"]')?.textContent ?? '';
+    expect(graded).toContain('2 of 2 answered correct');
+    expect(graded).toContain('3 questions');
+    expect(container.querySelector('[data-results="practice"]')?.textContent).toContain('2 correct in 5 tries');
+  });
+
+  it('has no practice row when nothing was practised', () => {
+    expect(setup().container.querySelector('[data-results="practice"]')).toBeNull();
+  });
+
   it('copies the plain-text summary, including the optional name', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     setClipboard({ writeText });
@@ -66,6 +92,15 @@ describe('ResultsModal', () => {
     const copied = writeText.mock.calls[0][0] as string;
     expect(copied).toContain('Student: Ada');
     expect(copied).toContain('Quiz: Cells');
+  });
+
+  it('copies through the shared clipboard helper', async () => {
+    setClipboard({ writeText: vi.fn().mockResolvedValue(undefined) });
+    const { container } = setup();
+    await fireEvent.click(container.querySelector('[data-act="copy-results"]') as Element);
+    await tick();
+    expect(vi.mocked(copyText)).toHaveBeenCalledOnce();
+    expect(vi.mocked(copyText).mock.calls[0][0]).toContain('Quiz: Cells');
   });
 
   it('falls back to showing selectable text when the clipboard is unavailable', async () => {

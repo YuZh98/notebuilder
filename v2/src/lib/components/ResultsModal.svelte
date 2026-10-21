@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { buildResults, formatResultsText, type Results } from '../results';
+  import { buildResults, formatResultsText, practiceLine, type Results } from '../results';
+  import { copyText } from '../clipboard';
   import { toast } from '../toast.svelte';
   import type { ReaderStateMap } from '../reader-store';
   import type { Notebook } from '../types';
@@ -27,43 +28,15 @@
 
   const results = $derived(buildResults(notebook, readerState, { docId, student, now: new Date() }));
   const graded = $derived(results.graded);
+  const practised = $derived(practiceLine(results.practice));
 
   // Exports are stamped at the moment of the click, not when the dialog opened.
   const fresh = (): Results => buildResults(notebook, readerState, { docId, student, now: new Date() });
 
   onMount(() => box?.focus());
 
-  function legacyCopy(text: string): boolean {
-    if (typeof document.execCommand !== 'function') return false;
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    let ok = false;
-    try {
-      ok = document.execCommand('copy');
-    } catch {
-      ok = false;
-    }
-    ta.remove();
-    return ok;
-  }
-
   async function copy() {
-    const text = formatResultsText(fresh());
-    let ok = false;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        ok = true;
-      }
-    } catch {
-      ok = false;
-    }
-    if (!ok) ok = legacyCopy(text);
+    const ok = await copyText(formatResultsText(fresh()));
     // When no copy path works (file:// pages may lack clipboard access), show the text to select.
     showText = !ok;
     toast(ok ? 'results copied — paste them to your teacher' : 'couldn’t copy — select the text below', 3000);
@@ -140,6 +113,12 @@
         {/if}
       </span>
     </div>
+    {#if practised}
+      <div class="results-row">
+        <strong>Practice</strong>
+        <span data-results="practice">{practised}</span>
+      </div>
+    {/if}
 
     {#if results.perSection.length > 0}
       <ul class="results-sections">

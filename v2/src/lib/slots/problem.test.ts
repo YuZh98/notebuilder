@@ -212,12 +212,6 @@ describe('problem slot — progress', () => {
     expect(problemSlot.isDone!(P(), { correct: '5' })).toBe(false);
     expect(problemSlot.isDone!(P(), { correct: Infinity })).toBe(false);
   });
-
-  it('score reports correct answers over attempts', () => {
-    expect(problemSlot.score!(P(), { correct: 2, attempts: 5 })).toEqual({ correct: 2, answered: 5 });
-    expect(problemSlot.score!(P(), undefined)).toEqual({ correct: 0, answered: 0 });
-    expect(problemSlot.score!(P(), {})).toEqual({ correct: 0, answered: 0 });
-  });
 });
 
 describe('readProblemState', () => {

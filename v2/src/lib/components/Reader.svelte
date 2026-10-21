@@ -213,10 +213,10 @@
     }
   });
 
-  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
-  // behind it and Enter activates whatever it lands on.
+  // The overlays are modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind them and Enter activates whatever it lands on.
   $effect(() => {
-    setAppInert(helpOpen);
+    setAppInert(helpOpen || resultsOpen);
     return () => setAppInert(false);
   });
 
@@ -268,13 +268,15 @@
   // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
+    // The results dialog owns the keyboard: keys pressed in it bubble here, and must not answer,
+    // flip or move the card the cursor was on behind it. Its own handler closes it on an Escape
+    // from inside; one that reaches us came from <body> (focus left the dialog), so close it here.
+    if (resultsOpen) {
+      if (e.key === 'Escape') resultsOpen = false;
+      return;
+    }
     const el = e.target as HTMLElement | null;
     const inField = isFieldTarget(el);
-    const focusedCard = focusedStudyCard();
-    const focusedLive = focusedCard ? (session.live[focusedCard.id] ?? {}) : {};
-    const surfaces = focusedCard
-      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {}, focusedLive)
-      : NO_SURFACES;
     const ctx: KeyCtx = {
       inField,
       singleLineField: false,
@@ -287,10 +289,14 @@
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
       studyFocus,
-      focusedFlipCapable: surfaces.flip,
-      focusedChoiceOptions: surfaces.choiceOptions,
-      focusedCanSubmit: surfaces.canSubmit,
-      focusedCanTick: surfaces.canTick,
+      // Called only for a card key on a focused card: it builds the card's scope, which
+      // every keystroke typed into a field would otherwise pay for.
+      focusedSurfaces: () => {
+        const card = focusedStudyCard();
+        return card
+          ? studySurfaces(card, readerState[card.id] ?? {}, session.live[card.id] ?? {})
+          : NO_SURFACES;
+      },
       targetInteractive: isInteractiveTarget(el),
       helpOpen,
     };

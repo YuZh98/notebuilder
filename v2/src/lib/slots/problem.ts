@@ -292,9 +292,16 @@ export const problemSlot: SlotType<ProblemProps> = {
     return readProblemState(state).correct >= needOf(props);
   },
 
-  score(_props: ProblemProps, state: Record<string, unknown> | undefined): { correct: number; answered: number } | null {
+  // One question, like every other score(): answered once tried, correct once done (`need` met).
+  // The raw counts — "3 correct in 7 tries" — are practice, reported apart from the questions.
+  score(props: ProblemProps, state: Record<string, unknown> | undefined) {
     const s = readProblemState(state);
-    return { correct: s.correct, answered: s.attempts };
+    const done = s.correct >= needOf(props);
+    return {
+      correct: done ? 1 : 0,
+      answered: done || s.attempts > 0 ? 1 : 0,
+      practice: { correct: s.correct, attempts: s.attempts },
+    };
   },
 
   validate(props: ProblemProps): string[] {

@@ -13,8 +13,10 @@ registerSlot({
   completable: false,
   create: () => ({}),
   variables: () => ({ reads: [], writes: [] }),
-  score: (_p: Record<string, unknown>, state: Record<string, unknown> | undefined) =>
-    state ? { correct: Number(state.right ?? 0), answered: Number(state.tried ?? 0) } : { correct: 0, answered: 0 },
+  score: (_p: Record<string, unknown>, state: Record<string, unknown> | undefined) => ({
+    correct: state?.right === true ? 1 : 0,
+    answered: state?.tried === true ? 1 : 0,
+  }),
   renderEdit: {} as never,
   renderStudy: {} as never,
 } as SlotType);
@@ -61,7 +63,7 @@ const state = {
   c5: { q5: { selected: [1], submitted: true } },
   c6: { qb6: { selected: [0], submitted: true }, [CARD_STATE_KEY]: { seenBack: true, flipped: true } },
   c7: { q7: { selected: [0], submitted: true } }, // archived but answered
-  c8: { g8: { right: 2, tried: 3 } },
+  c8: { g8: { right: true, tried: true } },
 };
 
 const NOW = new Date('2026-10-18T09:30:00.000Z');
@@ -95,10 +97,11 @@ describe('buildResults', () => {
 
   it('aggregates graded results over every slot with score(), including back faces and archived cards', () => {
     const r = buildResults(deck(), state, { docId: 'x', now: NOW });
-    // choice: c1 ✓, c2 ✗, c6-back ✓, c7 ✓ (q5 ungraded) ; test-graded: 2/3
+    // choice: c1 ✓, c2 ✗, c6-back ✓, c7 ✓ (q5 ungraded) ; test-graded: ✓
     expect(r.byType.choice).toEqual({ correct: 3, answered: 4, items: 4 });
-    expect(r.byType['test-graded']).toEqual({ correct: 2, answered: 3, items: 1 });
-    expect(r.graded).toEqual({ correct: 5, answered: 7, items: 5 });
+    expect(r.byType['test-graded']).toEqual({ correct: 1, answered: 1, items: 1 });
+    expect(r.graded).toEqual({ correct: 4, answered: 5, items: 5 });
+    expect('practice' in r).toBe(false); // no slot here practises
   });
 
   it('counts unanswered graded questions as items but not as answered', () => {
@@ -138,6 +141,69 @@ describe('buildResults', () => {
   });
 });
 
+describe('buildResults — every graded slot is one question', () => {
+  const pr = (id: string, need = 1) =>
+    s(id, 'problem', { prompt: 'x', params: [], answer: '6', tol: 0, need });
+  const quiz = (): Notebook => ({
+    id: 'nb',
+    name: 'Practice',
+    createdAt: '',
+    updatedAt: '',
+    sections: [
+      sec('s', 'S', [
+        c('c1', [q('q1')]),
+        c('c2', [pr('p2')]),
+        c('c3', [pr('p3', 2)]),
+        c('c4', [pr('p4')]),
+      ]),
+    ],
+  });
+  const tries = {
+    c1: { q1: { selected: [0], submitted: true } }, // ✓
+    c2: { p2: { seed: 1, correct: 3, attempts: 7 } }, // done
+    c3: { p3: { seed: 1, correct: 1, attempts: 4 } }, // tried, need 2 not met
+  };
+
+  it('counts a practice problem as one question and its tries apart (reviewer repro)', () => {
+    const r = buildResults(quiz(), tries, { docId: 'x', now: NOW });
+    // q1 ✓ · p2 ✓ · p3 answered ✗ · p4 untouched — never "4 of 11 answered" from raw tries
+    expect(r.graded).toEqual({ correct: 2, answered: 3, items: 4 });
+    expect(r.byType.problem).toEqual({ correct: 1, answered: 2, items: 3 });
+    expect(r.practice).toEqual({ correct: 4, attempts: 11 });
+  });
+
+  it('prints the question tally and the practice tries on their own lines', () => {
+    const text = formatResultsText(buildResults(quiz(), tries, { docId: 'x', now: NOW }));
+    expect(text).toContain('Graded: 2 of 3 answered correct (67%) · 4 questions');
+    expect(text).toContain('Practice: 4 correct in 11 tries');
+    expect(text).toContain('problem: 1 of 2 answered correct');
+  });
+
+  it('keeps an untried practice set out of the text but in the export', () => {
+    const r = buildResults(quiz(), {}, { docId: 'x', now: NOW });
+    expect(r.practice).toEqual({ correct: 0, attempts: 0 });
+    expect(formatResultsText(r)).not.toContain('Practice:');
+  });
+
+  it('drops a score() that reports counts instead of one question, rather than mixing units', () => {
+    registerSlot({
+      type: 'test-counting',
+      kind: 'interact',
+      completable: false,
+      create: () => ({}),
+      variables: () => ({ reads: [], writes: [] }),
+      score: () => ({ correct: 2, answered: 3 }),
+      renderEdit: {} as never,
+      renderStudy: {} as never,
+    } as SlotType);
+    const nb = quiz();
+    nb.sections[0].cards.push(c('cx', [s('kx', 'test-counting')]));
+    const r = buildResults(nb, tries, { docId: 'x', now: NOW });
+    expect(r.byType['test-counting']).toBeUndefined();
+    expect(r.graded).toEqual({ correct: 2, answered: 3, items: 4 });
+  });
+});
+
 describe('formatResultsText', () => {
   it('renders a plain-text summary a teacher can read pasted into a message', () => {
     const text = formatResultsText(buildResults(deck(), state, { docId: 'nb_author', student: 'Ada', now: NOW }));
@@ -145,7 +211,8 @@ describe('formatResultsText', () => {
     expect(text).toContain('Student: Ada');
     expect(text).toContain('2026-10-18T09:30:00.000Z');
     expect(text).toContain('Progress: 5 of 5 cards done (100%)');
-    expect(text).toContain('Graded: 5 of 7 answered correct (71%)');
+    expect(text).toContain('Graded: 4 of 5 answered correct (80%) · 5 questions');
+    expect(text).not.toContain('Practice:');
     expect(text).toContain('Cells & membranes: 2/2');
     expect(text).toContain('Genetics: 3/3');
     expect(text).toContain('choice: 3 of 4 answered correct');
