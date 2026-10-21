@@ -218,13 +218,14 @@ import time.
 v2/
   src/
     main.ts              Svelte mount
-    App.svelte           Root component (32KB): mode/place routing, notebook CRUD, effects
+    App.svelte           Root component (~48KB): mode/place routing, notebook CRUD, effects
     app.css              Global stylesheet
     lib/
       types.ts           Core type definitions (Slot, Card, Section, Notebook — incl. Notebook.cats)
       card-types.ts      CardType, stampCard, placeType, builtinCardTypes
       bench.svelte.ts    Factory workbench state (Svelte 5 $state rune)
-      session.svelte.ts  Study session state (shuffle, search, archive toggle, live control values)
+      seal.ts            Seal-modal draft: bench → CardType metadata capture
+      session.svelte.ts  Study session state (shuffle, search, archive toggle, collapse, live values)
       notebook-ops.ts    CRUD ops: createNotebook, addSection, addChapter, duplicateCard, etc.
       tags.ts            The ONE tag write path: apply/remove/rename/delete/create/reorder + cats upkeep
       coverage-matrix.ts Matrix axes, cell matching, same 3-axis model as v1
@@ -243,7 +244,6 @@ v2/
       reader-store.ts    Shared-Reader progress in localStorage: stable content keys, quota eviction
       results.ts         Student results summary (progress + graded score() tallies) + text form
       drafts.ts          AI drafts: markAllDraft, nextDraft, clear one/all (local authoring state)
-      builtin-seed.ts    planBuiltinSeed: new built-ins reach existing installs exactly once
       rng.ts             mulberry32 + step-grid draws for reproducible practice numbers
       numeric-input.ts   Strict parser for typed numeric answers (never evalExpr on input)
       schema/            notebook.schema.json (published JSON Schema 2020-12) + schema.ts readers
@@ -266,13 +266,25 @@ v2/
       uid.ts             ID generator
       debounce.ts        debounce with flush / cancel / pending
       annotations.ts     Reader annotations (local-only)
+      presentation.ts    Volatile presentation keys stripped from persisted reader state
+      demo.ts            First-run seed notebook
       history.svelte.ts  Undo/redo stacks: pushHistory/pushSnapshot/beginEdit (focus-coalesced)
       history-focus.ts   data-history="edit" input coalescing — one undo entry per edit session
+      keyboard.ts        Pure key dispatcher: the v1 shortcut map as a decision over a KeyCtx
+      study-keys.ts      Study cursor: focus order, stepping, per-key reader-state effect
+      card-reveal.ts     Scroll a just-placed card into view and flash the study ring on it
+      modal-inert.ts     `inert` on the shell behind a modal overlay, so Tab cannot reach it
+      zoom.ts            App zoom factor (Cmd/Ctrl +/-/0) + viewport↔zoom-space conversion
+      print.ts           Print: native print_page on desktop, window.print() in browser
+      visible-cards.ts   The one render order: sections/cards the Stage shows (and the cursor walks)
       shell.ts           Shell/container styling logic
       slot-contract.ts   SlotType interface: create, variables, evaluate, isDone, stateLayer, render*
       progress.ts        Notebook/section/chapter progress computation
       card-done.ts       Per-card completion logic
       var-colors.ts      Variable key → color assignment
+      sim-notebook.ts    Seeded notebook generator + canonical form (sim test tier)
+      sim-rng.ts         Deterministic RNG + seed sweep for the sim suites
+      test-utils.ts      Shared test scaffolding (pev, stubRect)
 
       slots/             Per-slot-type modules (12 types):
         registry.ts      Slot type registry (registerSlot / getSlot / allSlots)
@@ -304,6 +316,7 @@ v2/
         CoverageMatrix.svelte  3-axis matrix grid (same v1 concept)
         ServiceBar.svelte  Per-section feature/action bar
         SealModal.svelte  Seal product: name, icon, store, varieties
+        ShortcutHelp.svelte  Study shortcut overlay (toggled by ?)
         ProductDetail.svelte  Product info + fork/place
         StoreLane.svelte  Store shelf in sidebar
         SlotConfig.svelte  Slot field editor + verb builder
@@ -377,8 +390,9 @@ never exported, never in a share payload, ignored on import.
 **Same invariants as v1:**
 - Variables are **card-scoped** (front + back share one scope, never cross card boundaries).
 - Study state: document (exported) · progress (persisted locally, never exported) · **session**
-  (`session.svelte.ts` — shuffle/search/archive-view plus `session.live`, the per-card control
-  values keyed by variable name; wiped on every Study entry, never persisted).
+  (`session.svelte.ts` — shuffle/search/archive-view/collapse plus `session.live`, the per-card
+  control values keyed by variable name; never persisted. Entering Study wipes shuffle and live;
+  search, archive view and collapse survive until the notebook changes).
 - A slot declares which layer its Study writes belong to via `SlotType.stateLayer`
   (`'progress'` default → readerState by slot id; `'session'` → `session.live` by variable name —
   slider is the one session-layer slot).
@@ -412,10 +426,13 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
 
 1. **Drag engine** (`drag/engine.ts` + `kinds.ts`) — unified pointer engine with `DRAG_KINDS` registry
    (9 kinds: card, section, qopt, product, slot, bench, tag, svc, svcattach). Same FLIP approach as
-   v1, but with **no native-drag path at all** (WKWebView blocks custom dataTransfer types — see the
-   `text/nb-svc` sweep test). A kind's `laneSel` makes arbitrary elements drop targets: tag → card
-   applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches / dustbin detaches.
-   Separate header-drag for matrix axis reorder. Drop handlers split by context (notebook vs factory).
+   v1. The pointer engine drives every notebook and study surface; the Factory inventory chips still
+   use native HTML5 drag (`SideFactory.svelte`). A sweep test in `svc-attach.test.ts` checks that no
+   component source contains the old `text/nb-svc` MIME type (WKWebView blocks custom dataTransfer
+   types, which is why that native path was removed). A kind's `laneSel` makes arbitrary elements drop
+   targets: tag → card applies, tag → `.tag-grid` reorders cats, svcattach → `.room` attaches /
+   dustbin detaches. Separate header-drag for matrix axis reorder. Drop handlers split by context
+   (notebook vs factory).
 
 2. **Variable graph** (`variable-graph.ts`) — topological-sort evaluator. Each slot declares reads/
    writes; `resolveGraph` orders by dependency and evaluates once. `findGraphIssues` does static
@@ -424,8 +441,8 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
 3. **Coverage matrix** (`coverage-matrix.ts`) — same 3 axes as v1 (section/product/tag). Appears when
    ≥2 axes have ≥2 values.
 
-4. **Service bar** (`services.ts` + `service-ops.ts`) — 6 services (pin, shuffle, flipAll, reset,
-   search, archive). Features decorate cards; actions fire once. Custom order via `svcOrder`.
+4. **Service bar** (`services.ts` + `service-ops.ts`) — 7 services (pin, shuffle, flipAll, reset,
+   search, archive, notes). Features decorate cards; actions fire once. Custom order via `svcOrder`.
 
 5. **JSON interchange** (`json-io.ts`) — versioned export/import with full validation including
    variable-graph cycle detection. Static analysis catches broken variable references before notebooks
@@ -486,7 +503,7 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
 | Shared Reader progress / results | `reader-store.ts` + `results.ts` + `Reader.svelte` (then `npm run build:reader`) |
 | Interchange format / AI prompt | `schema/notebook.schema.json` + `docs/FORMAT.md` + `slot-catalog.ts` + `ai-prompt.ts` |
 | Import error messages / hints | `json-io.ts` `validateNotebookIssues` (codes) + `import-hints.ts` `hintFor` |
-| Built-in card types | `card-types.ts` `builtinCardTypes` (+ `builtin-seed.ts` delivers new ones to existing installs) |
+| Built-in card types | `card-types.ts` `builtinCardTypes` (+ the `seeded_builtins` ledger: `unseededBuiltins` / `parseSeededLedger` deliver new ones to existing installs) |
 | Version history | `snapshots.ts` (policy) + `versions.ts` (when) + `db.ts` snapshot SQL + `VersionsPanel.svelte` |
 | Themes | `themes.ts` + CSS variables in `app.css` |
 | Progress tracking | `progress.ts` + `card-done.ts` + `slots/progress.ts` |
@@ -498,7 +515,8 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
 - **Card-scoped variables** — reads/writes never cross card boundaries. `findGraphIssues` enforces.
 - **SlotType contract** — every slot type must declare `variables()` and provide both render components.
 - **SQLite parameterized queries** — no string interpolation of user data in SQL.
-- **Session state (`session.svelte.ts`)** is never persisted or exported — mode/notebook switches reset it.
+- **Session state (`session.svelte.ts`)** is never persisted or exported — entering Study wipes
+  shuffle and live, and switching notebooks wipes all of it (`resetSession`).
 - **`folded` and `draft` are local-only** — never included in JSON export or share payloads.
 - **Never `INSERT OR REPLACE` a parent row** — with foreign keys on it deletes and cascades;
   use `INSERT … ON CONFLICT(id) DO UPDATE`.
@@ -515,8 +533,11 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
   (sweep-tested in `state-layer.test.ts`); every change flows through `onUpdate`/`onState` callbacks
   to the owner.
 - **One tag write path** — all `card.tags`/`Notebook.cats` mutations go through `tags.ts`.
-- **No native HTML5 drag** — every gesture rides `drag/engine.ts` (sweep-tested; WKWebView breaks
-  custom dataTransfer MIME types).
+- **Pointer engine for notebook/study, native drag in the Factory** — `drag/engine.ts` drives every
+  notebook and study gesture; the Factory inventory chips still use native HTML5 drag
+  (`SideFactory.svelte`). WKWebView blocks custom dataTransfer MIME types, so that native path can't
+  extend past the Factory. A sweep test in `svc-attach.test.ts` checks that no component source
+  contains the old `text/nb-svc` MIME type.
 - **Undo keeps live selections** — `restoreHistory` clears a selection only when the restored
   snapshot no longer contains it (D25 revised).
 
@@ -540,11 +561,10 @@ Optional `score?(props, state) → {correct, answered} | null` feeds the Reader'
 docs/
   CODE-MAP.md           this file
   adr/                  architecture decision records
-  spec/v2-spec.md       v2 product spec
-  research/             market analysis, v1 feature inventory
-  examples/             sample JSON notebook
+  spec/                 v2 product spec (local, untracked)
+  research/             market analysis, v1 feature inventory (local, untracked)
+  examples/             example notebooks
   DEBT.md               debt ledger (local, untracked)
-  superpowers/plans/    task plans (local, untracked)
 
 scripts/
   build.mjs             v1 concatenation build
@@ -554,10 +574,11 @@ scratch/
   p3-gate/ … p6-gate/  visual QA screenshots (v1 vs v2 side-by-side)
   HANDOFF.md            developer handoff notes
 
-tests/                  v1 Playwright BDD suite (~65 specs)
+tests/                  v1 Playwright BDD suite (66 specs, 240 tests)
 
 .github/
-  workflows/ci.yml      CI: build + test on push/PR
+  workflows/ci.yml      CI: v2 check/test/build (path-filtered to v2/**)
+  workflows/v1.yml      CI: v1 build/lint/test (path-filtered to root app paths)
   ISSUE_TEMPLATE/       bug/feature templates
   pull_request_template.md
 ```

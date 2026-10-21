@@ -19,6 +19,9 @@ function extractCardViewProps(src: string): string[] {
   const end = src.indexOf('/>', start);
   if (end < 0) throw new Error('No /> closing <CardView found');
   const block = src.slice(start, end);
+  // A non-self-closing <CardView ...> would run this slice past its own tag and silently
+  // harvest props from whatever element carries the next `/>`.
+  if (block.includes('<', 1)) throw new Error('<CardView is no longer self-closing');
 
   const props: string[] = [];
   // Match shorthand props like {card} {editable}
@@ -33,6 +36,16 @@ function extractCardViewProps(src: string): string[] {
     props.push(m[1]);
   }
   return [...new Set(props)].sort();
+}
+
+function extractZoomArm(src: string): string {
+  const start = src.indexOf("case 'zoom'");
+  if (start < 0) throw new Error("No case 'zoom' found");
+  const end = src.indexOf('break;', start);
+  if (end < 0) throw new Error("case 'zoom' has no break");
+  const arm = src.slice(start, end);
+  if (arm.includes('case ', 1)) throw new Error("case 'zoom' falls through to another action");
+  return arm;
 }
 
 // Reader-only props that are allowed to differ (e.g. props only the Reader needs).
@@ -55,6 +68,19 @@ describe('Reader drift guard', () => {
         .filter(Boolean)
         .join('\n');
       expect.fail(`CardView prop drift detected:\n${msg}`);
+    }
+  });
+
+  // The zoom shortcut preventDefaults in both surfaces, so a surface that does not handle the
+  // action swallows the browser's own zoom and leaves the reader with no way to scale the page.
+  it('App and Reader both handle the zoom action through the shared helper', () => {
+    for (const [name, src] of [
+      ['App', appSrc],
+      ['Reader', readerSrc],
+    ] as const) {
+      const arm = extractZoomArm(src);
+      expect(arm, `${name}: zoom case does not use nextZoom`).toMatch(/nextZoom\(/);
+      expect(arm, `${name}: zoom case does not apply the level`).toMatch(/applyZoom\(/);
     }
   });
 

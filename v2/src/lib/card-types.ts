@@ -123,6 +123,38 @@ export function templateSlot(s: Slot): SlotTemplate {
   };
 }
 
+/**
+ * Builtin ids that existed before the seeded-builtins ledger was introduced.
+ * A DB that has card types but no ledger preference was seeded from exactly
+ * this set, so treating it as the ledger keeps old deletions deleted while
+ * still letting every later builtin seed itself on next launch.
+ */
+export const LEGACY_SEEDED_BUILTINS: readonly string[] = [
+  'ct_flashcard', 'ct_quiz', 'ct_note', 'ct_tracker', 'ct_mastery',
+  'ct_sliderlab', 'ct_gaussian', 'ct_payoff', 'ct_compound', 'ct_quizcard',
+];
+
+/** Builtins absent from the seeded ledger — what a boot still needs to seed. */
+export function unseededBuiltins(seededIds: Iterable<string>): CardType[] {
+  const seen = new Set(seededIds);
+  return builtinCardTypes.filter((b) => !seen.has(b.id));
+}
+
+/**
+ * Parse the seeded_builtins ledger preference. Garbage JSON or valid JSON of
+ * the wrong shape (a number, an object, an array of non-strings) falls back
+ * to the legacy set rather than throwing and aborting boot hydration.
+ */
+export function parseSeededLedger(raw: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'string')) return parsed;
+  } catch {
+    // garbage JSON: fall through to the legacy fallback below
+  }
+  return [...LEGACY_SEEDED_BUILTINS];
+}
+
 export const builtinCardTypes: CardType[] = [
   { id: 'ct_flashcard', name: 'Flashcard', store: 'practice', accent: '#6ea8fe', w: 6,
     verbs: { flip: true },
@@ -232,4 +264,32 @@ export const builtinCardTypes: CardType[] = [
           { name: 'c', min: 1, max: 9, step: 1 }],
         answer: 'a * (c + b)', tol: 0, need: 2,
         explain: 'Add {{b}} to both sides: $\\dfrac{x}{ {{a}} } = {{c}} + {{b}}$. Then multiply both sides by {{a}}: $x = {{a}} \\times ({{c}} + {{b}})$.' } }] },
+  { id: 'ct_cheatsheet', name: 'Cheatsheet', store: 'write', accent: '#27ff9e', icon: '📋', w: 6,
+    varieties: [{ name: 'Neon', accent: '#27ff9e' }, { name: 'Blue', accent: '#6ea8fe' }, { name: 'Amber', accent: '#f0a868' }],
+    slots: [
+      { type: 'text', props: { text: '### Derivative Rules\n\nThe derivative is the instantaneous rate of change, the slope of the tangent.' } },
+      { type: 'table', props: { rows: [
+        ['RULE', 'FORMULA'],
+        ['Power', '`d/dx x^n = n*x^(n-1)`'],
+        ['Product', "`(fg)' = f'g + fg'`"],
+        ['Chain', "`(f(g(x)))' = f'(g(x)) * g'(x)`"]] } },
+      { type: 'text', props: { text: '> **Example.** `d/dx (3x+1)^5 = 15(3x+1)^4` (chain).' } }] },
+  { id: 'ct_ironfly', name: 'Iron Butterfly', store: 'live', accent: '#27ff9e', icon: '🦋',
+    varieties: [{ name: 'Neon', accent: '#27ff9e' }, { name: 'Amber', accent: '#f0a868' }],
+    slots: [
+      { type: 'text', props: { text: '### Payoff explorer: iron butterfly\n\nShort a straddle at $K_0$, buy wings $W$ away, collect net credit $C$.' } },
+      { type: 'slider', props: { key: 'K0', value: 100, min: 80, max: 120, step: 5 }, w: 4 },
+      { type: 'slider', props: { key: 'W', value: 10, min: 5, max: 25, step: 5 }, w: 4 },
+      { type: 'slider', props: { key: 'C', value: 3.5, min: 1, max: 8, step: 0.25 }, w: 4 },
+      { type: 'compute', props: { expr: 'C', out: 'maxProfit', note: 'max profit' }, w: 3 },
+      { type: 'compute', props: { expr: 'C - W', out: 'maxLoss', note: 'max loss' }, w: 3 },
+      { type: 'compute', props: { expr: 'K0 - C', out: 'beLow', note: 'breakeven low' }, w: 3 },
+      { type: 'compute', props: { expr: 'K0 + C', out: 'beHigh', note: 'breakeven high' }, w: 3 },
+      { type: 'chart', props: { fn: 'C - max(K0 - x, 0) - max(x - K0, 0) + max(K0 - W - x, 0) + max(x - K0 - W, 0)', label: 'P&L at expiry vs spot', x0: 60, x1: 140, y0: -25, y1: 10, xticks: 8, yticks: 7, hover: true } },
+      { type: 'text', props: { text: 'Peaks at **{{maxProfit}}**, floors at **{{maxLoss}}**, crosses zero at **{{beLow}}** and **{{beHigh}}**.' } }] },
+  { id: 'ct_codecard', name: 'Code Card', store: 'write', accent: '#b388ff', icon: '⌨', w: 6,
+    varieties: [{ name: 'Violet', accent: '#b388ff' }, { name: 'Neon', accent: '#27ff9e' }],
+    slots: [
+      { type: 'text', props: { text: '### Snippet\n\nSyntax-highlighted source for your own REPL.' } },
+      { type: 'code', props: { lang: 'python', code: 'import numpy as np\n\ndef mc_call(s0=100, k=100, vol=0.2, t=0.25, n=100_000, seed=7):\n    z = np.random.default_rng(seed).standard_normal(n)\n    st = s0 * np.exp(-0.5 * vol**2 * t + vol * np.sqrt(t) * z)\n    return np.maximum(st - k, 0).mean()' } }] },
 ];

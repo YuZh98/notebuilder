@@ -27,6 +27,12 @@ const PR: Record<string, number> = {
   '+': 5, '-': 5, '*': 6, '/': 6, '%': 6, '//': 6, '^': 7,
 };
 
+/** The call and operator tables by name — the expression sim's generator pools mirror them. */
+export const FN_ARITY: Record<string, number> = Object.fromEntries(
+  Object.entries(FN).map(([name, fn]) => [name, fn.length]),
+);
+export const OP_NAMES: string[] = Object.keys(PR);
+
 const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
 function lex(s: string): Tok[] {

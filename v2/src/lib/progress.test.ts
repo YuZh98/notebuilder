@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { computeProgress, progressScopeCards } from './progress';
 import { createNotebook, addSection, addCard, addChapter } from './notebook-ops';

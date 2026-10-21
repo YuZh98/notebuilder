@@ -117,21 +117,21 @@ describe('StoreLane — product drag (pointer engine)', () => {
     expect(nb.sections[0].cards[0].accent).toBe('#22f'); // session default variety
   });
 
-  it('a completed drag suppresses the chip click, so onpick does not fire', () => {
+  it('a completed drag suppresses the chip click, so onpick does not fire', async () => {
     const { grid, onpick, chip } = fixture();
     _setElementFromPoint(() => grid);
     fireEvent(chip, pev('pointerdown', 0, 0));
     document.dispatchEvent(pev('pointermove', 60, 60));
     document.dispatchEvent(pev('pointerup', 60, 60));
-    fireEvent.click(chip);
+    await fireEvent.click(chip);
     expect(onpick).not.toHaveBeenCalled();
   });
 
-  it('a press without movement still fires the chip click (onpick)', () => {
+  it('a press without movement still fires the chip click (onpick)', async () => {
     const { onpick, chip } = fixture();
     fireEvent(chip, pev('pointerdown', 0, 0));
     document.dispatchEvent(pev('pointerup', 0, 0));
-    fireEvent.click(chip);
+    await fireEvent.click(chip);
     expect(onpick).toHaveBeenCalledWith('ct_note');
   });
 });

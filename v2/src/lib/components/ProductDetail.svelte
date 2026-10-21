@@ -113,6 +113,17 @@
     onresize: noop,
     onfusew: noop,
   });
+
+  // v1 fitPreview (70-events.js:217): the stage lays out at notebook geometry and is scaled to the
+  // panel; the wrap gets an explicit height because transforms do not shrink layout space.
+  // 720px is a full 12-column room, and the stage takes the type's own share of it: previewing a
+  // w:6 type at whole-room width scaled it to ~0.36, illegible and not how the card ever looks.
+  const ROOM_W = 720;
+  const prevRef = (ROOM_W * (ct.w ?? 12)) / 12;
+  let prevWrapW = $state(0);
+  let prevStageH = $state(0);
+  const prevScale = $derived(Math.min(1, Math.max(0.2, (prevWrapW - 22) / prevRef)));
+  const prevWrapH = $derived(prevStageH > 0 ? Math.ceil(prevStageH * prevScale) + 22 : undefined);
 </script>
 
 <div class="sect">
@@ -142,7 +153,7 @@
     {/each}
   {/each}
 
-  <div class="row" style="margin-top:10px">
+  <div class="row" style="margin-top:var(--space-5)">
     <b class="sm">Live preview</b>
     <span class="spacer"></span>
     <div class="palette">
@@ -151,8 +162,16 @@
     </div>
   </div>
 
-  <div class="prev-wrap">
-    <div class="prev-stage">
+  <div
+    class="prev-wrap"
+    bind:clientWidth={prevWrapW}
+    style={prevWrapH !== undefined ? `height:${prevWrapH}px` : ''}
+  >
+    <div
+      class="prev-stage"
+      bind:clientHeight={prevStageH}
+      style="width:{prevRef}px;transform:scale({prevScale})"
+    >
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="prev-card" onpointerdown={(e) => ongrip?.(ct.id, e, e.currentTarget)}>
         <CardView {...previewProps} forceMode={prevStudy ? 'study' : 'edit'} />
@@ -161,23 +180,25 @@
   </div>
 
   {#if ct.varieties?.length}
-    <div class="kv" style="margin-top:6px">
+    <div class="kv" style="margin-top:var(--space-3)">
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label>Variety</label>
-      <span class="palette" style="display:inline-flex;gap:4px">
+      <span class="palette" style="display:inline-flex;gap:var(--space-2)">
         {#each ct.varieties as v (v.name)}
           <button
             class="chip"
             class:on={variety?.name === v.name}
             data-variety={v.name}
-            style={v.accent ? `box-shadow:inset 3px 0 0 ${v.accent}` : ''}
+            style={v.accent
+              ? /* token-exempt: 3px repeats the app.css .furn accent stripe width */ `box-shadow:inset 3px 0 0 ${v.accent}`
+              : ''}
             onclick={() => pickVariety(v)}>{v.name}</button>
         {/each}
       </span>
     </div>
   {/if}
 
-  <div style="margin-top:8px">
+  <div style="margin-top:var(--space-4)">
     <button class="btn primary" data-act="placeprod" onclick={place}>＋ Place</button>
     <span class="muted sm">adds to the current section</span>
   </div>

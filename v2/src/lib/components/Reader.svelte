@@ -36,10 +36,15 @@
     canRedo,
     type HistSnapshot,
   } from '../history.svelte';
-  import { handleAppKey, type KeyCtx } from '../keyboard';
+  import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from '../keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
+  import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
+  import { revealCard } from '../card-reveal';
+  import { setAppInert } from '../modal-inert';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
-  import { clampSideW } from '../shell';
+  import { sideWidthAt } from '../shell';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from '../zoom';
   import {
     addSection,
     addChapter,
@@ -54,7 +59,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
-  import { session, shuffleSection, clearShuffle } from '../session.svelte';
+  import { session, sessionView, shuffleSection, clearSectionView } from '../session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
@@ -123,6 +128,10 @@
   let selCard: string | null = $state(null);
   let selProd: string | null = $state(null);
   let selVariety: Variety | null = $state(null);
+
+  // Study cursor + its shortcut overlay: session-transient, exactly as in the app.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
 
   let mtxRow: MatrixAxis | null = $state(null);
   let mtxCol: MatrixAxis | null = $state(null);
@@ -195,6 +204,57 @@
     if (shared) progressStore?.schedule(state, notes);
   });
 
+  // Reading this derived is what arms the effect: a mode switch or an import drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind it and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen);
+    return () => setAppInert(false);
+  });
+
+  // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
+  const studyOrderIds = $derived(
+    $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
+  );
+
+  // A filter, a search, a collapse or an archive swap can pull the focused card off the page under
+  // the cursor; when that happens the cursor goes with it rather than acting on what nobody sees.
+  $effect(() => {
+    if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
+  });
+
+  /** The focused card — null unless the cursor is on a card the reader can actually see. */
+  function focusedStudyCard(): Card | null {
+    if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
+    return findCard(notebook, studyFocus) ?? null;
+  }
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyOrderIds, studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    // 'center', not 'nearest': nearest parks the card flush against the viewport edge, where the
+    // ring is clipped and the pinned hint sits on top of it.
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'center' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = focusedStudyCard();
+    if (!card) return;
+    const live = session.live[card.id] ?? {};
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {}, live);
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
+
   function sectionCardsOf(cardId: string | null): string[] {
     if (!cardId) return [];
     for (const s of notebook.sections) {
@@ -203,12 +263,18 @@
     return [];
   }
 
+  let zoomLevel = 1;
+
   // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
-    const inField =
-      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const inField = isFieldTarget(el);
+    const focusedCard = focusedStudyCard();
+    const focusedLive = focusedCard ? (session.live[focusedCard.id] ?? {}) : {};
+    const surfaces = focusedCard
+      ? studySurfaces(focusedCard, readerState[focusedCard.id] ?? {}, focusedLive)
+      : NO_SURFACES;
     const ctx: KeyCtx = {
       inField,
       singleLineField: false,
@@ -220,6 +286,13 @@
       selProd,
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
+      studyFocus,
+      focusedFlipCapable: surfaces.flip,
+      focusedChoiceOptions: surfaces.choiceOptions,
+      focusedCanSubmit: surfaces.canSubmit,
+      focusedCanTick: surfaces.canTick,
+      targetInteractive: isInteractiveTarget(el),
+      helpOpen,
     };
     const action = handleAppKey(e, ctx);
     if (!action) return;
@@ -262,6 +335,29 @@
         break;
       case 'blur-single-line':
         el?.blur();
+        break;
+      // The action preventDefaults the browser's own zoom, so this file has to replace it.
+      case 'zoom':
+        zoomLevel = nextZoom(zoomLevel, action.delta);
+        applyZoom(zoomLevel);
+        toast(zoomLabel(zoomLevel));
+        break;
+      case 'study-focus-step':
+        moveStudyFocus(action.delta);
+        break;
+      case 'study-focus-clear':
+        studyFocus = null;
+        break;
+      case 'study-flip':
+      case 'study-submit':
+      case 'study-tick':
+        applyStudyKey(e.key);
+        break;
+      case 'study-choice':
+        applyStudyKey(String(action.digit));
+        break;
+      case 'study-help':
+        helpOpen = !helpOpen;
         break;
     }
   }
@@ -380,11 +476,11 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) sideW = startW;
-        else if (moved && !sideCollapsed) sideW = clampSideW(mv.clientX);
+        else if (moved && !sideCollapsed) sideW = sideWidthAt(mv.clientX, effectiveZoom());
         else toggleSide();
       },
     );
@@ -524,8 +620,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -631,8 +727,10 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function stampFromGallery(sectionId: string, ct: CardType) {
@@ -732,10 +830,10 @@
         <button class="btn sm" onclick={() => { pushHistory(); addSection(notebook); }}>＋ section</button>
         <button class="btn sm" title="Add a chapter divider" onclick={() => { pushHistory(); addChapter(notebook); }}>＋ chapter</button>
       {/if}
-      <span style="width:10px;display:inline-block"></span>
+      <span style="width:var(--space-5);display:inline-block"></span>
       <button class="btn sm" title="Undo" disabled={!undoable} onclick={() => toast(histUndo() ? 'undo' : 'nothing to undo')}>↶</button>
       <button class="btn sm" title="Redo" disabled={!redoable} onclick={() => toast(histRedo() ? 'redo' : 'nothing to redo')}>↷</button>
-      <span style="width:10px;display:inline-block"></span>
+      <span style="width:var(--space-5);display:inline-block"></span>
       <button class="btn sm" title="Export notebook as JSON" data-act="export" onclick={exportJson}>⤓</button>
       <button class="btn sm" title="Import a notebook JSON file" data-act="import" onclick={() => fileInput?.click()}>⤒</button>
       <input
@@ -819,6 +917,7 @@
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
     onreviewed={void 0}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -844,6 +943,8 @@
 {#snippet stageFooter()}
   {#if $mode === 'edit'}
     <button class="add-section" onclick={() => { pushHistory(); addSection(notebook); }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
   <footer class="madewith">
     <a href="https://github.com/YuZh98/notebuilder" target="_blank" rel="noopener">Made with NoteBuilder</a>
@@ -921,6 +1022,10 @@
   />
 {/if}
 
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
+
 <MdBar />
 <Toast />
 <Dustbin />
@@ -928,24 +1033,24 @@
 <style>
   .brand-nb {
     font-weight: 600;
-    padding: 0 6px;
+    padding: 0 var(--space-3);
     opacity: 0.9;
   }
   .section-head {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 12px;
-    padding-right: 26px;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+    padding-right: 26px; /* token-exempt: one-off gutter that clears the section controls */
   }
   .section-name {
     flex: 1;
-    font-size: 16px;
+    font-size: var(--fs-lg);
     background: transparent;
     color: inherit;
     border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
   }
   .section-name:hover,
   .section-name:focus {
@@ -957,9 +1062,9 @@
     border: none;
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.5;
-    padding: 2px 4px;
+    padding: var(--space-1) var(--space-2);
   }
   .section-head button:hover {
     opacity: 1;
@@ -968,12 +1073,12 @@
   .add-section {
     background: none;
     border: 1px dashed var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.6;
-    padding: 4px 10px;
+    padding: var(--space-2) var(--space-5);
   }
   .add-card:hover,
   .add-section:hover {
@@ -982,17 +1087,18 @@
   }
   .add-row {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
   }
   .add-card {
     flex: 1;
   }
   .gallery {
     display: grid;
+    /* token-exempt: 160px is a grid track floor, not a spacing step */
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
   }
   .gallery-item {
     position: relative;
@@ -1001,27 +1107,45 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-2);
     align-items: flex-start;
     text-align: left;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
-    padding: 10px;
+    font-size: var(--fs-sm);
+    padding: var(--space-5);
   }
   .gallery-stamp:hover {
     border-color: var(--accent, #7c3aed);
   }
   .gallery-stamp span {
     opacity: 0.6;
-    font-size: 11px;
+    font-size: var(--fs-xs);
   }
   .add-section {
     width: 100%;
-    padding: 8px;
+    padding: var(--space-4);
+  }
+  /* Pinned to the foot of the scrolling stage: as a plain last line of the document the hint sat
+     below every card, so the shortcuts it advertises were never seen on entering Study. */
+  .kb-hint {
+    position: sticky;
+    bottom: var(--space-2);
+    z-index: 2;
+    width: fit-content;
+    max-width: 100%;
+    margin: var(--space-5) auto 0;
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    opacity: 0.75;
+    /* It floats over the cards, so it must not take their clicks: a flip or an option under the
+       pill has to stay hittable. */
+    pointer-events: none;
   }
   .madewith {
     text-align: center;

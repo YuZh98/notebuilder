@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { taWrap, taIns, doMd, SYMBOLS, MD_BUTTONS, COLOR_KEYS } from '../mdbar';
+  import { taWrap, taIns, doMd, barPosition, SYMBOLS, MD_BUTTONS, COLOR_KEYS } from '../mdbar';
+  import { effectiveZoom } from '../zoom';
 
   let target = $state<HTMLTextAreaElement | null>(null);
   let left = $state(0);
@@ -8,9 +9,7 @@
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   function position(ta: HTMLTextAreaElement) {
-    const r = ta.getBoundingClientRect();
-    left = Math.max(6, Math.min(window.innerWidth - 260, r.left));
-    top = Math.max(60, r.top - 40);
+    ({ left, top } = barPosition(ta.getBoundingClientRect(), window.innerWidth, effectiveZoom()));
   }
 
   function onFocusIn(e: FocusEvent) {

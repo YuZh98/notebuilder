@@ -406,6 +406,35 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect((await db.listCardTypes()).map((t) => t.id)).toEqual(['B']);
   });
 
+  // Ported from the statement-matching db.test.ts (retired: it faked the per-row SQL that the
+  // atomic batches replaced); these run the same behaviours against real SQLite instead.
+  it('loadNotebook returns null for an unknown id', async () => {
+    expect(await db.loadNotebook('missing')).toBeNull();
+  });
+
+  it('lists notebooks newest-updated first', async () => {
+    await db.saveNotebook(notebook('nb1', 'Older', []));
+    await db.saveNotebook({ ...notebook('nb2', 'Newer', []), updatedAt: '2026-03-01T00:00:00.000Z' });
+    expect((await db.listNotebooks()).map((r) => r.id)).toEqual(['nb2', 'nb1']);
+  });
+
+  it('annotations round-trip through the snake_case columns, oldest first, and delete by id', async () => {
+    const note = { id: 'an1', cardId: 'c1', kind: 'note' as const, body: 'first', createdAt: '2026-01-01T00:00:00.000Z' };
+    const hl = { id: 'an2', cardId: 'c1', kind: 'highlight' as const, body: 'second', createdAt: '2026-01-02T00:00:00.000Z' };
+    await db.saveAnnotation(hl);
+    await db.saveAnnotation(note);
+    expect(await db.loadAnnotations()).toEqual([note, hl]);
+    await db.deleteAnnotation('an1');
+    expect((await db.loadAnnotations()).map((a) => a.id)).toEqual(['an2']);
+  });
+
+  it('opens the database once and reuses the handle across reads and writes', async () => {
+    await db.setPreference('theme', 'dark');
+    await db.getPreference('theme');
+    await db.listNotebooks();
+    expect(env.loads).toBe(1);
+  });
+
   it('preferences round-trip and overwrite', async () => {
     expect(await db.getPreference('theme')).toBeNull();
     await db.setPreference('theme', 'dark');

@@ -18,7 +18,9 @@ so importing a shared `.html` reads it too.
 
 - Every file carries `"version"`, an integer. The current version is **2**.
 - **Older versions always import.** Each version bump ships an import migration; version 1 files (no
-  `notebook.cats`) import today and get their tag categories derived from card tags, in first-seen order.
+  `notebook.cats`) import today and get their tag categories derived from card tags, in first-seen order
+  (sections, then cards, then each card's `tags`; author-supplied `cats` always wins). That is the
+  whole version 1 → 2 migration.
 - **Newer versions are refused, clearly**: "This file is from a newer version of the app — update the
   app, then import". Nothing is half-imported.
 - A change to the interchange shape bumps the version (see CONTRIBUTING.md, "Migrations always").
@@ -30,8 +32,9 @@ so importing a shared `.html` reads it too.
 
 The file is the **document layer** only. It never carries ids (fresh ones are minted on import),
 reader progress (answers, ticks, flips, a problem's drawn numbers and score), section fold state,
-card notes/annotations, or live slider positions. Those belong to the reader's local state or the
-session and stay on the device.
+card notes/annotations, live slider positions, or card type definitions (a card carries only its
+`typeId`). Those belong to the reader's local state, the session or the author's library, and stay on
+the device.
 
 The **draft** mark is local too. A notebook made **From AI** opens with every card marked as a draft
 to review; the mark is saved on this device until the author marks the card reviewed, but it is not
@@ -45,7 +48,7 @@ the schema rejects one as an unknown field.
 Notebook  { name, subtitle?, width?, cats?, sections: Section[] }
 Section   { name, cards: Card[], kind?: "divider", title?, subtitle?, locked?, width?,
             services?, svcOrder?, svcW? }
-Card      { slots: Slot[], back?: Slot[], verbs?: { flip?, bare? }, tags?, accent?, w?, archived? }
+Card      { slots: Slot[], back?: Slot[], verbs?: { flip?, bare? }, typeId?, tags?, accent?, w?, archived? }
 Slot      { type, props, verbs?, w?, fuse?, fuseW? }
 ```
 
@@ -66,6 +69,7 @@ Slot      { type, props, verbs?, w?, fuse?, fuseW? }
 | card | `accent` | CSS color for the card frame, e.g. `"#6ea8fe"`. |
 | card | `w` | Width in twelfths of the section grid, **3–12** (12 full, 6 half, 4 third). |
 | card | `archived` | Hidden from the study grid unless the archive view is on. |
+| card | `typeId` | Which Factory card type stamped the card (an opaque id the app writes on export; omit it when writing by hand). Card types themselves are not exported, so a recipient without that type reads the card as untyped (the `∅` bucket of the coverage matrix's product axis). |
 | slot | `type` (required), `props` (required, an object) | Which block, and its settings (see the catalog). |
 | slot | `w` | Width in twelfths of the card (default 12); narrow slots wrap side by side. |
 | slot | `fuse`, `fuseW` | Join with the next slot into one row cell; `fuseW` is this slot's positive share. |

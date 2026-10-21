@@ -152,7 +152,7 @@ beforeEach(() => {
   h.notebooks = [nb('nbA', 'Alpha'), nb('nbB', 'Beta')];
   h.types = [CUSTOM];
   // An up-to-date install: every built-in was seeded before (App.seed.test.ts covers seeding).
-  h.prefs = { builtin_seeded: JSON.stringify(builtinCardTypes.map((t) => t.id)) };
+  h.prefs = { seeded_builtins: JSON.stringify(builtinCardTypes.map((t) => t.id)) };
   h.saves = [];
   h.reader = {};
   h.readerSaves = [];

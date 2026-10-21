@@ -1,5 +1,16 @@
 # Contributing to NoteBuilder
 
+## Scope
+
+NoteBuilder is one repo, two apps: the **v1 prototype** at the root (frozen, bug fixes only) and the
+**v2 product** in `v2/` (Svelte 5 + TypeScript + Tauri 2, active development).
+
+In scope: v2 app quality, interchange/Reader fidelity, tests, and docs accuracy.
+
+Out of scope: anything that adds a network call, telemetry, or an account system (NoteBuilder is
+local-first and stays that way); changes to the v1 root beyond bug fixes; features not grounded in an
+open issue.
+
 Thanks for helping. Active development happens in **`v2/`** (Svelte 5 + TypeScript + Tauri 2); the
 repository root is the legacy single-file prototype, kept building but not evolving.
 
@@ -23,12 +34,12 @@ npm run build:reader # when the Reader render path changes — commit the regene
 
 ## The shape of v2
 
-- Architecture map: Part B of [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Product spec:
-  [`docs/spec/v2-spec.md`](docs/spec/v2-spec.md).
+- Architecture map: Part B of [`docs/CODE-MAP.md`](docs/CODE-MAP.md).
 - **Invariants** (don't break): variables are card-scoped, never cross a card boundary; three state
   layers (document persists + exports · reader state persists locally, never exports · session is
   transient); slot structure is sealed outside the Factory; every drag rides the one pointer engine
-  in `v2/src/lib/drag/` — no native HTML5 drag; no `eval` on user content, escape-first before any
+  in `v2/src/lib/drag/` — no native HTML5 drag outside the Factory inventory chips; no `eval` on
+  user content, escape-first before any
   `{@html}`; every document edit is undoable.
 - **Migrations always.** A change to the SQLite shape ships a migration in
   `v2/src-tauri/src/lib.rs`; a change to the JSON interchange shape bumps its schema version and

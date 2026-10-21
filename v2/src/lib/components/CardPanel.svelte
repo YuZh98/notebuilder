@@ -110,14 +110,14 @@
   .panel-fields {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-top: 8px;
+    gap: var(--space-5);
+    margin-top: var(--space-4);
   }
   .panel-slot-type {
-    margin-bottom: 4px;
+    margin-bottom: var(--space-2);
   }
   .bm-lbl {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     opacity: 0.7;
     text-transform: uppercase;
@@ -125,7 +125,7 @@
   }
   .panel-actions {
     display: flex;
-    gap: 6px;
-    margin-top: 12px;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
   }
 </style>

@@ -87,7 +87,7 @@ async function share(container: HTMLElement) {
 
 beforeEach(() => {
   h.notebooks = [storedDemo()];
-  h.prefs = { builtin_seeded: JSON.stringify(builtinCardTypes.map((t) => t.id)) };
+  h.prefs = { seeded_builtins: JSON.stringify(builtinCardTypes.map((t) => t.id)) };
   h.prefWrites = [];
   h.shared = [];
 });
@@ -127,7 +127,7 @@ describe('App — shared files carry a per-install docId', () => {
     const fromA = await share(a.container);
     a.unmount();
 
-    h.prefs = { builtin_seeded: h.prefs.builtin_seeded, install_id: 'f3a2e1d0-1111-4222-8333-944455556666' };
+    h.prefs = { seeded_builtins: h.prefs.seeded_builtins, install_id: 'f3a2e1d0-1111-4222-8333-944455556666' };
     const b = render(App);
     await ready(b.container);
     const fromB = await share(b.container);

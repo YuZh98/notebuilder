@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { handleAppKey, type KeyCtx, type KeyboardEventLike } from './keyboard';
+import {
+  handleAppKey,
+  isFieldTarget,
+  isInteractiveTarget,
+  type KeyCtx,
+  type KeyboardEventLike,
+} from './keyboard';
 
 function key(k: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventLike {
   return { key: k, metaKey: false, ctrlKey: false, shiftKey: false, ...mods };
@@ -17,8 +23,27 @@ function ctx(over: Partial<KeyCtx> = {}): KeyCtx {
     selProd: null,
     sectionIds: [],
     cardIdsOfSelectedSection: [],
+    studyFocus: null,
+    focusedFlipCapable: false,
+    focusedChoiceOptions: 0,
+    focusedCanSubmit: false,
+    focusedCanTick: false,
+    targetInteractive: false,
+    helpOpen: false,
     ...over,
   };
+}
+
+/** Study context with a cursor on a card that can answer every study key. */
+function studying(over: Partial<KeyCtx> = {}): KeyCtx {
+  return ctx({
+    mode: 'study',
+    studyFocus: 'c1',
+    focusedChoiceOptions: 3,
+    focusedCanSubmit: true,
+    focusedCanTick: true,
+    ...over,
+  });
 }
 
 describe('handleAppKey — bare Enter blurs single-line ce fields (v1 120:6)', () => {
@@ -216,5 +241,306 @@ describe('handleAppKey — unhandled keys return null', () => {
   });
   it('modifier combos that are not bound', () => {
     expect(handleAppKey(key('a', { metaKey: true }), ctx())).toBeNull();
+  });
+});
+
+describe('handleAppKey — zoom', () => {
+  it('mod +/= zooms in, mod -/_ zooms out, mod 0 resets', () => {
+    expect(handleAppKey(key('=', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: 1, preventDefault: true });
+    expect(handleAppKey(key('+', { ctrlKey: true }), ctx())).toEqual({ kind: 'zoom', delta: 1, preventDefault: true });
+    expect(handleAppKey(key('-', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: -1, preventDefault: true });
+    expect(handleAppKey(key('_', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: -1, preventDefault: true });
+    expect(handleAppKey(key('0', { metaKey: true }), ctx())).toEqual({ kind: 'zoom', delta: 0, preventDefault: true });
+  });
+  it('works inside a field so zoom is never swallowed', () => {
+    expect(handleAppKey(key('=', { metaKey: true }), ctx({ inField: true }))).toEqual({ kind: 'zoom', delta: 1, preventDefault: true });
+  });
+  it('bare +/-/0 without a modifier are unbound', () => {
+    expect(handleAppKey(key('='), ctx())).toBeNull();
+    expect(handleAppKey(key('-'), ctx())).toBeNull();
+    expect(handleAppKey(key('0'), ctx())).toBeNull();
+  });
+});
+
+describe('handleAppKey — study cursor movement (v0.3.0 keyboard-first Study)', () => {
+  it('j / ArrowRight / ArrowDown step forward, k / ArrowLeft / ArrowUp step back', () => {
+    for (const k of ['j', 'ArrowRight', 'ArrowDown']) {
+      expect(handleAppKey(key(k), studying()), k).toEqual({
+        kind: 'study-focus-step',
+        delta: 1,
+        preventDefault: true,
+      });
+    }
+    for (const k of ['k', 'ArrowLeft', 'ArrowUp']) {
+      expect(handleAppKey(key(k), studying()), k).toEqual({
+        kind: 'study-focus-step',
+        delta: -1,
+        preventDefault: true,
+      });
+    }
+  });
+
+  it('ArrowUp/Down walk the cursor even with a section selected — the Edit nav stays out of Study', () => {
+    const withSection = studying({ selSection: 's1', sectionIds: ['s1', 's2'] });
+    expect(handleAppKey(key('ArrowDown'), withSection)!.kind).toBe('study-focus-step');
+    expect(handleAppKey(key('ArrowUp'), withSection)!.kind).toBe('study-focus-step');
+  });
+
+  it('steps with no cursor yet — the first j starts the session', () => {
+    expect(handleAppKey(key('j'), ctx({ mode: 'study' }))).toEqual({
+      kind: 'study-focus-step',
+      delta: 1,
+      preventDefault: true,
+    });
+  });
+
+  it('Escape clears the cursor before its Edit-mode meanings', () => {
+    expect(handleAppKey(key('Escape'), studying({ filterActive: true, selProd: 'p1' }))).toEqual({
+      kind: 'study-focus-clear',
+      preventDefault: false,
+    });
+  });
+
+  it('Escape with no cursor falls through to the filter/selection meanings', () => {
+    expect(handleAppKey(key('Escape'), ctx({ mode: 'study', filterActive: true }))!.kind).toBe(
+      'clear-filter',
+    );
+  });
+});
+
+describe('handleAppKey — study card keys', () => {
+  it('f flips a flip-capable card', () => {
+    expect(handleAppKey(key('f'), studying({ focusedFlipCapable: true }))).toEqual({
+      kind: 'study-flip',
+      preventDefault: true,
+    });
+  });
+
+  it('Space flips a flip-capable card', () => {
+    expect(handleAppKey(key(' '), studying({ focusedFlipCapable: true }))).toEqual({
+      kind: 'study-flip',
+      preventDefault: true,
+    });
+  });
+
+  it('Space falls through to native scroll when the card cannot flip', () => {
+    expect(handleAppKey(key(' '), studying())).toBeNull();
+    expect(handleAppKey(key('f'), studying())).toBeNull();
+  });
+
+  it('1-9 carry the digit; 0 is unbound', () => {
+    expect(handleAppKey(key('1'), studying())).toEqual({
+      kind: 'study-choice',
+      digit: 1,
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('9'), studying({ focusedChoiceOptions: 9 }))!).toEqual({
+      kind: 'study-choice',
+      digit: 9,
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('0'), studying())).toBeNull();
+  });
+
+  it('Enter submits and x ticks', () => {
+    expect(handleAppKey(key('Enter'), studying())).toEqual({
+      kind: 'study-submit',
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('x'), studying())).toEqual({
+      kind: 'study-tick',
+      preventDefault: true,
+    });
+  });
+
+  it('card keys are inert with no cursor', () => {
+    const none = ctx({ mode: 'study', focusedFlipCapable: true });
+    for (const k of [' ', 'f', 'x', '1', 'Enter']) {
+      expect(handleAppKey(key(k), none), k).toBeNull();
+    }
+  });
+
+  it('Cmd/Ctrl+Enter still toggles mode rather than submitting', () => {
+    expect(handleAppKey(key('Enter', { metaKey: true }), studying())!.kind).toBe('toggle-mode');
+  });
+
+  it('modifier combos never reach the study bindings', () => {
+    expect(handleAppKey(key('j', { metaKey: true }), studying())).toBeNull();
+    expect(handleAppKey(key('x', { ctrlKey: true }), studying())).toBeNull();
+  });
+});
+
+describe('handleAppKey — shortcut overlay', () => {
+  it('? toggles it open and closed', () => {
+    expect(handleAppKey(key('?', { shiftKey: true }), ctx({ mode: 'study' }))).toEqual({
+      kind: 'study-help',
+      preventDefault: true,
+    });
+    expect(handleAppKey(key('?'), studying({ helpOpen: true }))!.kind).toBe('study-help');
+  });
+
+  it('Escape closes the overlay before it touches the cursor', () => {
+    expect(handleAppKey(key('Escape'), studying({ helpOpen: true }))).toEqual({
+      kind: 'study-help',
+      preventDefault: true,
+    });
+  });
+
+  it('is modal: with it open every other key is inert', () => {
+    const open = studying({ helpOpen: true, focusedFlipCapable: true });
+    for (const k of ['j', 'k', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', ' ', 'f', 'x', '1', '9', 'Enter']) {
+      expect(handleAppKey(key(k), open), k).toBeNull();
+    }
+  });
+
+  it('is modal even over the selection keys the house otherwise answers', () => {
+    const open = studying({
+      helpOpen: true,
+      selCard: 'c1',
+      cardIdsOfSelectedSection: ['c1', 'c2'],
+      selSection: null,
+      filterActive: true,
+    });
+    expect(handleAppKey(key('ArrowRight'), open)).toBeNull();
+  });
+
+  it('leaves the modifier shortcuts alone — they are not study keys', () => {
+    const open = studying({ helpOpen: true });
+    expect(handleAppKey(key('Enter', { metaKey: true }), open)!.kind).toBe('toggle-mode');
+    expect(handleAppKey(key('z', { metaKey: true }), open)!.kind).toBe('undo');
+  });
+});
+
+describe('handleAppKey — study bindings are Edit-mode and field inert', () => {
+  it('every study key is unbound in Edit mode', () => {
+    const edit = ctx({ studyFocus: 'c1', focusedFlipCapable: true, helpOpen: true });
+    for (const k of ['j', 'k', ' ', 'f', 'x', '1', '?', 'Enter']) {
+      expect(handleAppKey(key(k), edit), k).toBeNull();
+    }
+  });
+
+  it('Edit-mode ArrowLeft/Right still move the card selection, not the cursor', () => {
+    expect(
+      handleAppKey(key('ArrowRight'), ctx({ selCard: 'c1', cardIdsOfSelectedSection: ['c1', 'c2'] })),
+    ).toEqual({ kind: 'select-card', id: 'c2', preventDefault: true });
+  });
+
+  it('Edit-mode ArrowUp/Down still move the section selection, not the cursor', () => {
+    expect(
+      handleAppKey(key('ArrowDown'), ctx({ selSection: 's1', sectionIds: ['s1', 's2'] })),
+    ).toEqual({ kind: 'select-section', id: 's2', preventDefault: true });
+  });
+
+  it('the factory has no study cursor (its stage shows benches, not the notebook)', () => {
+    const fac = studying({ place: 'factory', focusedFlipCapable: true });
+    for (const k of ['j', 'k', ' ', 'x', '1', '?']) {
+      expect(handleAppKey(key(k), fac), k).toBeNull();
+    }
+  });
+
+  it('study keys are swallowed inside a text field', () => {
+    const field = studying({ inField: true, focusedFlipCapable: true });
+    for (const k of ['j', 'k', ' ', 'x', '1', '?']) {
+      expect(handleAppKey(key(k), field), k).toBeNull();
+    }
+    expect(handleAppKey(key('Escape'), field)!.kind).toBe('abort-or-blur');
+  });
+});
+
+describe('handleAppKey — a key with no surface on the focused card is not ours', () => {
+  it('a digit past the last option falls through', () => {
+    const three = studying({ focusedChoiceOptions: 3 });
+    expect(handleAppKey(key('3'), three)!.kind).toBe('study-choice');
+    expect(handleAppKey(key('4'), three)).toBeNull();
+  });
+
+  it('digits are inert on a card with no open choice slot (none, or all submitted)', () => {
+    expect(handleAppKey(key('1'), studying({ focusedChoiceOptions: 0 }))).toBeNull();
+  });
+
+  it('Enter is inert until a choice slot carries a selection', () => {
+    expect(handleAppKey(key('Enter'), studying({ focusedCanSubmit: false }))).toBeNull();
+  });
+
+  it('x is inert with no tickable checklist', () => {
+    expect(handleAppKey(key('x'), studying({ focusedCanTick: false }))).toBeNull();
+  });
+});
+
+describe('handleAppKey — a tab-focused control keeps Space and Enter', () => {
+  const onButton = studying({ focusedFlipCapable: true, targetInteractive: true });
+
+  it('Space and Enter go to the control, not the cursor', () => {
+    expect(handleAppKey(key(' '), onButton)).toBeNull();
+    expect(handleAppKey(key('Enter'), onButton)).toBeNull();
+  });
+
+  it('keys the control does not act on still reach the cursor', () => {
+    // A clicked button keeps DOM focus in Chromium; digits/x/f must not die with it.
+    expect(handleAppKey(key('1'), onButton)!.kind).toBe('study-choice');
+    expect(handleAppKey(key('x'), onButton)!.kind).toBe('study-tick');
+    expect(handleAppKey(key('f'), onButton)!.kind).toBe('study-flip');
+    expect(handleAppKey(key('j'), onButton)!.kind).toBe('study-focus-step');
+    expect(handleAppKey(key('?'), onButton)!.kind).toBe('study-help');
+  });
+});
+
+describe('isInteractiveTarget', () => {
+  function el(tag: string, role?: string): Element {
+    const node = document.createElement(tag);
+    if (role) node.setAttribute('role', role);
+    return node;
+  }
+
+  it('is true for controls the browser activates itself', () => {
+    for (const tag of ['button', 'a', 'summary', 'select']) {
+      expect(isInteractiveTarget(el(tag)), tag).toBe(true);
+    }
+    for (const role of ['button', 'link', 'checkbox', 'menuitem', 'tab', 'option']) {
+      expect(isInteractiveTarget(el('div', role)), role).toBe(true);
+    }
+  });
+
+  it('is false for plain content and for nothing at all', () => {
+    for (const tag of ['div', 'span', 'p', 'li']) {
+      expect(isInteractiveTarget(el(tag)), tag).toBe(false);
+    }
+    expect(isInteractiveTarget(el('div', 'presentation'))).toBe(false);
+    expect(isInteractiveTarget(null)).toBe(false);
+    expect(isInteractiveTarget(undefined)).toBe(false);
+  });
+});
+
+describe('isInteractiveTarget — non-element targets', () => {
+  it('a window-targeted key event is not interactive', () => {
+    expect(isInteractiveTarget(window)).toBe(false);
+    expect(isInteractiveTarget(document)).toBe(false);
+  });
+});
+
+describe('isFieldTarget', () => {
+  function el(tag: string, over: (n: HTMLElement) => void = () => {}): Element {
+    const node = document.createElement(tag);
+    over(node);
+    return node;
+  }
+
+  it('counts input, textarea and select — a select owns its own arrows and Enter', () => {
+    for (const tag of ['input', 'textarea', 'select']) {
+      expect(isFieldTarget(el(tag)), tag).toBe(true);
+    }
+  });
+
+  it('counts contenteditable', () => {
+    // jsdom never computes isContentEditable, so the contract is asserted on a stand-in element.
+    const ce = { tagName: 'DIV', isContentEditable: true } as unknown as HTMLElement;
+    expect(isFieldTarget(ce)).toBe(true);
+  });
+
+  it('is false for plain content, buttons, and non-element targets', () => {
+    expect(isFieldTarget(el('div'))).toBe(false);
+    expect(isFieldTarget(el('button'))).toBe(false);
+    expect(isFieldTarget(window)).toBe(false);
+    expect(isFieldTarget(null)).toBe(false);
   });
 });

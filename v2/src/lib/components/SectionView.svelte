@@ -5,9 +5,11 @@
   import { sectionsOfChapter } from '../notebook-ops';
   import { startEdgeResize } from '../drag/resize';
   import { clampRoomW } from '../drag/geometry';
+  import { effectiveZoom, toZoomedSpace, widthAt } from '../zoom';
   import { captureNow, pushSnapshot, pushHistory } from '../history.svelte';
-  import { session, studyOrder } from '../session.svelte';
-  import { visibleCards, archivedCount } from '../service-ops';
+  import { session, sessionView } from '../session.svelte';
+  import { visibleSectionCards } from '../visible-cards';
+  import { archivedCount } from '../service-ops';
   import { svcBarItems, reorderSvc, flipAllApplicable, type ServiceKey } from '../services';
   import CeText from './CeText.svelte';
   import ServiceBar from './ServiceBar.svelte';
@@ -55,18 +57,10 @@
   const q = $derived(session.search[section.id] ?? '');
   const showArch = $derived(session.showArch[section.id] === true);
 
-  // Study grid = shuffle order ∩ archive/search filter ∩ matrix filter (v1 60-stage.js:159-160).
-  // Edit applies only the matrix filter — search/archive/shuffle are Study-only.
-  const cards = $derived.by(() => {
-    if (!studying) {
-      if (visibleCardIds === null) return section.cards;
-      return section.cards.filter((c) => visibleCardIds.has(c.id));
-    }
-    const ids = new Set(visibleCards(section, showArch, q).map((c) => c.id));
-    let list = studyOrder(section).filter((c) => ids.has(c.id));
-    if (visibleCardIds !== null) list = list.filter((c) => visibleCardIds.has(c.id));
-    return list;
-  });
+  // The one render-order function — the study keyboard cursor walks this same list.
+  const cards = $derived(
+    visibleSectionCards(section, studying, sessionView(section.id), visibleCardIds),
+  );
 
   const svcState = $derived({
     q,
@@ -120,13 +114,16 @@
     const shell = roomEl?.parentElement;
     if (!roomEl || !shell) return;
     const startW = roomEl.getBoundingClientRect().width;
-    const maxW = shell.getBoundingClientRect().width;
+    const zoom = effectiveZoom();
+    // The ceiling is measured in viewport px like the start width, and the committed value is a
+    // layout preference: both belong in the space `width:${w}px` is written in, not the cursor's.
+    const maxW = toZoomedSpace(shell.getBoundingClientRect().width, zoom);
     let w: number | null = null;
     const snap = captureNow();
     startEdgeResize(
       ev,
       (dx) => {
-        w = clampRoomW(startW + dx, maxW);
+        w = clampRoomW(widthAt(startW, dx, zoom), maxW);
         liveW = w;
       },
       (mv) => {
@@ -220,7 +217,7 @@
   >
     {@render roomGrip()}
     {#if !studying && sectionTools}{@render sectionTools(section)}{/if}
-    <div class="row" style="align-items:flex-start;gap:6px">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
       <span
         class="rcollapse"
         role="button"

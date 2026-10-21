@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import CardView from './components/CardView.svelte';
 import { mode } from './stores/mode';
-import { builtinCardTypes, stampCard, type CardType, type SlotTemplate } from './card-types';
+import { builtinCardTypes, stampCard, type CardType, type SlotTemplate, LEGACY_SEEDED_BUILTINS } from './card-types';
 import { getSlot } from './slots/registry';
 import { findGraphIssues, type GraphDecl } from './variable-graph';
 import { exportNotebook, validateNotebook } from './json-io';
@@ -10,7 +10,6 @@ import { problemIssues, drawValues, DEFAULT_SEED, paramsOf, type ProblemProps } 
 import { interp, renderMarkdown } from './markdown';
 import { isCardDone } from './card-done';
 import { buildCardScope } from './card-scope';
-import { LEGACY_BUILTIN_IDS } from './builtin-seed';
 import type { Card, Notebook } from './types';
 
 // The three pedagogical built-ins: predict → explore → explain, a worked example that fades into
@@ -96,8 +95,8 @@ describe('pedagogical built-ins — shared contract', () => {
       expect(byId(id).description, id).toBeTruthy();
       expect(byId(id).note, id).toBeTruthy(); // "from the maker" guidance in the store
     }
-    // Not legacy, so installs from before seeding was recorded receive them (lib/builtin-seed.ts).
-    for (const id of NEW_IDS) expect(LEGACY_BUILTIN_IDS).not.toContain(id);
+    // Not legacy, so installs from before seeding was recorded receive them (card-types ledger).
+    for (const id of NEW_IDS) expect(LEGACY_SEEDED_BUILTINS).not.toContain(id);
   });
 
   it.each(NEW_IDS)('%s stamps into a card whose props all pass validate()', (id) => {

@@ -4,6 +4,7 @@ import { makeNotebookDropCallbacks, type NotebookDropDeps } from './notebook-dro
 import { startPointerDrag, _setElementFromPoint } from './engine';
 import { dustState } from './dust.svelte';
 import type { Notebook } from '../types';
+import { pev } from '../test-utils';
 
 function nbOf(): Notebook {
   return {
@@ -56,9 +57,6 @@ function depsOf(over: Partial<NotebookDropDeps> = {}): NotebookDropDeps {
     ...over,
   };
 }
-
-const pev = (type: string, x: number, y = 0) =>
-  new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }) as PointerEvent;
 
 beforeEach(() => _setElementFromPoint(() => null));
 afterEach(() => {
@@ -119,17 +117,20 @@ describe('svcattach drops', () => {
 // The desktop bug: WKWebView blocks custom dataTransfer MIME types, so ANY native-drag
 // service path is broken on the shipping build. The sweep keeps it from coming back.
 describe('no native service-drag path survives', () => {
-  const files = import.meta.glob('/src/**/*.svelte', {
+  const files = import.meta.glob(['/src/**/*.svelte', '/src/**/*.ts', '!/src/**/*.test.ts'], {
     query: '?raw',
     import: 'default',
     eager: true,
   }) as Record<string, string>;
 
-  it('the sweep found the component sources (extraction proof)', () => {
-    expect(Object.keys(files).length).toBeGreaterThan(20);
+  it('the sweep found the component and module sources (extraction proof)', () => {
+    const names = Object.keys(files);
+    expect(names.filter((f) => f.endsWith('.svelte')).length).toBeGreaterThan(20);
+    expect(names.filter((f) => f.endsWith('.ts')).length).toBeGreaterThan(20);
+    expect(names.filter((f) => f.endsWith('.test.ts'))).toEqual([]);
   });
 
-  it('no component mentions the text/nb-svc MIME type', () => {
+  it('no source mentions the text/nb-svc MIME type', () => {
     for (const [file, src] of Object.entries(files)) {
       expect(src, `${file} still carries the native service-drag path`).not.toContain('text/nb-svc');
     }

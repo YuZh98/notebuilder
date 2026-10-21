@@ -29,6 +29,11 @@ afterEach(() => {
   delete document.body.dataset.theme;
 });
 
+const sectionNames = (c: HTMLElement) =>
+  [...c.querySelectorAll<HTMLInputElement>('.room[data-section] input.section-name')].map(
+    (i) => i.value,
+  );
+
 async function remixToEdit(container: HTMLElement) {
   await fireEvent.click(container.querySelector('[data-act="remix"]') as Element);
   await tick();
@@ -123,26 +128,33 @@ describe('Reader — review fixes', () => {
     ) as HTMLElement;
     await fireEvent.click(addSectionBtn);
     await tick();
+    expect(sectionNames(container)).toEqual(['name-s1', 'Section 2']);
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true }));
     await tick();
     expect(toastState.message).toBe('undo');
+    expect(sectionNames(container), 'the added section must be gone again').toEqual(['name-s1']);
   });
 
   it('post-Remix text edits in a data-history region arm an undo step', async () => {
     const { container } = render(Reader, { props: { notebook: nb(), shared: true } });
     await remixToEdit(container);
 
-    // A rendered author field (the section name) lives inside a data-history="edit" region.
-    const field = container.querySelector('[data-history="edit"]') as HTMLElement;
+    // A rendered author field (the notebook name) lives inside a data-history="edit" region.
+    const field = container.querySelector('[data-history="edit"]') as HTMLInputElement;
     expect(field).not.toBeNull();
+    expect(field.value).toBe('Shared Deck');
+    field.value = 'Renamed';
     await fireEvent.input(field);
+    await fireEvent.change(field);
     await tick();
+    expect(container.querySelector('.brand-nb')?.textContent).toContain('📓 Renamed');
 
     // With installEditCoalescing wired into the Reader, the input armed history: Cmd+Z now undoes.
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true }));
     await tick();
     expect(toastState.message).toBe('undo');
+    expect(container.querySelector('.brand-nb')?.textContent).toContain('📓 Shared Deck');
   });
 
   it('applies an initialTheme at boot', async () => {

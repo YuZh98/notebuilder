@@ -39,6 +39,8 @@ export const listSlot: SlotType<ListProps> = {
   isDone(props: ListProps, state: Record<string, unknown>): boolean {
     // Non-checklist lists are content slots — always considered done.
     if (props.style !== 'check') return true;
+    // A check list with zero items has nothing left to tick: vacuously done.
+    if (props.items.length === 0) return true;
     // Check style: every item must be checked in reader state.
     const checked = state.checked;
     if (!Array.isArray(checked)) return false;

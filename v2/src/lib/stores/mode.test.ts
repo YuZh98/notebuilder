@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { mode, toggleMode } from './mode';
 import { get } from 'svelte/store';

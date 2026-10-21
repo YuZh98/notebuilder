@@ -3,6 +3,7 @@
   import { startPointerDrag } from '../drag/engine';
   import { startEdgeResize } from '../drag/resize';
   import { makeSvcDropCallbacks } from '../drag/svc-drop';
+  import { effectiveZoom, toZoomedSpace, widthAt } from '../zoom';
   import type { Section } from '../types';
 
   let {
@@ -65,12 +66,14 @@
   function svcResize(ev: PointerEvent, key: ServiceKey) {
     const item = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.svc-item');
     if (!item) return;
+    const zoom = effectiveZoom();
+    // Measured in viewport px, written (and persisted) as a CSS width inside the zoomed body.
     const startW = item.getBoundingClientRect().width;
-    let w = startW;
+    let w = toZoomedSpace(startW, zoom);
     startEdgeResize(
       ev,
       (dx) => {
-        w = Math.max(70, Math.min(440, startW + dx));
+        w = Math.max(70, Math.min(440, widthAt(startW, dx, zoom)));
         live = { key, w };
       },
       (mv) => {

@@ -35,6 +35,7 @@ type SectionJSON = {
 
 type CardJSON = {
   slots: SlotJSON[];
+  typeId?: string;
   verbs?: { flip?: boolean; bare?: boolean };
   back?: SlotJSON[];
   tags?: string[];
@@ -73,6 +74,7 @@ export function exportNotebook(notebook: Notebook): NotebookJSON {
         ...(s.svcW !== undefined && { svcW: s.svcW }),
         cards: s.cards.map((c) => ({
           slots: c.slots.map(exportSlot),
+          ...(c.typeId !== undefined && { typeId: c.typeId }),
           ...(c.verbs && { verbs: c.verbs }),
           ...(c.back && { back: c.back.map(exportSlot) }),
           ...(c.tags && c.tags.length > 0 && { tags: c.tags }),
@@ -116,6 +118,7 @@ export function importNotebook(input: NotebookJSON): Notebook {
       sectionId,
       position: ci,
       slots: c.slots.map(importSlot),
+      ...(c.typeId !== undefined && { typeId: c.typeId }),
       ...(c.verbs && { verbs: c.verbs }),
       ...(c.back && { back: c.back.map(importSlot) }),
       ...(c.tags && { tags: c.tags }),
@@ -296,6 +299,9 @@ export function validateNotebookIssues(json: unknown): IssueReport {
       const card = c as Record<string, unknown>;
       if (card.accent !== undefined && typeof card.accent !== 'string') {
         err('wrong-type', key(cl, 'accent').p, `${where}.accent must be a string`);
+      }
+      if (card.typeId !== undefined && typeof card.typeId !== 'string') {
+        err('wrong-type', key(cl, 'typeId').p, `${where}.typeId must be a string`);
       }
       if (card.archived !== undefined && typeof card.archived !== 'boolean') {
         err('wrong-type', key(cl, 'archived').p, `${where}.archived must be a boolean`);

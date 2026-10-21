@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment node
+import { describe, it, expect, afterEach } from 'vitest';
 import { exportNotebook, importNotebook, validateNotebookJSON, validateNotebook, adoptNotebookIdentity } from './json-io';
 import { session, resetSession } from './session.svelte';
 import type { Notebook } from './types';
@@ -97,6 +98,8 @@ describe('slot widths round-trip through every share surface (E)', () => {
 });
 
 describe('exportNotebook — session-layer state never leaks into the document', () => {
+  afterEach(resetSession);
+
   it('exports the authored slider value even while a session drag is live', () => {
     const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
     nb.sections[0].cards[0].slots = [
@@ -105,7 +108,6 @@ describe('exportNotebook — session-layer state never leaks into the document',
     session.live['card_1'] = { rate: 80 };
     const json = exportNotebook(nb);
     expect(json.notebook.sections[0].cards[0].slots[0].props).toMatchObject({ value: 50 });
-    resetSession();
   });
 });
 
@@ -486,6 +488,22 @@ describe('tags round-trip', () => {
     nb.sections[0].cards[0].tags = ['algebra', 'easy'];
     const imported = importNotebook(exportNotebook(nb));
     expect(imported.sections[0].cards[0].tags).toEqual(['algebra', 'easy']);
+  });
+});
+
+describe('typeId round-trip', () => {
+  it('exports and re-imports the card type binding', () => {
+    const nb: Notebook = JSON.parse(JSON.stringify(sampleNotebook));
+    nb.sections[0].cards[0].typeId = 'ct_flash';
+    const json = exportNotebook(nb);
+    expect(json.notebook.sections[0].cards[0].typeId).toBe('ct_flash');
+    expect(importNotebook(json).sections[0].cards[0].typeId).toBe('ct_flash');
+  });
+
+  it('omits the key entirely on an unstamped card', () => {
+    const json = exportNotebook(sampleNotebook);
+    expect(json.notebook.sections[0].cards[0]).not.toHaveProperty('typeId');
+    expect(importNotebook(json).sections[0].cards[0]).not.toHaveProperty('typeId');
   });
 });
 

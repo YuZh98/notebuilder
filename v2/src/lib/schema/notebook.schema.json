@@ -105,6 +105,10 @@
           "items": { "type": "string" },
           "description": "Concept tags for filtering and the coverage matrix, e.g. [\"definition\", \"chain-rule\"]. Declare them in notebook.cats."
         },
+        "typeId": {
+          "type": "string",
+          "description": "Optional: the id of the card type this card was stamped from (e.g. \"ct_quiz\"); the app writes it on export. Omit it when writing cards by hand."
+        },
         "accent": {
           "type": "string",
           "description": "Accent color for the card frame, as a CSS hex color like \"#6ea8fe\"."

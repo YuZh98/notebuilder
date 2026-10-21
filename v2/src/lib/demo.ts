@@ -20,7 +20,7 @@ export function demoNotebook(): Notebook {
             sectionId: 'sec_1',
             position: 0,
             slots: [
-              { id: 'slot_1', type: 'text', props: { text: 'Hello **NoteBuilder** v2!\n\nThis is a `text` slot rendering in *Study* mode.' } },
+              { id: 'slot_1', type: 'text', props: { text: 'Hello **NoteBuilder** v2!\n\nThis is a `text` slot — press **⌘/Ctrl+Enter** to see it live in *Study* mode.' } },
             ],
           },
           {

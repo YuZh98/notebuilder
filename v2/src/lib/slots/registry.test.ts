@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { getSlot, allSlots } from './registry';
 
@@ -12,9 +13,10 @@ describe('slot registry', () => {
     expect(getSlot('nonexistent')).toBeUndefined();
   });
 
-  it('lists all registered slots', () => {
-    const all = allSlots();
-    expect(all.length).toBeGreaterThanOrEqual(1);
-    expect(all.map((s) => s.type)).toContain('text');
+  it('lists exactly the twelve registered slots', () => {
+    expect(allSlots().map((s) => s.type).sort()).toEqual([
+      'chart', 'choice', 'code', 'compute', 'image', 'list',
+      'problem', 'progress', 'slider', 'table', 'text', 'text-input',
+    ]);
   });
 });

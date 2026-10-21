@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { taWrap, taPre, taIns, doMd, SYMBOLS, MD_BUTTONS, COLOR_KEYS } from './mdbar';
+import { taWrap, taPre, taIns, doMd, barPosition, SYMBOLS, MD_BUTTONS, COLOR_KEYS } from './mdbar';
 
 function makeTa(value: string, start: number, end = start): HTMLTextAreaElement {
   const ta = document.createElement('textarea');
@@ -143,5 +143,31 @@ describe('button data', () => {
   it('MD_BUTTONS and COLOR_KEYS match v1', () => {
     expect(MD_BUTTONS.map(([k]) => k)).toEqual(['b', 'i', 'code', 'hl', 'h', 'ul', 'math', 'mathb']);
     expect(COLOR_KEYS).toEqual(['accent', 'accent2', 'good', 'warn', 'muted']);
+  });
+});
+
+// #mdbar is position:fixed inside the zoomed <body>, so the field's client rect has to be
+// converted before it becomes left/top — otherwise the bar renders `zoom`x away from its field.
+describe('barPosition', () => {
+  const field = (left: number, top: number) => ({ left, top }) as DOMRect;
+
+  it('sits at the field, a row above it, at zoom 1', () => {
+    expect(barPosition(field(777, 492), 1600, 1)).toEqual({ left: 777, top: 452 });
+  });
+
+  it('converts the field rect into the zoomed space it writes into', () => {
+    // Same field at 150%: its rect reads 1.5x, the write must not.
+    expect(barPosition(field(1165.5, 738), 2400, 1.5)).toEqual({ left: 777, top: 452 });
+  });
+
+  it('keeps the 6px gutter and the 60px ceiling in bar space', () => {
+    expect(barPosition(field(0, 0), 2400, 1.5)).toEqual({ left: 6, top: 60 });
+    expect(barPosition(field(-90, 90), 2400, 1.5)).toEqual({ left: 6, top: 60 });
+  });
+
+  it('clamps against the logical viewport width, not the device one', () => {
+    // 2400 viewport px at 150% is a 1600px-wide page: the right stop is 1600-260.
+    expect(barPosition(field(2400, 900), 2400, 1.5)).toEqual({ left: 1340, top: 560 });
+    expect(barPosition(field(1600, 600), 1600, 1)).toEqual({ left: 1340, top: 560 });
   });
 });

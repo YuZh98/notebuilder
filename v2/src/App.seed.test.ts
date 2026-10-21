@@ -5,7 +5,7 @@ import type { Notebook } from './lib/types';
 import type { CardType } from './lib/card-types';
 
 // App "inside Tauri" against an in-memory fake of lib/db, to pin how hydration seeds the built-in
-// card types (lib/builtin-seed.ts): once per install, ever, with new built-ins reaching old users.
+// card types (the seeded_builtins ledger in card-types.ts): once per install, ever, with new built-ins reaching old users.
 const h = vi.hoisted(() => ({
   types: [] as CardType[],
   prefs: {} as Record<string, string>,
@@ -71,13 +71,16 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }));
 
 import App from './App.svelte';
-import { builtinCardTypes } from './lib/card-types';
-import { LEGACY_BUILTIN_IDS } from './lib/builtin-seed';
+import { builtinCardTypes, LEGACY_SEEDED_BUILTINS } from './lib/card-types';
 
-const NEW_IDS = ['ct_guided', 'ct_worked', 'ct_practiceset'];
+const LEGACY = [...LEGACY_SEEDED_BUILTINS];
+/** Built-ins that shipped after the ledger existed (this round's and later). */
+const NEW_IDS = builtinCardTypes.map((t) => t.id).filter((id) => !LEGACY.includes(id));
+/** The three that 0.3.0 pre-release builds seeded under their own record key. */
+const PRE_IDS = ['ct_guided', 'ct_worked', 'ct_practiceset'];
 const CUSTOM: CardType = { id: 'ct_custom', name: 'Custom Type', slots: [{ type: 'text', props: { text: 'c' } }] };
 const builtin = (id: string) => structuredClone(builtinCardTypes.find((t) => t.id === id)!);
-const seededWrites = () => h.prefWrites.filter(([k]) => k === 'builtin_seeded').map(([, v]) => JSON.parse(v));
+const seededWrites = () => h.prefWrites.filter(([k]) => k === 'seeded_builtins').map(([, v]) => JSON.parse(v));
 
 async function galleryNames(container: HTMLElement): Promise<string[]> {
   const open = [...container.querySelectorAll('button.add-card')].find((b) => b.textContent?.includes('gallery'));
@@ -107,16 +110,16 @@ afterEach(() => {
 });
 
 describe('App hydration — seeding built-in card types', () => {
-  it('an install from before the record existed receives only the new built-ins; deleted legacy ones stay gone', async () => {
-    const kept = LEGACY_BUILTIN_IDS.filter((id) => id !== 'ct_payoff');
+  it('an install from before the ledger receives only the new built-ins; deleted legacy ones stay gone', async () => {
+    const kept = LEGACY.filter((id) => id !== 'ct_payoff');
     h.types = [...kept.map(builtin), CUSTOM];
     const { container } = render(App);
     await hydrated(container);
     expect(h.calls.filter((c) => c.startsWith('saveCardType'))).toEqual(NEW_IDS.map((id) => `saveCardType:${id}`));
-    // The record is written after the types it records, and counts the deleted legacy type as seeded.
-    const recordAt = h.calls.indexOf('setPreference:builtin_seeded');
+    // The ledger is written after the types it records, and counts the deleted legacy type as seeded.
+    const recordAt = h.calls.indexOf('setPreference:seeded_builtins');
     expect(recordAt).toBeGreaterThan(h.calls.lastIndexOf(`saveCardType:${NEW_IDS.at(-1)}`));
-    expect(seededWrites()).toEqual([[...LEGACY_BUILTIN_IDS, ...NEW_IDS]]);
+    expect(seededWrites()).toEqual([[...LEGACY, ...NEW_IDS]]);
     const names = await galleryNames(container);
     expect(names.some((n) => n.includes('Guided Explore'))).toBe(true);
     expect(names.some((n) => n.includes('Custom Type'))).toBe(true);
@@ -126,13 +129,26 @@ describe('App hydration — seeding built-in card types', () => {
   it('an up-to-date install writes nothing, and a built-in the user deleted is not brought back', async () => {
     const all = builtinCardTypes.map((t) => t.id);
     h.types = [...all.filter((id) => id !== 'ct_practiceset').map(builtin), CUSTOM];
-    h.prefs = { builtin_seeded: JSON.stringify(all) };
+    h.prefs = { seeded_builtins: JSON.stringify(all) };
     const { container } = render(App);
     await hydrated(container);
-    expect(h.calls.filter((c) => c.startsWith('saveCardType') || c === 'setPreference:builtin_seeded')).toEqual([]);
+    expect(h.calls.filter((c) => c.startsWith('saveCardType') || c === 'setPreference:seeded_builtins')).toEqual([]);
     const names = await galleryNames(container);
     expect(names.some((n) => n.includes('Worked Example'))).toBe(true);
     expect(names.some((n) => n.includes('Practice Set'))).toBe(false);
+  });
+
+  it('a 0.3.0 pre-release install (record under builtin_seeded) keeps its deletions and gets only what it never saw', async () => {
+    h.types = [...LEGACY.map(builtin), builtin('ct_guided'), builtin('ct_worked'), CUSTOM]; // ct_practiceset deleted
+    h.prefs = { builtin_seeded: JSON.stringify([...LEGACY, ...PRE_IDS]) };
+    const { container } = render(App);
+    await hydrated(container);
+    const unseen = NEW_IDS.filter((id) => !PRE_IDS.includes(id));
+    expect(h.calls.filter((c) => c.startsWith('saveCardType'))).toEqual(unseen.map((id) => `saveCardType:${id}`));
+    expect(seededWrites().at(-1)).toEqual(expect.arrayContaining([...LEGACY, ...PRE_IDS, ...unseen]));
+    const names = await galleryNames(container);
+    expect(names.some((n) => n.includes('Practice Set'))).toBe(false);
+    expect(names.filter((n) => n.includes('Guided Explore'))).toHaveLength(1);
   });
 
   it('a brand-new install seeds every built-in and records them', async () => {
@@ -145,11 +161,12 @@ describe('App hydration — seeding built-in card types', () => {
     for (const ct of builtinCardTypes) expect(names.some((n) => n.includes(ct.name)), ct.name).toBe(true);
   });
 
-  it('a built-in that cannot be stored fails the load (persistence stays off), and nothing is recorded', async () => {
+  it('a built-in that cannot be stored is not recorded (it retries next launch), and the load still succeeds', async () => {
     h.types = [CUSTOM];
     h.failTypeSave = true;
-    render(App);
-    await waitFor(() => expect(document.body.textContent).toMatch(/won’t be saved/));
-    expect(seededWrites()).toEqual([]);
+    const { container } = render(App);
+    await hydrated(container);
+    expect(document.body.textContent).not.toMatch(/won’t be saved/);
+    for (const w of seededWrites()) for (const id of NEW_IDS) expect(w).not.toContain(id);
   });
 });

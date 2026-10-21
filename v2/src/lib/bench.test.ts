@@ -141,6 +141,8 @@ describe('benchToType', () => {
     expect(ct.slots[0]).not.toHaveProperty('id');
     expect(ct.back![0]).not.toHaveProperty('id');
     expect(ct.slots[0].props).toEqual(bench.slots[0].props);
+    ct.slots[0].props.text = 'mutated';
+    expect(bench.slots[0].props.text).toBe('front');
     expect(ct.accent).toBe(bench.accent);
     expect(ct.note).toBe(bench.note);
     expect(ct.icon).toBe(bench.icon);
@@ -241,7 +243,7 @@ describe('bench slot mutators', () => {
     expect(factory.sel).toBe(null);
   });
 
-  it('deleteBenchSlot decrements sel when a slot below the selection is removed', () => {
+  it('deleteBenchSlot decrements sel when a slot above the selection is removed', () => {
     const b = freshBench();
     addBench(b);
     addBenchSlot(b, 'text');
@@ -251,7 +253,7 @@ describe('bench slot mutators', () => {
     expect(factory.sel).toBe(0);
   });
 
-  it('deleteBenchSlot leaves sel unchanged when a slot above the selection is removed', () => {
+  it('deleteBenchSlot leaves sel unchanged when a slot below the selection is removed', () => {
     const b = freshBench();
     addBench(b);
     addBenchSlot(b, 'text');

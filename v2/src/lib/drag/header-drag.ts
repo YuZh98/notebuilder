@@ -1,5 +1,6 @@
 import { pushGestureSnapshot } from './gesture-history';
 import { isDragging } from './engine';
+import { effectiveZoom, toZoomedSpace } from '../zoom';
 
 // jsdom has no layout, so tests inject the hit-test probe (mirror engine.ts).
 const domElementFromPoint = (x: number, y: number): Element | null => document.elementFromPoint(x, y);
@@ -55,7 +56,7 @@ export function startHeaderDrag(ev: PointerEvent, opts: HeaderDragOpts): void {
     if (src) {
       fly = src.cloneNode(true) as HTMLElement;
       fly.classList.add('drag-fly');
-      fly.style.width = `${src.getBoundingClientRect().width}px`;
+      fly.style.width = `${toZoomedSpace(src.getBoundingClientRect().width, effectiveZoom())}px`;
       document.body.appendChild(fly);
     }
   };
@@ -67,8 +68,10 @@ export function startHeaderDrag(ev: PointerEvent, opts: HeaderDragOpts): void {
     }
     if (mv.cancelable) mv.preventDefault();
     if (fly) {
-      fly.style.left = `${mv.clientX - 18}px`;
-      fly.style.top = `${mv.clientY - 12}px`;
+      // Zoomed-space write, same rule as the card engine (see engine.ts onMove).
+      const zoom = effectiveZoom();
+      fly.style.left = `${toZoomedSpace(mv.clientX - 18, zoom)}px`;
+      fly.style.top = `${toZoomedSpace(mv.clientY - 12, zoom)}px`;
       fly.style.display = 'none';
     }
     const below = elementFromPoint(mv.clientX, mv.clientY);
