@@ -78,7 +78,7 @@ keyboard-first Study, zoom, the Cyberpunk theme and a much larger test suite.
 - **Hardened test suite** — the SQLite persistence layer, every example notebook, the Iron
   Butterfly payoff math, undo restoration of card types and Factory benches, the shortcut
   overlay, Reader authoring after Remix, and every slot component are now under test; the
-  suite is 2586 tests across 188 files, plus real-SQLite tests of every migration.
+  suite is 2718 tests across 204 files, plus real-SQLite tests of every migration.
 
 ## [0.2.0] — 2026-07-23
 

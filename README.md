@@ -1,7 +1,7 @@
 # NoteBuilder
 
 [![CI](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YuZh98/notebuilder/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-2586-brightgreen)](v2/)
+[![Tests](https://img.shields.io/badge/tests-2718-brightgreen)](v2/)
 [![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](v2/package.json)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](v2/src-tauri/)
 [![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)](v2/)
@@ -116,7 +116,7 @@ SQLite keeps its own `notebuilder.db-wal` and `notebuilder.db-shm` companion fil
 
 ## Built to last
 
-2586 tests across 188 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
+2718 tests across 204 files, TypeScript strict, svelte-check clean, CI on every push. Invariants are enforced by tests, not convention.
 
 The long-form guides:
 
