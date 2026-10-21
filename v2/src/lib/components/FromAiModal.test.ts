@@ -165,3 +165,83 @@ describe('FromAiModal — step 2: check and create', () => {
     expect(onclose).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('FromAiModal — Escape never silently discards what was typed', () => {
+  const escape = (target: Element | Window, init: KeyboardEventInit & { keyCode?: number } = {}) =>
+    fireEvent.keyDown(target, { key: 'Escape', ...init });
+
+  it('with a reply pasted, Escape asks first; a second Escape discards', async () => {
+    const { container, onclose } = mount();
+    await paste(container, 'a long reply');
+    const reply = q(container, '[data-fa="reply"]');
+    await escape(reply);
+    expect(onclose).not.toHaveBeenCalled();
+    expect(q(container, '[data-fa="discard"]').textContent).toMatch(/Discard what you typed\?/);
+    expect(q(container, '[data-fa="discard"]').getAttribute('role')).toBe('alert');
+    await escape(reply);
+    expect(onclose).toHaveBeenCalledOnce();
+  });
+
+  it('the question is scrolled into view: a second Escape never answers one that was off screen', async () => {
+    // jsdom has no layout, so no scrollIntoView: record which element asks to be shown.
+    const native = Element.prototype.scrollIntoView;
+    const shown: Element[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      shown.push(this);
+    };
+    try {
+      const { container } = mount();
+      await paste(container, 'a long reply');
+      await escape(q(container, '[data-fa="reply"]'));
+      expect(shown).toEqual([q(container, '[data-fa="discard"]')]);
+    } finally {
+      Element.prototype.scrollIntoView = native;
+    }
+  });
+
+  it('a held-down Escape (auto-repeat) does not answer its own question', async () => {
+    const { container, onclose } = mount();
+    await fireEvent.input(q(container, '[data-fa="topic"]'), { target: { value: 'Fractions' } });
+    await escape(window);
+    await escape(window, { repeat: true });
+    expect(onclose).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-fa="discard"]')).not.toBeNull();
+  });
+
+  it('Keep editing, or typing on, dismisses the question and keeps everything', async () => {
+    const { container, onclose } = mount();
+    const topic = q<HTMLInputElement>(container, '[data-fa="topic"]');
+    await fireEvent.input(topic, { target: { value: 'Fractions' } });
+    topic.focus();
+    await escape(topic);
+    await fireEvent.click(act(container, 'keep'));
+    expect(container.querySelector('[data-fa="discard"]')).toBeNull();
+    expect(document.activeElement).toBe(topic);
+    await escape(topic);
+    await fireEvent.input(topic, { target: { value: 'Fractions!' } });
+    expect(container.querySelector('[data-fa="discard"]')).toBeNull();
+    // The question is asked afresh, not answered by the earlier Escape.
+    await escape(topic);
+    expect(onclose).not.toHaveBeenCalled();
+    expect(topic.value).toBe('Fractions!');
+  });
+
+  it('Discard closes', async () => {
+    const { container, onclose } = mount();
+    await paste(container, 'reply');
+    await escape(window);
+    await fireEvent.click(act(container, 'discard'));
+    expect(onclose).toHaveBeenCalledOnce();
+  });
+
+  it('Escape during IME composition is left to the input method', async () => {
+    const { container, onclose } = mount();
+    const topic = q(container, '[data-fa="topic"]');
+    await escape(topic, { isComposing: true });
+    await escape(topic, { keyCode: 229 });
+    expect(onclose).not.toHaveBeenCalled();
+    await fireEvent.input(topic, { target: { value: 'ぶんすう' } });
+    await escape(topic, { isComposing: true });
+    expect(container.querySelector('[data-fa="discard"]')).toBeNull();
+  });
+});

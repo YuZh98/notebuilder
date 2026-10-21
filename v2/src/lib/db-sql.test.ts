@@ -12,7 +12,9 @@ import { CARD_STATE_KEY } from './card-done';
  *   single argument list shared by every statement;
  * - a failing statement stops the batch and leaves that connection inside the open transaction
  *   (exactly the sqlx pool pitfall) — only close() rolls it back;
- * - foreign_keys=ON per connection (the sqlx default).
+ * - foreign_keys=ON per connection (the sqlx default);
+ * - an argument holding a lone surrogate is rejected before SQLite sees it, as the Tauri IPC does
+ *   (serde_json refuses the "\udXXX" escape JSON.stringify writes for it).
  * node:sqlite binds `$N` only through named objects and throws on unknown names, so each
  * statement is bound with just the `$N` names it contains.
  */
@@ -75,6 +77,11 @@ function paramsFor(stmt: string, values: unknown[]): Row {
 }
 
 vi.mock('@tauri-apps/plugin-sql', () => {
+  function ipc(command: string, values: unknown[]): void {
+    if (values.some((v) => typeof v === 'string' && !v.isWellFormed())) {
+      throw new Error(`invalid args \`values\` for command \`${command}\`: lone leading surrogate in hex escape`);
+    }
+  }
   class NodeSqliteDatabase {
     path: string;
     conn: DatabaseSync | null;
@@ -94,6 +101,7 @@ vi.mock('@tauri-apps/plugin-sql', () => {
       return this.conn;
     }
     async execute(sql: string, values: unknown[] = []) {
+      ipc('execute', values);
       const conn = this.live();
       let rowsAffected = 0;
       for (const stmt of splitStatements(sql)) {
@@ -103,6 +111,7 @@ vi.mock('@tauri-apps/plugin-sql', () => {
       return { rowsAffected };
     }
     async select(sql: string, values: unknown[] = []) {
+      ipc('select', values);
       return this.live().prepare(sql).all(paramsFor(sql, values)).map((r) => ({ ...r }));
     }
     async close() {
@@ -296,6 +305,41 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect((await db.loadNotebook('nbU'))!.updatedAt).toBe('2024-01-04T00:00:00Z');
   });
 
+  // Every other string reaching SQL takes the same path: a bound string with a lone surrogate
+  // was refused by the IPC on every retry, and one inside a JSON argument could reach json_extract.
+  it('notes, card types, preferences, progress, notebooks and versions with a lone surrogate reload as U+FFFD', async () => {
+    const reported: string[] = [];
+    db.onDbError((m) => reported.push(m));
+    const note = { id: 'a\uD83E', cardId: 'c1', kind: 'note' as const, body: 'see \uD83E here', createdAt: '1' };
+    expect(await db.saveAnnotation(note)).toBe(true);
+    const type = { id: 'ctU', name: 'Type \uDC00', slots: [{ type: 'text', props: { text: 'x\uD83Ey' } }] };
+    expect(await db.saveCardType(type as never)).toBe(true);
+    expect(await db.setPreference('factory_state', 'bench \uD83E')).toBe(true);
+    expect(await db.saveReaderState({ 'c\uD83E': { s1: { answer: 'a\uD83E' } } })).toBe(true);
+    const odd = notebook('nb1', 'Physics', [
+      section('s1', 'nb1', 0, [card('c1', 's1', 0, { slots: [{ id: 'x', type: 'text', props: { text: 'q\uD83E' } }] })]),
+    ]);
+    expect(await db.saveNotebook(odd)).toBe(true);
+    expect(await db.saveSnapshot(odd, 'manual', Date.now())).toBe(true);
+    expect(reported).toEqual([]);
+
+    expect(await db.loadAnnotations()).toEqual([{ ...note, id: 'a\uFFFD', body: 'see \uFFFD here' }]);
+    const [ct] = await db.listCardTypes();
+    expect(ct.name).toBe('Type \uFFFD');
+    expect((ct.slots[0].props as { text: string }).text).toBe('x\uFFFDy');
+    expect(await db.getPreference('factory_state')).toBe('bench \uFFFD');
+    expect(await db.loadReaderState()).toEqual({ 'c\uFFFD': { s1: { answer: 'a\uFFFD' } } });
+    expect((await db.loadNotebook('nb1'))!.sections[0].cards[0].slots[0].props.text).toBe('q\uFFFD');
+    const [version] = await db.listSnapshots('nb1');
+    expect((await db.loadSnapshot(version.id))!.sections[0].cards[0].slots[0].props.text).toBe('q\uFFFD');
+    // A real pair (an emoji) is kept as it is.
+    expect(await db.saveAnnotation({ ...note, body: 'ok \uD83D\uDE00' })).toBe(true);
+    expect((await db.loadAnnotations()).map((a) => a.body)).toEqual(['ok \uD83D\uDE00']);
+    // The in-memory id, lone surrogate and all, still finds the stored row.
+    expect(await db.deleteAnnotation(note.id)).toBe(true);
+    expect(await db.loadAnnotations()).toEqual([]);
+  });
+
   it('a section row without a name is stored as "" instead of failing every later save (NOT NULL)', async () => {
     const nameless = notebook('nbN', 'Nameless', [
       section('sN', 'nbN', 0, [card('cN', 'sN', 0)], { name: null as unknown as string }),
@@ -391,6 +435,24 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect(await db.loadNotebook('nb1')).toBeNull();
   });
 
+  it('a failed deleteNotebook changes nothing and the notebook keeps saving', async () => {
+    await db.saveNotebook(V1);
+    await db.saveReaderState({ c1: { x: { v: 1 } } });
+    await db.saveAnnotation({ id: 'a1', cardId: 'c1', kind: 'note', body: 'kept', createdAt: '1' });
+    const conn = inspect();
+    // The last statement fails, after the reader-state and note deletes already ran.
+    conn.exec("CREATE TRIGGER no_delete BEFORE DELETE ON notebooks BEGIN SELECT RAISE(ABORT, 'refused'); END");
+    expect(await db.deleteNotebook('nb1')).toBe(false);
+    conn.exec('DROP TRIGGER no_delete');
+    conn.close();
+    expect(await db.loadNotebook('nb1')).toEqual(V1);
+    expect(await db.loadReaderState()).toEqual({ c1: { x: { v: 1 } } });
+    expect((await db.loadAnnotations()).map((a) => a.id)).toEqual(['a1']);
+    // No tombstone: the next save is written.
+    expect(await db.saveNotebook({ ...V1, name: 'Physics (kept)' })).toBe(true);
+    expect((await db.loadNotebook('nb1'))!.name).toBe('Physics (kept)');
+  });
+
   it('saveCardType upserts — created_at (the gallery order) survives a re-save', async () => {
     await db.saveCardType({ id: 'A', name: 'Alpha', slots: [] } as never);
     await db.saveCardType({ id: 'B', name: 'Beta', slots: [] } as never);
@@ -404,6 +466,22 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect((await db.listCardTypes()).map((t) => t.name)).toEqual(['Alpha v2', 'Beta']);
     await db.deleteCardType('A');
     expect((await db.listCardTypes()).map((t) => t.id)).toEqual(['B']);
+  });
+
+  it('an unreadable card type row is skipped on load (it must not block hydration)', async () => {
+    await db.saveCardType({ id: 'A', name: 'Alpha', slots: [] } as never);
+    const conn = inspect();
+    conn.exec("INSERT INTO card_types (id, name, data) VALUES ('bad', 'Broken', '{not json')");
+    conn.exec("INSERT INTO card_types (id, name, data) VALUES ('str', 'Stringy', '\"abc\"')");
+    conn.close();
+    await db.saveCardType({ id: 'B', name: 'Beta', slots: [] } as never);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await db.listCardTypes()).toEqual([
+      { id: 'A', name: 'Alpha', slots: [] },
+      { id: 'B', name: 'Beta', slots: [] },
+    ]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 
   // Ported from the statement-matching db.test.ts (retired: it faked the per-row SQL that the

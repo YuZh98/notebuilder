@@ -1,5 +1,5 @@
 import { derivedTagUnion } from './tags';
-import { wellFormed } from './well-formed';
+import { wellFormedJson } from './well-formed';
 import type { Notebook, Section, Card, Slot } from './types';
 import type { CardType } from './card-types';
 
@@ -55,14 +55,13 @@ export function notebookToRows(nb: Notebook): {
   if (nb.width !== undefined) nbData.width = nb.width;
   if (nb.cats !== undefined) nbData.cats = nb.cats;
 
-  // Names are bound as plain strings (notebook) or read out of a JSON array by json_extract
-  // (sections): a lone surrogate there would be invalid UTF-8 and break every later save.
+  // Blobs are written well-formed; names and ids are cleaned where db.ts binds them.
   const notebook: NotebookRow = {
     id: nb.id,
-    name: wellFormed(nb.name),
+    name: nb.name,
     created_at: nb.createdAt,
     updated_at: nb.updatedAt,
-    data: JSON.stringify(nbData),
+    data: wellFormedJson(nbData),
   };
 
   const sections: SectionRow[] = nb.sections.map((s) => {
@@ -79,9 +78,9 @@ export function notebookToRows(nb: Notebook): {
     return {
       id: s.id,
       notebook_id: nb.id,
-      name: wellFormed(s.name),
+      name: s.name,
       position: s.position,
-      data: JSON.stringify(data),
+      data: wellFormedJson(data),
     };
   });
 
@@ -100,7 +99,7 @@ export function notebookToRows(nb: Notebook): {
         section_id: s.id,
         type_id: c.typeId ?? null,
         position: c.position,
-        data: JSON.stringify(data),
+        data: wellFormedJson(data),
       };
     })
   );

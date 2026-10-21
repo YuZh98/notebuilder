@@ -215,6 +215,42 @@ describe('db failure handling', () => {
     expect(await p2).toBe(true);
   });
 
+  it('a failed delete lifts the tombstone: later saves and versions of that notebook are written', async () => {
+    db.onDbError(vi.fn());
+    h.fail = (sql) => sql === db.DELETE_NOTEBOOK_SQL;
+    expect(await db.deleteNotebook('n')).toBe(false);
+    h.fail = null;
+    expect(await db.saveNotebook(nb('n', 'kept'))).toBe(true);
+    expect(await db.saveSnapshot(nb('n', 'kept'), 'manual')).toBe(true);
+    const sqls = executes().map((c) => c.sql);
+    expect(sqls.filter((s) => s === db.SAVE_NOTEBOOK_SQL)).toHaveLength(1);
+    expect(sqls.filter((s) => s === db.SAVE_SNAPSHOT_SQL)).toHaveLength(1);
+  });
+
+  it('a save made while the delete runs waits for it: written when the delete failed', async () => {
+    db.onDbError(vi.fn());
+    h.fail = (sql) => sql === db.DELETE_NOTEBOOK_SQL;
+    const del = db.deleteNotebook('n');
+    const save = db.saveNotebook(nb('n', 'meanwhile'));
+    const snap = db.saveSnapshot(nb('n', 'meanwhile'), 'auto');
+    expect(await del).toBe(false);
+    expect(await save).toBe(true);
+    expect(await snap).toBe(true);
+    const sqls = executes().map((c) => c.sql);
+    expect(sqls.at(-1)).toBe(db.SAVE_SNAPSHOT_SQL);
+    expect(executes().filter((c) => c.sql === db.SAVE_NOTEBOOK_SQL).map((c) => c.args[1])).toEqual(['meanwhile']);
+  });
+
+  it('a save made while the delete runs is dropped when the delete succeeded', async () => {
+    const del = db.deleteNotebook('n');
+    const save = db.saveNotebook(nb('n', 'meanwhile'));
+    const snap = db.saveSnapshot(nb('n', 'meanwhile'), 'auto');
+    expect(await del).toBe(true);
+    expect(await save).toBe(true);
+    expect(await snap).toBe(true);
+    expect(executes().map((c) => c.sql)).toEqual([db.DELETE_NOTEBOOK_SQL]);
+  });
+
   it('a failing read rejects (callers decide) and resets the handle', async () => {
     const mod = await import('@tauri-apps/plugin-sql');
     const spy = vi.spyOn(mod.default.prototype, 'select').mockRejectedValueOnce(new Error('io'));

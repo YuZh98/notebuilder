@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   hydrationGate: null as Promise<void> | null,
   readerGate: null as Promise<void> | null,
   failHydration: false,
+  failDelete: false,
   closeHandler: null as null | ((e: unknown) => unknown),
   events: {} as Record<string, (e: unknown) => unknown>,
   invoked: [] as string[],
@@ -39,7 +40,7 @@ vi.mock('./lib/db', () => ({
   }),
   deleteNotebook: vi.fn(async (id: string) => {
     h.calls.push(`deleteNotebook:${id}`);
-    return true;
+    return !h.failDelete;
   }),
   loadReaderState: vi.fn(async () => {
     if (h.readerGate) await h.readerGate;
@@ -160,6 +161,7 @@ beforeEach(() => {
   h.hydrationGate = null;
   h.readerGate = null;
   h.failHydration = false;
+  h.failDelete = false;
   h.closeHandler = null;
   h.events = {};
   h.invoked = [];
@@ -310,6 +312,28 @@ describe('App durability — deleting a notebook', () => {
     expect(savesOf('nbB')).toHaveLength(0);
     // The deleted notebook's reader rows are dropped in memory, so the full-replace save agrees.
     expect(h.readerSaves.at(-1)).toEqual({ nbB_c: { nbB_sl: { v: 2 } } });
+  });
+
+  it('a failed delete changes nothing: the notebook stays open, listed and saving, its progress kept', async () => {
+    h.failDelete = true;
+    h.reader = { nbA_c: { nbA_sl: { v: 1 } }, nbB_c: { nbB_sl: { v: 2 } } };
+    const { container } = render(App);
+    await hydrated(container, 'Alpha');
+    await addNote(container); // a pending debounced save, cancelled when the delete starts
+    const del = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('Delete notebook'));
+    await fireEvent.click(del!);
+    await waitFor(() => expect(document.body.textContent).toContain('Couldn’t delete the notebook — nothing was changed'));
+    await wait(750);
+    expect(h.calls).toContain('deleteNotebook:nbA');
+    expect(container.textContent).toContain('hello Alpha');
+    expect(container.textContent).not.toContain('hello Beta');
+    // The edit made just before is still saved.
+    expect(cardCount(savesOf('nbA').at(-1)!)).toBe(2);
+    // No full-replace reader save ever dropped its progress.
+    expect(h.readerSaves.every((m) => 'nbA_c' in m)).toBe(true);
+    await fireEvent.click(container.querySelector('[data-act="nbmenu"]')!);
+    const listed = [...container.querySelectorAll('.nbitem')].map((b) => b.textContent ?? '');
+    expect(listed.some((t) => t.includes('Alpha'))).toBe(true);
   });
 });
 

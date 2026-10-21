@@ -6,6 +6,7 @@ import type { NotebookRow, SectionRow, CardRow } from './db-map';
 import { stripPresentation } from './presentation';
 import { contentHash, pruneIds, type SnapshotMeta, type SnapshotReason } from './snapshots';
 import { uid } from './uid';
+import { wellFormed, wellFormedJson } from './well-formed';
 
 /** True only inside the Tauri webview; false in a plain browser, tests, or SSR — so callers can skip DB I/O. */
 export function isTauri(): boolean {
@@ -111,11 +112,25 @@ export const SAVE_CARD_TYPE_SQL = `INSERT INTO card_types (id, name, data) VALUE
 // Handle, queue, error hook
 // ---------------------------------------------------------------------------------------------
 
+/** The part of the plugin handle a query uses. */
+type Conn = Pick<Database, 'execute' | 'select'>;
+
 // Single lazily-opened handle to the migration-managed SQLite file (see src-tauri/src/lib.rs).
 let _db: Database | null = null;
-async function db(): Promise<Database> {
+
+/**
+ * The handle, with every string argument made well-formed on its way out: the IPC refuses a
+ * lone surrogate, so such a write failed on every retry. JSON arguments are built with
+ * wellFormedJson, so json_extract never decodes one into invalid UTF-8 either.
+ */
+async function db(): Promise<Conn> {
   if (!_db) _db = await Database.load(DB_URL);
-  return _db;
+  const d = _db;
+  const args = (values?: unknown[]) => values?.map((v) => (typeof v === 'string' ? wellFormed(v) : v));
+  return {
+    execute: (query, values) => d.execute(query, args(values)),
+    select: <T>(query: string, values?: unknown[]) => d.select<T>(query, args(values)),
+  };
 }
 
 /** Drop the cached handle and close its pool — closing rolls back a transaction a failed batch left open. */
@@ -154,7 +169,7 @@ export function dbIdle(): Promise<void> {
 }
 
 /** Reads reject on failure (the caller decides what that means); the handle is reset first. */
-function read<T>(query: (d: Database) => Promise<T>): Promise<T> {
+function read<T>(query: (d: Conn) => Promise<T>): Promise<T> {
   return serial(async () => {
     try {
       return await query(await db());
@@ -168,7 +183,7 @@ function read<T>(query: (d: Database) => Promise<T>): Promise<T> {
 type QueuedWrite = {
   key: string;
   what: string;
-  job: (d: Database) => Promise<unknown>;
+  job: (d: Conn) => Promise<unknown>;
   promise: Promise<boolean>;
   /** Set when an earlier failing write already ran this one as its retry. */
   result?: boolean;
@@ -177,7 +192,7 @@ type QueuedWrite = {
 // Writes waiting their turn, by key. A newer write for the same key replaces the job (latest wins).
 const queued = new Map<string, QueuedWrite>();
 
-function write(key: string, what: string, job: (d: Database) => Promise<unknown>): Promise<boolean> {
+function write(key: string, what: string, job: (d: Conn) => Promise<unknown>): Promise<boolean> {
   const pending = queued.get(key);
   if (pending) {
     pending.job = job;
@@ -224,12 +239,22 @@ function errorText(err: unknown): string {
 // Notebooks
 // ---------------------------------------------------------------------------------------------
 
-// Ids deleted this session: a late autosave must never resurrect them.
-const deletedNotebooks = new Set<string>();
+// Notebooks deleted this session, each with its delete's outcome: a late autosave must never
+// resurrect a deleted notebook, while one whose delete failed keeps saving.
+const deletions = new Map<string, Promise<boolean>>();
+
+/**
+ * Run `save` unless notebook `id` was deleted. While its delete is still in flight the save
+ * waits for the outcome rather than queueing (under the notebook's key it would replace the
+ * delete): it is dropped when the delete went through and written when it failed.
+ */
+function unlessDeleted(id: string, save: () => Promise<boolean>): Promise<boolean> {
+  const deleting = deletions.get(id);
+  return deleting ? deleting.then((gone) => gone || save()) : save();
+}
 
 /** Atomic save of one notebook tree. Resolves false (after reporting) when it could not be saved. */
 export function saveNotebook(nb: Notebook): Promise<boolean> {
-  if (deletedNotebooks.has(nb.id)) return Promise.resolve(true);
   // Rows are built now, so later mutation of `nb` cannot leak into the queued save.
   const { notebook, sections, cards } = notebookToRows(nb);
   const args = [
@@ -238,13 +263,15 @@ export function saveNotebook(nb: Notebook): Promise<boolean> {
     notebook.created_at,
     notebook.updated_at,
     notebook.data,
-    JSON.stringify(sections.map((s) => ({ id: s.id, name: s.name, position: s.position, data: s.data }))),
-    JSON.stringify(cards),
+    wellFormedJson(sections.map((s) => ({ id: s.id, name: s.name, position: s.position, data: s.data }))),
+    wellFormedJson(cards),
   ];
-  return write(`notebook:${nb.id}`, `notebook “${nb.name}”`, async (d) => {
-    if (deletedNotebooks.has(nb.id)) return;
-    await d.execute(SAVE_NOTEBOOK_SQL, args);
-  });
+  return unlessDeleted(nb.id, () =>
+    write(`notebook:${nb.id}`, `notebook “${nb.name}”`, async (d) => {
+      if (deletions.has(nb.id)) return;
+      await d.execute(SAVE_NOTEBOOK_SQL, args);
+    }),
+  );
 }
 
 export function loadNotebook(id: string): Promise<Notebook | null> {
@@ -268,11 +295,20 @@ export function loadNotebook(id: string): Promise<Notebook | null> {
   });
 }
 
-/** Delete a notebook (and its local reader rows). Takes over any queued save of it and tombstones the id. */
+/**
+ * Delete a notebook (and its local reader rows). Takes over any queued save of it and tombstones
+ * the id; a delete that failed changed nothing, so it lifts the tombstone again.
+ */
 export function deleteNotebook(id: string): Promise<boolean> {
-  deletedNotebooks.add(id);
   // Same key as saveNotebook: a queued save of this notebook is replaced (cancelled) by the delete.
-  return write(`notebook:${id}`, 'the notebook deletion', (d) => d.execute(DELETE_NOTEBOOK_SQL, [id]));
+  const outcome: Promise<boolean> = write(`notebook:${id}`, 'the notebook deletion', (d) =>
+    d.execute(DELETE_NOTEBOOK_SQL, [id]),
+  ).then((ok) => {
+    if (!ok && deletions.get(id) === outcome) deletions.delete(id);
+    return ok;
+  });
+  deletions.set(id, outcome);
+  return outcome;
 }
 
 export function listNotebooks(): Promise<NotebookRow[]> {
@@ -291,19 +327,20 @@ export function listNotebooks(): Promise<NotebookRow[]> {
  * frozen now. Resolves false (after reporting) when it could not be stored.
  */
 export function saveSnapshot(nb: Notebook, reason: SnapshotReason, at: number = Date.now()): Promise<boolean> {
-  if (deletedNotebooks.has(nb.id)) return Promise.resolve(true);
   const id = `${uid('snap')}_${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = new Date(at).toISOString();
-  const data = JSON.stringify(nb);
+  const data = wellFormedJson(nb);
   const hash = contentHash(nb);
   // A unique key: versions never coalesce (a before-restore must not be replaced by a manual one).
-  return write(`snapshot:${id}`, 'a version of your notebook', async (d) => {
-    if (deletedNotebooks.has(nb.id)) return;
-    const stored = await d.select<{ id: string; created_at: string; reason: string }[]>(SNAPSHOT_STAMPS_SQL, [nb.id]);
-    const stamps = stored.filter((s) => s.id !== id).map((s) => ({ id: s.id, createdAt: s.created_at, reason: s.reason }));
-    const prune = pruneIds([...stamps, { id, createdAt, reason }], at).filter((x) => x !== id);
-    await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, JSON.stringify(prune)]);
-  });
+  return unlessDeleted(nb.id, () =>
+    write(`snapshot:${id}`, 'a version of your notebook', async (d) => {
+      if (deletions.has(nb.id)) return;
+      const stored = await d.select<{ id: string; created_at: string; reason: string }[]>(SNAPSHOT_STAMPS_SQL, [nb.id]);
+      const stamps = stored.filter((s) => s.id !== id).map((s) => ({ id: s.id, createdAt: s.created_at, reason: s.reason }));
+      const prune = pruneIds([...stamps, { id, createdAt, reason }], at).filter((x) => x !== id);
+      await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, wellFormedJson(prune)]);
+    }),
+  );
 }
 
 /** A notebook's versions, newest first — metadata only (the data stays in SQLite). */
@@ -351,10 +388,10 @@ export function saveReaderState(map: ReaderStateMap): Promise<boolean> {
     for (const slotId of Object.keys(slots)) {
       const value = slots[slotId];
       if (value === undefined) continue;
-      rows.push({ card_id: cardId, slot_id: slotId, data: JSON.stringify(value) });
+      rows.push({ card_id: cardId, slot_id: slotId, data: wellFormedJson(value) });
     }
   }
-  const json = JSON.stringify(rows);
+  const json = wellFormedJson(rows);
   return write('reader_state', 'your study progress', (d) => d.execute(SAVE_READER_STATE_SQL, [json]));
 }
 
@@ -403,7 +440,7 @@ export function setPreference(key: string, value: string): Promise<boolean> {
 
 export function saveCardType(ct: CardType): Promise<boolean> {
   const { id, name, ...data } = ct;
-  const json = JSON.stringify(data);
+  const json = wellFormedJson(data);
   // Same key as deleteCardType, so save/delete of one type coalesce to the latest intent.
   return write(`card_type:${id}`, `card type “${name}”`, (d) => d.execute(SAVE_CARD_TYPE_SQL, [id, name, json]));
 }
@@ -413,7 +450,22 @@ export function listCardTypes(): Promise<CardType[]> {
     const rows = await d.select<{ id: string; name: string; data: string }[]>(
       'SELECT id, name, data FROM card_types ORDER BY created_at',
     );
-    return rows.map((r) => ({ id: r.id, name: r.name, ...JSON.parse(r.data) }));
+    const types: CardType[] = [];
+    for (const r of rows) {
+      let data: unknown;
+      try {
+        data = JSON.parse(r.data);
+      } catch {
+        data = null;
+      }
+      // One unreadable row must not fail hydration (which would switch every save off).
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        console.warn('skipping unreadable card type', r.id);
+        continue;
+      }
+      types.push({ id: r.id, name: r.name, ...data } as CardType);
+    }
+    return types;
   });
 }
 

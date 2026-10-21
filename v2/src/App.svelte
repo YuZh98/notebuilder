@@ -479,15 +479,21 @@
     if (!ok) return;
     const goneId = notebook.id;
     if (persistOn()) {
-      notebookSave.cancel();
-      // Its reader rows are deleted with it; drop them in memory too, so the next full-replace
-      // reader-state save does not write them back.
       const goneCards = new Set(notebook.sections.flatMap((s) => s.cards.map((c) => c.id)));
+      notebookSave.cancel();
+      if (!(await deleteNotebook(goneId))) {
+        // Nothing was deleted: it stays open, listed and saving (the edit cancelled above
+        // included), and its progress stays in memory for the full-replace reader save.
+        void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
+        toast('Couldn’t delete the notebook — nothing was changed', 6000);
+        return;
+      }
+      versionKeeper.forget(goneId);
+      // Its reader rows went with it; drop them in memory too, so the next full-replace
+      // reader-state save does not write them back.
       if (Object.keys(readerState).some((id) => goneCards.has(id))) {
         readerState = Object.fromEntries(Object.entries(readerState).filter(([id]) => !goneCards.has(id)));
       }
-      await deleteNotebook(goneId);
-      versionKeeper.forget(goneId);
     }
     notebookList = notebookList.filter((e) => e.id !== goneId);
     const next = notebookList[0];

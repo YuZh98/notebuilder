@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { wellFormed, wellFormedDeep } from './well-formed';
+import { wellFormed, wellFormedDeep, wellFormedJson } from './well-formed';
 
 const isWellFormed = (s: string): boolean => !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
 
@@ -73,5 +73,20 @@ describe('wellFormedDeep', () => {
     expect(wellFormedDeep(3)).toBe(3);
     expect(wellFormedDeep(false)).toBe(false);
     expect(wellFormedDeep(null)).toBeNull();
+  });
+});
+
+describe('wellFormedJson', () => {
+  it('writes no lone-surrogate escape: strings and keys are made well-formed first', () => {
+    const text = wellFormedJson({ a: 'x\uD83E', ['k\uDC00']: ['\uDD14', 1], ok: '🧮' });
+    expect(text).toBe('{"a":"x�","k�":["�",1],"ok":"🧮"}');
+    expect(text).not.toMatch(/\\ud[89a-f]/);
+    expect(JSON.parse(text).a).toBe('x�');
+  });
+
+  it('is plain JSON.stringify when there is nothing to fix', () => {
+    for (const v of [{ a: 'plain', n: [1, null, true] }, '😀', { t: 'a literal \\ud83e, not a surrogate' }]) {
+      expect(wellFormedJson(v)).toBe(JSON.stringify(v));
+    }
   });
 });
