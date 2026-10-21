@@ -391,6 +391,24 @@ describe.skipIf(!hasNodeSqlite)('db.ts against real SQLite (node:sqlite)', () =>
     expect(await db.loadNotebook('nb1')).toBeNull();
   });
 
+  it('a failed deleteNotebook changes nothing and the notebook keeps saving', async () => {
+    await db.saveNotebook(V1);
+    await db.saveReaderState({ c1: { x: { v: 1 } } });
+    await db.saveAnnotation({ id: 'a1', cardId: 'c1', kind: 'note', body: 'kept', createdAt: '1' });
+    const conn = inspect();
+    // The last statement fails, after the reader-state and note deletes already ran.
+    conn.exec("CREATE TRIGGER no_delete BEFORE DELETE ON notebooks BEGIN SELECT RAISE(ABORT, 'refused'); END");
+    expect(await db.deleteNotebook('nb1')).toBe(false);
+    conn.exec('DROP TRIGGER no_delete');
+    conn.close();
+    expect(await db.loadNotebook('nb1')).toEqual(V1);
+    expect(await db.loadReaderState()).toEqual({ c1: { x: { v: 1 } } });
+    expect((await db.loadAnnotations()).map((a) => a.id)).toEqual(['a1']);
+    // No tombstone: the next save is written.
+    expect(await db.saveNotebook({ ...V1, name: 'Physics (kept)' })).toBe(true);
+    expect((await db.loadNotebook('nb1'))!.name).toBe('Physics (kept)');
+  });
+
   it('saveCardType upserts — created_at (the gallery order) survives a re-save', async () => {
     await db.saveCardType({ id: 'A', name: 'Alpha', slots: [] } as never);
     await db.saveCardType({ id: 'B', name: 'Beta', slots: [] } as never);

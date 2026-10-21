@@ -224,12 +224,22 @@ function errorText(err: unknown): string {
 // Notebooks
 // ---------------------------------------------------------------------------------------------
 
-// Ids deleted this session: a late autosave must never resurrect them.
-const deletedNotebooks = new Set<string>();
+// Notebooks deleted this session, each with its delete's outcome: a late autosave must never
+// resurrect a deleted notebook, while one whose delete failed keeps saving.
+const deletions = new Map<string, Promise<boolean>>();
+
+/**
+ * Run `save` unless notebook `id` was deleted. While its delete is still in flight the save
+ * waits for the outcome rather than queueing (under the notebook's key it would replace the
+ * delete): it is dropped when the delete went through and written when it failed.
+ */
+function unlessDeleted(id: string, save: () => Promise<boolean>): Promise<boolean> {
+  const deleting = deletions.get(id);
+  return deleting ? deleting.then((gone) => gone || save()) : save();
+}
 
 /** Atomic save of one notebook tree. Resolves false (after reporting) when it could not be saved. */
 export function saveNotebook(nb: Notebook): Promise<boolean> {
-  if (deletedNotebooks.has(nb.id)) return Promise.resolve(true);
   // Rows are built now, so later mutation of `nb` cannot leak into the queued save.
   const { notebook, sections, cards } = notebookToRows(nb);
   const args = [
@@ -241,10 +251,12 @@ export function saveNotebook(nb: Notebook): Promise<boolean> {
     JSON.stringify(sections.map((s) => ({ id: s.id, name: s.name, position: s.position, data: s.data }))),
     JSON.stringify(cards),
   ];
-  return write(`notebook:${nb.id}`, `notebook “${nb.name}”`, async (d) => {
-    if (deletedNotebooks.has(nb.id)) return;
-    await d.execute(SAVE_NOTEBOOK_SQL, args);
-  });
+  return unlessDeleted(nb.id, () =>
+    write(`notebook:${nb.id}`, `notebook “${nb.name}”`, async (d) => {
+      if (deletions.has(nb.id)) return;
+      await d.execute(SAVE_NOTEBOOK_SQL, args);
+    }),
+  );
 }
 
 export function loadNotebook(id: string): Promise<Notebook | null> {
@@ -268,11 +280,20 @@ export function loadNotebook(id: string): Promise<Notebook | null> {
   });
 }
 
-/** Delete a notebook (and its local reader rows). Takes over any queued save of it and tombstones the id. */
+/**
+ * Delete a notebook (and its local reader rows). Takes over any queued save of it and tombstones
+ * the id; a delete that failed changed nothing, so it lifts the tombstone again.
+ */
 export function deleteNotebook(id: string): Promise<boolean> {
-  deletedNotebooks.add(id);
   // Same key as saveNotebook: a queued save of this notebook is replaced (cancelled) by the delete.
-  return write(`notebook:${id}`, 'the notebook deletion', (d) => d.execute(DELETE_NOTEBOOK_SQL, [id]));
+  const outcome: Promise<boolean> = write(`notebook:${id}`, 'the notebook deletion', (d) =>
+    d.execute(DELETE_NOTEBOOK_SQL, [id]),
+  ).then((ok) => {
+    if (!ok && deletions.get(id) === outcome) deletions.delete(id);
+    return ok;
+  });
+  deletions.set(id, outcome);
+  return outcome;
 }
 
 export function listNotebooks(): Promise<NotebookRow[]> {
@@ -291,19 +312,20 @@ export function listNotebooks(): Promise<NotebookRow[]> {
  * frozen now. Resolves false (after reporting) when it could not be stored.
  */
 export function saveSnapshot(nb: Notebook, reason: SnapshotReason, at: number = Date.now()): Promise<boolean> {
-  if (deletedNotebooks.has(nb.id)) return Promise.resolve(true);
   const id = `${uid('snap')}_${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = new Date(at).toISOString();
   const data = JSON.stringify(nb);
   const hash = contentHash(nb);
   // A unique key: versions never coalesce (a before-restore must not be replaced by a manual one).
-  return write(`snapshot:${id}`, 'a version of your notebook', async (d) => {
-    if (deletedNotebooks.has(nb.id)) return;
-    const stored = await d.select<{ id: string; created_at: string; reason: string }[]>(SNAPSHOT_STAMPS_SQL, [nb.id]);
-    const stamps = stored.filter((s) => s.id !== id).map((s) => ({ id: s.id, createdAt: s.created_at, reason: s.reason }));
-    const prune = pruneIds([...stamps, { id, createdAt, reason }], at).filter((x) => x !== id);
-    await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, JSON.stringify(prune)]);
-  });
+  return unlessDeleted(nb.id, () =>
+    write(`snapshot:${id}`, 'a version of your notebook', async (d) => {
+      if (deletions.has(nb.id)) return;
+      const stored = await d.select<{ id: string; created_at: string; reason: string }[]>(SNAPSHOT_STAMPS_SQL, [nb.id]);
+      const stamps = stored.filter((s) => s.id !== id).map((s) => ({ id: s.id, createdAt: s.created_at, reason: s.reason }));
+      const prune = pruneIds([...stamps, { id, createdAt, reason }], at).filter((x) => x !== id);
+      await d.execute(SAVE_SNAPSHOT_SQL, [id, nb.id, createdAt, reason, hash, data, JSON.stringify(prune)]);
+    }),
+  );
 }
 
 /** A notebook's versions, newest first — metadata only (the data stays in SQLite). */
