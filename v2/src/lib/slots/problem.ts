@@ -5,6 +5,7 @@ import { evalExpr, parseExpr, EXPR_BUILTINS } from '../expr';
 import { mulberry32, drawParam } from '../rng';
 import { parseNumericInput } from '../numeric-input';
 import { exprPitfalls } from '../expr-pitfalls';
+import { hashString } from '../practice-salt';
 import { extractReads } from './identifiers';
 import ProblemEdit from './ProblemEdit.svelte';
 import ProblemStudy from './ProblemStudy.svelte';
@@ -26,7 +27,11 @@ export type ProblemProps = {
   explain?: string;
 };
 
-/** Reader (progress-layer) state. Only the seed is stored — values are always redrawn from it. */
+/**
+ * Reader (progress-layer) state. Only the seed is stored — values are always redrawn from it.
+ * Until the student first checks or asks for new numbers there is no seed: the problem starts
+ * from baseSeed, so mounting writes nothing.
+ */
 export type ProblemState = {
   seed: number;
   correct: number;
@@ -42,7 +47,7 @@ export type ProblemState = {
   shown?: number;
 };
 
-/** Seed used until the student first asks for new numbers — fixed, so mounting writes nothing. */
+/** The starting seed where there is no practice salt (storage unavailable): the same for everyone. */
 export const DEFAULT_SEED = 1;
 /** How many successive seeds (seed+1 … seed+N) to try when the answer is not finite. */
 export const MAX_REDRAWS = 20;
@@ -73,11 +78,26 @@ export function tolOf(props: unknown): number {
   return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : 0;
 }
 
-/** Tolerant read of reader state: anything malformed falls back to its default. */
-export function readProblemState(state: Record<string, unknown> | undefined): ProblemState {
+/**
+ * The seed a reader starts from until they check or ask for new numbers: hashed from this
+ * browser's practice salt (practice-salt.ts) and what shapes the numbers (prompt, params,
+ * answer). Each reader gets their own numbers, in their own order, so one shared answer list no
+ * longer reaches `need` for a whole class; one reader gets the same numbers on every reload; two
+ * different problems on one page start apart. No salt: DEFAULT_SEED, as before.
+ */
+export function baseSeed(props: ProblemProps, salt: string | null): number {
+  if (salt === null) return DEFAULT_SEED;
+  const p: Record<string, unknown> = isObj(props) ? props : {};
+  // Arrays, not objects: the key order of a param as written must not change the numbers.
+  const params = paramsOf(props).map((q) => [q.name, q.min, q.max, q.step]);
+  return hashString(`${salt}:${JSON.stringify([str(p.prompt), params, str(p.answer)])}`);
+}
+
+/** Tolerant read of reader state: anything malformed falls back to its default (no seed: `start`). */
+export function readProblemState(state: Record<string, unknown> | undefined, start = DEFAULT_SEED): ProblemState {
   const s = isObj(state) ? state : {};
   const out: ProblemState = {
-    seed: Number.isSafeInteger(s.seed) ? (s.seed as number) : DEFAULT_SEED,
+    seed: Number.isSafeInteger(s.seed) ? (s.seed as number) : start,
     correct: count(s.correct),
     attempts: count(s.attempts),
   };

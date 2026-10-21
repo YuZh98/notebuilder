@@ -116,7 +116,7 @@ describe('ProblemEdit — params table', () => {
 });
 
 describe('ProblemEdit — feedback for the author', () => {
-  it('previews the first draw and its answer', () => {
+  it('previews a sample draw and its answer', () => {
     const v = drawValues(base().params, DEFAULT_SEED);
     const { container } = setup();
     expect(container.querySelector('.problem-preview')?.textContent).toContain(

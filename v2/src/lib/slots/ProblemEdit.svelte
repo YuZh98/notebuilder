@@ -22,7 +22,8 @@
   const issues = $derived(problemIssues(props, new Set(Object.keys(scope))));
   // Valid but probably unintended (-a^2 is (-a)^2): said here, never held against Share/Export.
   const warnings = $derived(problemWarnings(props));
-  // What a student sees first (the default seed), so the author can sanity-check the formula.
+  // One sample draw so the author can sanity-check the formula. Each reader starts from their own
+  // seed (baseSeed); a fixed seed here keeps the sample still while the prompt is being typed.
   const preview = $derived(instantiate(props, scope, DEFAULT_SEED));
   const previewText = $derived(
     preview.ok
@@ -166,7 +167,7 @@
   </label>
 
   {#if previewText}
-    <p class="problem-preview">First draw: {previewText}</p>
+    <p class="problem-preview">Sample draw: {previewText}</p>
   {/if}
   {#if warnings.length > 0}
     <ul class="problem-warnings">

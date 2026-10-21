@@ -7,6 +7,13 @@ import { isCardDone, hasCompletableSlot } from '../card-done';
 import { drawValues, DEFAULT_SEED, type ProblemProps } from '../slots/problem';
 import type { Card } from '../types';
 
+// These tests pin the numbers at DEFAULT_SEED: the start where no practice salt can be stored.
+// Per-reader starting seeds are covered by ProblemStudy.salt.test.ts.
+vi.mock('../practice-salt', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../practice-salt')>()),
+  practiceSalt: () => null,
+}));
+
 // End-to-end through CardView: the problem slot reads a card variable (a slider) and writes
 // its reader state through the same progress channel every completable slot uses.
 const problem: ProblemProps = {

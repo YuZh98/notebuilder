@@ -3,6 +3,13 @@ import { render, fireEvent, screen } from '@testing-library/svelte';
 import ProblemStudy from './ProblemStudy.svelte';
 import { drawValues, instantiate, nextSeed, DEFAULT_SEED, type ProblemProps } from './problem';
 
+// These tests pin the numbers at DEFAULT_SEED: the start where no practice salt can be stored.
+// Per-reader starting seeds are covered by ProblemStudy.salt.test.ts.
+vi.mock('../practice-salt', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../practice-salt')>()),
+  practiceSalt: () => null,
+}));
+
 const base = (over: Partial<ProblemProps> = {}): ProblemProps => ({
   prompt: 'What is {{a}} × {{b}}?',
   params: [

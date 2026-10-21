@@ -12,8 +12,10 @@
     needOf,
     tolOf,
     paramsOf,
+    baseSeed,
     type ProblemProps,
   } from './problem';
+  import { practiceSalt } from '../practice-salt';
   import { parseNumericInput } from '../numeric-input';
   import { renderMarkdown } from '../markdown';
   import type { Scope } from '../variable-graph';
@@ -26,8 +28,10 @@
     onState?: (next: Record<string, unknown>) => void;
   }>();
 
-  // Values are redrawn from the stored seed on every render — never stored themselves.
-  const st = $derived(readProblemState(saved));
+  // Values are redrawn from the stored seed on every render — never stored themselves. With no
+  // stored seed yet, this reader's own starting seed (salt + problem): nothing is written on mount.
+  const salt = practiceSalt();
+  const st = $derived(readProblemState(saved, baseSeed(props, salt)));
   const inst = $derived(instantiate(props, scope, st.seed));
   // Params shadow card variables inside this slot only.
   const local = $derived({ ...scope, ...inst.values });
