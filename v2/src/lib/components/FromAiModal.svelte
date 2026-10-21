@@ -34,11 +34,15 @@
   let result = $state.raw<CheckResult | null>(null);
   let hideWarnings = $state(false);
   let topicInput: HTMLInputElement | undefined = $state();
+  // Escape is asking "Discard what you typed?"; refocus is where focus was, for Keep editing.
+  let confirmDiscard = $state(false);
+  let refocus: HTMLElement | null = null;
 
   const uid = $props.id();
   const cardCount = $derived(cards.trim() ? Number(cards) : undefined);
   const prompt = $derived(buildAiPrompt({ topic, audience, cards: cardCount }));
   const canCopy = $derived(topic.trim().length > 0);
+  const typed = $derived([topic, audience, cards, reply].some((v) => v.trim()));
   const summary = $derived(result?.ok ? notebookSummary(result.json) : null);
   const summaryText = $derived.by(() => {
     if (!summary) return '';
@@ -87,16 +91,35 @@
   function create() {
     if (result?.ok) oncreate(result.json as NotebookJSON);
   }
+
+  /**
+   * Escape never silently throws away a pasted reply: with anything typed it asks first, and a
+   * second Escape (or Discard) closes. Mid-IME-composition Escape belongs to the input method,
+   * and a held-down key's auto-repeat never answers its own question.
+   */
+  function onEscape(e: KeyboardEvent) {
+    if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || e.repeat) return;
+    if (!typed || confirmDiscard) return onclose();
+    refocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    confirmDiscard = true;
+  }
+
+  function keepEditing() {
+    confirmDiscard = false;
+    refocus?.focus();
+  }
 </script>
 
-<svelte:window
-  onkeydown={(e) => {
-    if (e.key === 'Escape') onclose();
-  }}
-/>
+<svelte:window onkeydown={onEscape} />
 
 <div class="modal fromai-modal" style="display:flex">
-  <div class="modal-box fromai" role="dialog" aria-modal="true" aria-labelledby="{uid}-title">
+  <div
+    class="modal-box fromai"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="{uid}-title"
+    oninput={() => (confirmDiscard = false)}
+  >
     <h3 id="{uid}-title" class="fa-title">✨ New notebook from AI</h3>
     <p class="muted sm fa-lead">
       Works with any chat AI (ChatGPT, Claude, Gemini, …): copy a prompt, paste the reply, check it, create.
@@ -201,6 +224,15 @@
       {/if}
     </section>
 
+    {#if confirmDiscard}
+      <div class="row fa-discard" data-fa="discard" role="alert">
+        <span>Discard what you typed? <span class="muted">Esc again discards it.</span></span>
+        <span class="spacer"></span>
+        <button class="btn sm" data-act="keep" onclick={keepEditing}>Keep editing</button>
+        <button class="btn sm" data-act="discard" onclick={onclose}>Discard</button>
+      </div>
+    {/if}
+
     <div class="row fa-actions">
       <span class="spacer"></span>
       <button class="btn" data-act="cancel" onclick={onclose}>Cancel</button>
@@ -274,5 +306,14 @@
   .fa-actions {
     margin-top: 12px;
     gap: 8px;
+  }
+  .fa-discard {
+    margin-top: 12px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    border: 1px solid color-mix(in srgb, var(--warn, #ff6b81) 45%, transparent);
   }
 </style>
