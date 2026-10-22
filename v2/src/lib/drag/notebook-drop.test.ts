@@ -6,6 +6,7 @@ import { toastState, dismissToast } from '../toast.svelte';
 import type { Notebook, Section, Card } from '../types';
 import type { CardType } from '../card-types';
 import { proxiedCardType, snapshotType } from './notebook-drop.proxy-fixture.svelte';
+import { pev, stubRect } from '../test-utils';
 
 function card(id: string, sectionId: string, w?: number): Card {
   return { id, sectionId, position: 0, slots: [], ...(w !== undefined ? { w } : {}) };
@@ -400,20 +401,13 @@ describe('onDrop — section onto the dustbin (v1 :85)', () => {
 // Full gesture through the engine: pointerdown on a grip → moves → up, with the
 // hit-test probe injected (jsdom has no layout).
 describe('engine integration — grip pointer sequence', () => {
-  function stubRect(el: Element, left: number, width: number) {
-    (el as HTMLElement).getBoundingClientRect = () =>
-      ({ left, top: 0, width, height: 40, right: left + width, bottom: 40, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
-  }
-  const pev = (type: string, x: number, y = 0) =>
-    new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }) as PointerEvent;
-
   it('moves a card within its section', () => {
     const { nb, shell } = fixture();
     const cb = makeNotebookDropCallbacks(depsOf(nb));
     const a = furnOf(shell, 'a');
     const c = furnOf(shell, 'c');
-    stubRect(furnOf(shell, 'b'), 0, 100);
-    stubRect(c, 100, 100);
+    stubRect(furnOf(shell, 'b'), { left: 0, width: 100, height: 40 });
+    stubRect(c, { left: 100, width: 100, height: 40 });
     _setElementFromPoint(() => c);
     startPointerDrag({ kind: 'card', id: 'a', srcEl: a }, pev('pointerdown', 0, 0), cb);
     document.dispatchEvent(pev('pointermove', 180, 20)); // past c's midpoint → after c
@@ -426,8 +420,8 @@ describe('engine integration — grip pointer sequence', () => {
     const cb = makeNotebookDropCallbacks(depsOf(nb));
     const a = furnOf(shell, 'a');
     const d = furnOf(shell, 'd');
-    stubRect(d, 0, 100);
-    stubRect(furnOf(shell, 'e'), 100, 100);
+    stubRect(d, { left: 0, width: 100, height: 40 });
+    stubRect(furnOf(shell, 'e'), { left: 100, width: 100, height: 40 });
     _setElementFromPoint(() => d);
     startPointerDrag({ kind: 'card', id: 'a', srcEl: a }, pev('pointerdown', 0, 0), cb);
     document.dispatchEvent(pev('pointermove', 20, 20)); // before d's midpoint
@@ -450,7 +444,7 @@ describe('engine integration — grip pointer sequence', () => {
     const { nb, shell } = fixture();
     const cb = makeNotebookDropCallbacks(depsOf(nb));
     const f = furnOf(shell, 'f');
-    stubRect(f, 0, 100);
+    stubRect(f, { left: 0, width: 100, height: 40 });
     _setElementFromPoint(() => f);
     startPointerDrag({ kind: 'card', id: 'a', srcEl: furnOf(shell, 'a') }, pev('pointerdown', 0, 0), cb);
     document.dispatchEvent(pev('pointermove', 20, 20));
@@ -465,10 +459,8 @@ describe('engine integration — grip pointer sequence', () => {
     const cb = makeNotebookDropCallbacks(depsOf(nb));
     const r1 = roomOf(shell, 's1');
     const r3 = roomOf(shell, 's3');
-    (r3 as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 200, width: 600, height: 100, right: 600, bottom: 300, x: 0, y: 200, toJSON: () => ({}) }) as DOMRect;
-    (roomOf(shell, 's2') as HTMLElement).getBoundingClientRect = () =>
-      ({ left: 0, top: 100, width: 600, height: 100, right: 600, bottom: 200, x: 0, y: 100, toJSON: () => ({}) }) as DOMRect;
+    stubRect(r3, { top: 200, width: 600, height: 100 });
+    stubRect(roomOf(shell, 's2'), { top: 100, width: 600, height: 100 });
     _setElementFromPoint(() => r3);
     startPointerDrag({ kind: 'section', id: 's1', srcEl: r1 }, pev('pointerdown', 0, 0), cb);
     document.dispatchEvent(pev('pointermove', 10, 280)); // past s3's vertical midpoint → after s3
@@ -505,8 +497,8 @@ describe('engine integration — grip pointer sequence', () => {
       chips[t] = c;
     }
     document.body.appendChild(grid);
-    stubRect(chips.q, 0, 100);
-    stubRect(chips.r, 100, 100);
+    stubRect(chips.q, { left: 0, width: 100, height: 40 });
+    stubRect(chips.r, { left: 100, width: 100, height: 40 });
     const cb = makeNotebookDropCallbacks(depsOf(nb));
     _setElementFromPoint(() => chips.r);
     startPointerDrag({ kind: 'tag', id: 'p', srcEl: chips.p }, pev('pointerdown', 0, 0), cb);

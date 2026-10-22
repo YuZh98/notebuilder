@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { openSealDraft, sealAsNew, sealReplace, type SealDraft } from './seal';
 import type { Bench } from './bench.svelte';

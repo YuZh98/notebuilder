@@ -1,5 +1,16 @@
 # Contributing to NoteBuilder
 
+## Scope
+
+NoteBuilder is one repo, two apps: the **v1 prototype** at the root (frozen, bug fixes only) and the
+**v2 product** in `v2/` (Svelte 5 + TypeScript + Tauri 2, active development).
+
+In scope: v2 app quality, interchange/Reader fidelity, tests, and docs accuracy.
+
+Out of scope: anything that adds a network call, telemetry, or an account system (NoteBuilder is
+local-first and stays that way); changes to the v1 root beyond bug fixes; features not grounded in an
+open issue.
+
 Thanks for helping. Active development happens in **`v2/`** (Svelte 5 + TypeScript + Tauri 2); the
 repository root is the legacy single-file prototype, kept building but not evolving.
 
@@ -8,7 +19,7 @@ repository root is the legacy single-file prototype, kept building but not evolv
 ```bash
 cd v2
 npm install
-npm run dev          # browser dev server (persistence no-ops; demo notebook loads)
+npm run dev          # browser dev server (persistence no-ops; demo notebook loads); Node 22+
 npm run tauri dev    # the real desktop app — needs Rust + Xcode CLT
 ```
 
@@ -18,21 +29,24 @@ Gates — keep all green before and after every change:
 npm test             # Vitest unit suite
 npm run check        # svelte-check, TypeScript strict
 npm run build        # Vite production build
-npm run build:reader # only when the Reader render path changes — commit the regenerated template
+npm run build:reader # when the Reader render path changes — commit the regenerated template (CI fails on a stale one)
 ```
 
 ## The shape of v2
 
-- Architecture map: Part B of [`docs/CODE-MAP.md`](docs/CODE-MAP.md). Product spec:
-  [`docs/spec/v2-spec.md`](docs/spec/v2-spec.md).
+- Architecture map: Part B of [`docs/CODE-MAP.md`](docs/CODE-MAP.md).
 - **Invariants** (don't break): variables are card-scoped, never cross a card boundary; three state
   layers (document persists + exports · reader state persists locally, never exports · session is
   transient); slot structure is sealed outside the Factory; every drag rides the one pointer engine
-  in `v2/src/lib/drag/` — no native HTML5 drag; no `eval` on user content, escape-first before any
+  in `v2/src/lib/drag/` — no native HTML5 drag outside the Factory inventory chips; no `eval` on
+  user content, escape-first before any
   `{@html}`; every document edit is undoable.
 - **Migrations always.** A change to the SQLite shape ships a migration in
   `v2/src-tauri/src/lib.rs`; a change to the JSON interchange shape bumps its schema version and
   ships an import migration. Old saves and old exports must still load.
+- **The interchange format is published.** A change to it updates `v2/src/lib/schema/notebook.schema.json`,
+  `v2/src/lib/slot-catalog.ts` (for a new slot type) and `docs/FORMAT.md`; `schema-sync.test.ts` and
+  `ai-prompt.test.ts` name whatever is missing.
 - **Behavior changes are test-driven** — add a failing test, then make it pass. Verify UI and
   interaction changes by running the app, not by reading the diff.
 

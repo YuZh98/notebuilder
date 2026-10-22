@@ -1,20 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { startHeaderDrag, dropIndex, _setElementFromPoint } from './header-drag';
 import * as history from './gesture-history';
-
-// jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
-function pev(type: string, x: number, y = 0, init: MouseEventInit = {}): PointerEvent {
-  return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, ...init }) as PointerEvent;
-}
-
-function stubRect(el: Element, r: { left?: number; top?: number; width?: number; height?: number }) {
-  const left = r.left ?? 0;
-  const top = r.top ?? 0;
-  const width = r.width ?? 0;
-  const height = r.height ?? 0;
-  (el as HTMLElement).getBoundingClientRect = () =>
-    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
-}
+import { applyZoom } from '../zoom';
+import { pev, stubRect } from '../test-utils';
 
 // A matrix with `n` column headers laid out horizontally, each 100px wide, and a grip in header 0.
 function colSetup(n = 3) {
@@ -249,5 +237,46 @@ describe('startHeaderDrag — pointercancel (D12)', () => {
     expect(fly()).toBeNull();
     expect([...mtx.querySelectorAll('.dropbefore,.dropafter')]).toHaveLength(0);
     expect(document.documentElement.style.userSelect).toBe('');
+  });
+});
+
+// Same zoomed-space rule as the card engine: the fly is a fixed child of a zoomed <body>.
+describe('startHeaderDrag — zoomed space', () => {
+  afterEach(() => applyZoom(1));
+
+  it('positions and sizes the header fly for the cursor at 150%', () => {
+    applyZoom(1.5);
+    const { mtx, grip } = colSetup();
+    const down = pev('pointerdown', 0, 0);
+    grip.dispatchEvent(down); // set ev.target so the fly clones its header
+    startHeaderDrag(down, {
+      axis: 'col',
+      fromIndex: 0,
+      headerSel: '.mtx-colh',
+      container: mtx,
+      onreorder: vi.fn(),
+    });
+    document.dispatchEvent(pev('pointermove', 900, 300));
+    const f = fly();
+    expect(parseFloat(f?.style.left ?? '') * 1.5).toBeCloseTo(882, 6); // 900 - 18
+    expect(parseFloat(f?.style.top ?? '') * 1.5).toBeCloseTo(288, 6); // 300 - 12
+    expect(parseFloat(f?.style.width ?? '') * 1.5).toBeCloseTo(100, 6); // header's viewport width
+  });
+
+  it('is unchanged at zoom 1', () => {
+    const { mtx, grip } = colSetup();
+    const down = pev('pointerdown', 0, 0);
+    grip.dispatchEvent(down); // set ev.target so the fly clones its header
+    startHeaderDrag(down, {
+      axis: 'col',
+      fromIndex: 0,
+      headerSel: '.mtx-colh',
+      container: mtx,
+      onreorder: vi.fn(),
+    });
+    document.dispatchEvent(pev('pointermove', 900, 300));
+    expect(fly()?.style.left).toBe('882px');
+    expect(fly()?.style.top).toBe('288px');
+    expect(fly()?.style.width).toBe('100px');
   });
 });

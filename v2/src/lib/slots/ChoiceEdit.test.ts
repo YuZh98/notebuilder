@@ -4,16 +4,7 @@ import ChoiceEdit from './ChoiceEdit.svelte';
 import { _setElementFromPoint } from '../drag/engine';
 import { dustState } from '../drag/dust.svelte';
 import type { ChoiceProps } from './choice';
-
-// Full gesture through the engine — hit-test probe injected, jsdom has no layout
-// (pattern from notebook-drop.test.ts).
-const pev = (type: string, x: number, y: number) =>
-  new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true });
-
-function stubRectV(el: Element, top: number, height = 40) {
-  (el as HTMLElement).getBoundingClientRect = () =>
-    ({ left: 0, top, width: 200, height, right: 200, bottom: top + height, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
-}
+import { pev, stubRect } from '../test-utils';
 
 function setup(props: Partial<ChoiceProps> = {}) {
   const onUpdate = vi.fn();
@@ -31,7 +22,7 @@ function setup(props: Partial<ChoiceProps> = {}) {
 /** Drag row `from` and drop past the vertical midpoint of the last remaining row. */
 function dragToEnd(rows: Element[], grips: HTMLElement[], from: number) {
   const rest = rows.filter((_, i) => i !== from);
-  rest.forEach((r, i) => stubRectV(r, i * 40));
+  rest.forEach((r, i) => stubRect(r, { top: i * 40, width: 200, height: 40 }));
   const last = rest[rest.length - 1];
   _setElementFromPoint(() => last);
   grips[from].dispatchEvent(pev('pointerdown', 0, 0));
@@ -88,7 +79,7 @@ describe('ChoiceEdit — drag reorder', () => {
   it('never shows the dustbin during a qopt drag (D7)', () => {
     const { rows, grips } = setup();
     const b = rows[1];
-    stubRectV(b, 0);
+    stubRect(b, { top: 0, width: 200, height: 40 });
     _setElementFromPoint(() => b);
     grips[0].dispatchEvent(pev('pointerdown', 0, 0));
     document.dispatchEvent(pev('pointermove', 0, 30));

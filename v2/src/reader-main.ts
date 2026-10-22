@@ -1,24 +1,21 @@
 import { mount } from 'svelte';
 import Reader from './lib/components/Reader.svelte';
-import { extractNotebook, type ReaderPayload } from './lib/html-io';
-import { importNotebook, validateNotebookJSON, type NotebookJSON } from './lib/json-io';
-import type { Notebook } from './lib/types';
+import { readBoot, renderBootError } from './lib/reader-boot';
 import './app.css';
 import 'katex/dist/katex.min.css';
 
-function boot(): { notebook: Notebook; shared: boolean; initialTheme?: string } {
-  const raw = extractNotebook(document);
-  if (!raw) throw new Error('Reader: no embedded notebook payload found');
-  const payload = JSON.parse(raw) as ReaderPayload;
-  const errors = validateNotebookJSON(payload.notebook as NotebookJSON);
-  if (errors.length > 0) throw new Error(`Reader: invalid notebook payload:\n${errors.join('\n')}`);
-  return {
-    notebook: importNotebook(payload.notebook as NotebookJSON),
-    shared: payload.shared !== false,
-    initialTheme: payload.theme,
-  };
+// A file that can't be read (damaged, invalid, from a newer NoteBuilder) or a Reader that fails to
+// mount must still explain itself: throwing here would show every student a blank page.
+function start(): ReturnType<typeof mount> | undefined {
+  try {
+    return mount(Reader, { target: document.getElementById('app')!, props: readBoot(document) });
+  } catch (e) {
+    console.error(e);
+    renderBootError(document, e);
+    return undefined;
+  }
 }
 
-const app = mount(Reader, { target: document.getElementById('app')!, props: boot() });
+const app = start();
 
 export default app;

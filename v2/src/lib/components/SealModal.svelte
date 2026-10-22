@@ -104,9 +104,9 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="modal seal-modal" style="display:flex" onclick={(e) => e.target === e.currentTarget && oncancel()}>
   <div class="modal-box">
-    <h3 style="margin:0 0 8px">🔒 Seal — confirm</h3>
+    <h3 style="margin:0 0 var(--space-4)">🔒 Seal — confirm</h3>
 
-    <div class="prev-wrap" style="margin:8px 0">
+    <div class="prev-wrap" style="margin:var(--space-4) 0">
       <CardView {...previewProps} forceMode="study" />
     </div>
 
@@ -128,7 +128,7 @@
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label>Icon <span class="muted sm">({effIcon})</span></label>
       <div>
-        <div class="palette seal-icons" style="margin:0 0 4px">
+        <div class="palette seal-icons" style="margin:0 0 var(--space-2)">
           <button class="chip xs" class:on={!draft.icon} title="auto: first letter of the name" onclick={() => (draft.icon = '')}>Aa</button>
           {#each PROD_ICONS as ic (ic)}
             <button class="chip xs" class:on={draft.icon === ic} onclick={() => (draft.icon = ic)}>{ic}</button>
@@ -157,16 +157,16 @@
       </span>
     </div>
 
-    <div class="muted sm" style="margin-top:6px">Store:</div>
-    <div class="palette seal-stores" style="margin:6px 0">
+    <div class="muted sm" style="margin-top:var(--space-3)">Store:</div>
+    <div class="palette seal-stores" style="margin:var(--space-3) 0">
       {#each STORES as s (s.id)}
         <button class="chip" class:on={draft.store === s.id} data-store={s.id} onclick={() => setStore(s.id)}>{s.name}</button>
       {/each}
     </div>
 
-    <div class="muted sm" style="margin-top:6px">Varieties:</div>
+    <div class="muted sm" style="margin-top:var(--space-3)">Varieties:</div>
     {#each draft.varieties as v, i (i)}
-      <div class="row seal-var" style="gap:6px;margin:3px 0">
+      <div class="row seal-var" style="gap:var(--space-3);margin:3px 0; /* token-exempt: 3px sits off the 2px scale; snapping it would reflow the variety rows */">
         <input
           data-seal="varname"
           value={v.name}
@@ -186,19 +186,19 @@
         <button class="btn sm ghost" title="remove variety" onclick={() => delVariety(i)}>✕</button>
       </div>
     {/each}
-    <div style="margin:4px 0 2px">
+    <div style="margin:var(--space-2) 0 var(--space-1)">
       <button class="btn sm" onclick={addVariety}>＋ variety</button>
     </div>
 
     {#if conflict}
-      <div class="row" style="margin-top:10px">
+      <div class="row" style="margin-top:var(--space-5)">
         <span class="spacer"></span>
         <button class="btn" onclick={oncancel}>Cancel</button>
         <button class="btn" onclick={sealNew}>Seal as new</button>
         <button class="btn primary" onclick={replaceOriginal}>Replace original</button>
       </div>
     {:else}
-      <div class="row" style="margin-top:12px">
+      <div class="row" style="margin-top:var(--space-6)">
         <span class="spacer"></span>
         <button class="btn" onclick={oncancel}>Cancel</button>
         <button class="btn primary" onclick={confirmSeal}>🔒 Confirm seal</button>
@@ -215,11 +215,11 @@
     z-index: 80;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 20px; /* token-exempt: matches the app.css #modal backdrop inset */
     background: rgba(0, 0, 0, 0.55);
   }
   .seal-error {
     color: var(--warn, #ff6b81);
-    margin: 2px 0 4px;
+    margin: var(--space-1) 0 var(--space-2);
   }
 </style>

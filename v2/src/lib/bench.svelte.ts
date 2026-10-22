@@ -209,11 +209,14 @@ export function addBenchSlot(b: Bench, type: string, face?: 'back', at?: number)
   if ((face === 'back') === (factory.face === 'back')) factory.sel = idx;
 }
 
+/** The per-slot effects the Factory palette toggles (`sequential` is shown as "Step-by-step"). */
+export type SlotEffect = 'reveal' | 'glow' | 'emphasis' | 'sequential';
+
 /**
  * Toggle a per-slot effect on the selected slot of the current face (v1 sverb 70-events:137).
  * Turning `reveal` on seeds `{key:'pick',op:'==',val:0}` unless one already exists.
  */
-export function setSlotVerb(idx: number, key: 'reveal' | 'glow' | 'emphasis', on: boolean): void {
+export function setSlotVerb(idx: number, key: SlotEffect, on: boolean): void {
   const b = activeBench();
   const arr = factory.face === 'back' ? (b.back ?? []) : b.slots;
   const slot = arr[idx];

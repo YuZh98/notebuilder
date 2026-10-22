@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripRemoteImports, externalRefs } from './reader-inline.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const v2 = join(here, '..');
@@ -36,12 +37,17 @@ function run() {
     return `<script type="module">\n${code}\n</script>`;
   });
 
-  // Inline the stylesheet, rewriting KaTeX font refs to woff2 data URIs (D23).
+  // Inline the stylesheet, rewriting KaTeX font refs to woff2 data URIs (D23). The authoring
+  // app's remote webfont @import (Google Fonts) is dropped: opening a shared file must not send a
+  // student's IP to a third party, and offline it only logs an error. Font stacks fall back to
+  // system fonts.
   html = html.replace(/<link\b[^>]*\brel="stylesheet"[^>]*>/gi, (m) => {
     const href = m.match(/href="([^"]+)"/)?.[1];
     const file = href && resolveAsset(href);
     if (!file) return m;
-    return `<style>\n${inlineFonts(readFileSync(file, 'utf8'), resolveAsset)}\n</style>`;
+    const { css, removed } = stripRemoteImports(readFileSync(file, 'utf8'));
+    for (const rule of removed) console.log(`› dropped remote ${rule.slice(0, 72)}…`);
+    return `<style>\n${inlineFonts(css, resolveAsset)}\n</style>`;
   });
 
   assertPlaceholder(html);
@@ -73,22 +79,11 @@ function assertPlaceholder(html) {
   }
 }
 
-// Fail loudly if anything would still hit the network. Script bodies are blanked first so JS/CSS
-// string literals (e.g. `src="…"` inside code) never trip the scan.
+// Fail loudly if anything would still hit the network: attributes, CSS url(), any CSS @import
+// (including the minified `@import"https://…"` form) and any http(s) URL left in a stylesheet.
+// The scan itself lives in reader-inline.mjs, where tests pin it.
 function assertNoExternalRefs(html) {
-  const scan = html.replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, '$1$2');
-  const offenders = [];
-  const external = (v) => v && !v.startsWith('data:') && !v.startsWith('#');
-
-  for (const m of scan.matchAll(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi)) {
-    if (external(m[2].trim())) offenders.push(`url(${m[2].trim()})`);
-  }
-  for (const m of scan.matchAll(/\bsrc=(["'])([^"']*)\1/gi)) {
-    if (m[2].trim() && !m[2].trim().startsWith('data:')) offenders.push(`src=${m[2]}`);
-  }
-  for (const m of scan.matchAll(/\bhref=(["'])([^"']*)\1/gi)) {
-    if (external(m[2].trim())) offenders.push(`href=${m[2]}`);
-  }
+  const offenders = externalRefs(html);
   if (offenders.length) {
     console.error('build-reader: external references remain (must be self-contained):');
     for (const o of offenders.slice(0, 10)) console.error(`  ${o}`);

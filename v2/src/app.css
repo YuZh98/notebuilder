@@ -15,6 +15,32 @@
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   --glow: 0 0 0 1px rgba(110, 168, 254, 0);
+
+  /* spacing scale (2px step — the grid the ported v1 chrome is actually built on) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+
+  /* type roles */
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 16px;
+
+  /* inner-chrome radii — unlike --radius these are fixed, themes do NOT swap them */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* motion */
+  --t-quick: 0.12s;
+  --t-base: 0.15s;
+  --t-slow: 0.35s;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 body[data-theme="plain"] {
   --bg: #f6f7f9;
@@ -158,7 +184,7 @@ body[data-theme="mono"] .furn::before {
   background: var(--accent);
   transform: scaleY(0);
   transform-origin: top;
-  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--t-slow) var(--ease-out);
 }
 body[data-theme="mono"] .furn:hover::before {
   transform: scaleY(1);
@@ -428,6 +454,104 @@ body[data-theme="sketch"] .house-title {
 }
 body[data-theme="sketch"] .ceview {
   border-radius: 8px;
+}
+/* TERMINAL — phosphor trading-terminal look (near-black green · grid + scanlines · mono headers · neon glow) */
+body[data-theme="terminal"] {
+  --bg: #03100a;
+  --panel: #071a12;
+  --panel2: #061b12;
+  --ink: #bff7d9;
+  --muted: #5fa985;
+  --line: rgba(39, 255, 158, 0.22);
+  --accent: #27ff9e;
+  --accent2: #19e6ff;
+  --good: #00ffa3;
+  --warn: #ff2d95;
+  --radius: 14px;
+  --font: "Rajdhani", "Chakra Petch", "Avenir Next Condensed", system-ui, sans-serif;
+  --glow: 0 0 14px rgba(39, 255, 158, 0.35);
+  background:
+    radial-gradient(900px 600px at 22% -8%, rgba(0, 255, 163, 0.1), transparent 60%),
+    radial-gradient(720px 520px at 92% 108%, rgba(25, 230, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    linear-gradient(rgba(57, 255, 140, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 255, 140, 0.055) 1px, transparent 1px),
+    var(--bg);
+  background-size:
+    auto,
+    auto,
+    auto,
+    38px 38px,
+    38px 38px;
+  background-attachment: fixed;
+}
+body[data-theme="terminal"] .furn {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(8, 28, 19, 0.92), var(--panel) 45%);
+  box-shadow: 0 0 14px rgba(39, 255, 158, 0.08);
+  transition:
+    border-color var(--t-base) var(--ease-out),
+    box-shadow var(--t-base) var(--ease-out),
+    transform var(--t-base) var(--ease-out);
+}
+body[data-theme="terminal"] .furn:hover {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 18px rgba(39, 255, 158, 0.28),
+    inset 0 0 22px rgba(39, 255, 158, 0.05);
+  transform: translateY(-2px);
+}
+body[data-theme="terminal"] .text-study b,
+body[data-theme="terminal"] .text-study strong {
+  color: var(--accent);
+}
+body[data-theme="terminal"] .text-study i,
+body[data-theme="terminal"] .text-study em {
+  color: var(--accent2);
+}
+body[data-theme="terminal"] .text-study code {
+  color: var(--good);
+  background: rgba(39, 255, 158, 0.08);
+  border: 1px solid var(--line);
+}
+body[data-theme="terminal"] .text-study s,
+body[data-theme="terminal"] .text-study del {
+  color: var(--warn);
+}
+body[data-theme="terminal"] .house-title,
+body[data-theme="terminal"] .room-title h1,
+body[data-theme="terminal"] .room-title h2,
+body[data-theme="terminal"] .room-title h3 {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-shadow: var(--glow);
+}
+body[data-theme="terminal"] .room-title h1::before,
+body[data-theme="terminal"] .room-title h2::before,
+body[data-theme="terminal"] .room-title h3::before {
+  content: "// ";
+  color: var(--muted);
+  text-shadow: none;
+}
+body[data-theme="terminal"] .btn,
+body[data-theme="terminal"] .chip,
+body[data-theme="terminal"] .pchip {
+  font-family: var(--mono);
+  border-radius: 999px;
+}
+body[data-theme="terminal"] .btn.on,
+body[data-theme="terminal"] .btn.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: transparent;
+  box-shadow: var(--glow);
+}
+body[data-theme="terminal"] input:focus,
+body[data-theme="terminal"] textarea:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
 }
 
 * {
@@ -1251,6 +1375,13 @@ body.side-collapsed #main {
 /* ---------- ported: v1 card chrome — .furn, grip/rz, bare, sel, cardrow/cardslot (styles.css) ---------- */
 .furn {
   --cardc: var(--accent);
+  /* The study cursor ring, shared by the keyboard cursor and the place flash: a --bg gap and an
+     --ink halo either side of the accent outline that draws over them. The 3px inset repeats this
+     rule's own accent stripe. */
+  --kring:
+    inset 3px 0 0 var(--cardc), /* token-exempt: the accent stripe width, kept in step with .furn */
+    var(--glow), 0 0 0 var(--space-2) var(--bg),
+    0 0 0 var(--space-4) color-mix(in srgb, var(--ink) 60%, transparent);
   flex: 0 0 calc((var(--w, 6) / 12) * 100% - 9px);
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1260,7 +1391,7 @@ body.side-collapsed #main {
   box-shadow:
     inset 3px 0 0 var(--cardc),
     var(--glow);
-  transition: flex-basis 0.12s ease;
+  transition: flex-basis var(--t-quick) ease;
 }
 .furn.dragging {
   transition: none;
@@ -1301,6 +1432,44 @@ body[data-theme] .room.edit .furn.bare {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.3);
 }
+/* Study keyboard cursor. `.sel` is the Edit-mode selection and stays edit-only, so the cursor
+   carries its own two-layer ring (--kring above). The halo is what keeps the cursor apart from the
+   accent-coloured .done border, which the single accent ring read as in Dark and B&W. The `body`
+   prefix outranks the theme blocks, which restyle `.furn`'s box-shadow at a higher specificity and
+   would otherwise drop the halo. */
+body .furn.kfocus {
+  outline: var(--space-1) solid var(--accent);
+  outline-offset: var(--space-1);
+  box-shadow: var(--kring);
+}
+/* A card placed from the store lands at the end of its section, usually below the fold: the same
+   ring flashes on it so the reader sees where it arrived. */
+@keyframes kflash {
+  0%,
+  60% {
+    outline-color: var(--accent);
+    box-shadow: var(--kring);
+  }
+  100% {
+    outline-color: transparent;
+    /* the card's resting shadow — token-exempt: the accent stripe width, as in .furn */
+    box-shadow:
+      inset 3px 0 0 var(--cardc),
+      var(--glow);
+  }
+}
+body .furn.kflash {
+  outline: var(--space-1) solid var(--accent);
+  outline-offset: var(--space-1);
+  box-shadow: var(--kring);
+  animation: kflash calc(var(--t-slow) * 2) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The ring still appears and still clears with the class — it simply does not fade. */
+  body .furn.kflash {
+    animation: none;
+  }
+}
 .furn .grip {
   position: absolute;
   top: 6px;
@@ -1310,7 +1479,7 @@ body[data-theme] .room.edit .furn.bare {
   font-size: 13px;
   user-select: none;
   opacity: 0;
-  transition: 0.15s;
+  transition: var(--t-base);
 }
 .furn:hover .grip {
   opacity: 0.8;
@@ -1445,7 +1614,7 @@ body[data-theme] .room.edit .furn.bare {
   /* hidden row still hit-tests (opacity<1 stacks above the positioned .grip) and would
      swallow the grip's pointerdown, killing card drag — dead to the pointer until revealed */
   pointer-events: none;
-  transition: 0.15s;
+  transition: var(--t-base);
 }
 .furn:hover .cardtools,
 .cardtools:focus-within {
@@ -1652,7 +1821,7 @@ body[data-theme] .room.edit .furn.bare {
   position: relative;
   min-height: 46px;
   cursor: pointer;
-  transition: flex-basis 0.12s ease;
+  transition: flex-basis var(--t-quick) ease;
 }
 .benchslot.dragging {
   transition: none;
@@ -1817,8 +1986,8 @@ body[data-theme] .room.edit .furn.bare {
   overflow: hidden;
   text-overflow: ellipsis;
   transition:
-    background 0.12s,
-    color 0.12s,
+    background var(--t-quick),
+    color var(--t-quick),
     transform 0.08s;
 }
 .mtx-c:hover {
@@ -1991,6 +2160,102 @@ body[data-theme] .room.edit .furn.bare {
   top: 36px;
 }
 
+/* ---------- shared Reader on phones (≤ 760px) ----------
+   Reader.svelte opens with the panel collapsed below this width and marks <body> nb-reader.
+   Every rule is scoped to that class: desktop widths and the authoring App keep the layout above. */
+@media (max-width: 760px) {
+  /* row 1: brand … My results / Remix; row 2: theme + notebook name. Never a sideways scroll. */
+  body.nb-reader #top {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 8px 12px;
+  }
+  body.nb-reader #top .btn {
+    white-space: nowrap;
+  }
+  body.nb-reader #places {
+    order: 1;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  body.nb-reader #places .brand-nb {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  body.nb-reader #topright {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  /* the lesson always gets the full width; #main fills what the (wrapped) top bar leaves */
+  body.nb-reader #main {
+    grid-template-columns: minmax(0, 1fr);
+    position: relative;
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+  body.nb-reader #resizer {
+    display: none;
+  }
+  /* an open panel overlays the lesson instead of squeezing it */
+  body.nb-reader #side {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(var(--sidew, 312px), 86vw);
+    z-index: 25;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.35);
+  }
+  body.nb-reader.side-collapsed #side {
+    display: none;
+  }
+  body.nb-reader #sidebump {
+    left: min(var(--sidew, 312px), 86vw);
+    width: 22px;
+    height: 64px;
+  }
+  body.nb-reader.side-collapsed #sidebump {
+    left: 0;
+  }
+  body.nb-reader #stage {
+    padding: 14px 12px;
+  }
+  /* the 12-column card grid collapses: every card, and every slot in it, spans the full width */
+  body.nb-reader .rgwrap > .room-grid {
+    min-width: 0;
+  }
+  /* min-width: 0 — a flex item's min-width:auto is its min-content width, so one long code line
+     or URL widened its card, and through the grid every card in the section, past the screen.
+     Wide content now wraps (text) or scrolls inside its own slot (code, tables, display math). */
+  body.nb-reader .room-grid > .furn {
+    flex-basis: 100%;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+  body.nb-reader .furn .table-study,
+  body.nb-reader .furn .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  /* the coverage matrix (≥ 42px per tag column) scrolls in its own box once it outgrows the phone */
+  body.nb-reader .mtx {
+    overflow-x: auto;
+  }
+  body.nb-reader .cardrow > .cardslot {
+    flex-basis: 100%;
+  }
+  /* mobile 100vh runs under the browser's toolbar; the dynamic viewport doesn't */
+  @supports (height: 100dvh) {
+    body.nb-reader #app {
+      height: 100dvh;
+    }
+  }
+}
+
 /* ---------- ported: v1 print stylesheet (styles.css @media print 2160-2183) ---------- */
 @media print {
   #top,
@@ -2008,11 +2273,14 @@ body[data-theme] .room.edit .furn.bare {
   .grip,
   .rz,
   .arch,
-  .svcbar {
+  .svcbar,
+  .kb-hint {
     display: none !important;
   }
   body {
     background: #fff;
     color: #000;
+    /* A forgotten Cmd+- must not shrink the paper: paginate at 100% whoever raised the sheet. */
+    zoom: 1 !important; /* token-exempt: the identity zoom factor, not a dimension */
   }
 }

@@ -107,6 +107,14 @@ describe('ProductDetail', () => {
     expect(draft).toEqual({ '0': { text: 'edited' } });
   });
 
+  it('lays the preview stage out at the type’s own share of the room, not the whole room', () => {
+    const full = mount().container.querySelector('.prev-stage') as HTMLElement;
+    expect(full.style.width).toBe('720px');
+
+    const half = mount({ w: 6 }).container.querySelector('.prev-stage') as HTMLElement;
+    expect(half.style.width).toBe('360px');
+  });
+
   it('close fires onclose', async () => {
     const { container, onclose } = mount();
     await fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent?.includes('close'))!);

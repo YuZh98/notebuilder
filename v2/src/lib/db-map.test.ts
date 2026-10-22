@@ -1,5 +1,7 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { notebookToRows, rowsToNotebook } from './db-map';
+import { derivedTagUnion } from './tags';
 import type { Notebook } from './types';
 
 const FULL_NB: Notebook = {
@@ -239,7 +241,7 @@ describe('chrome fields (sections.data / notebooks.data / cards.data accent)', (
     const { notebook, sections, cards } = notebookToRows(CHROME_NB);
     const { cats, ...rest } = rowsToNotebook(notebook, sections, cards);
     expect(rest).toEqual(CHROME_NB);
-    expect(cats).toBeDefined();
+    expect(cats).toEqual(derivedTagUnion(CHROME_NB));
   });
 
   it('omits absent chrome keys after round-trip', () => {
@@ -260,7 +262,7 @@ describe('round-trip', () => {
     const result = rowsToNotebook(notebook, sections, cards);
     const { cats, ...rest } = result;
     expect(rest).toEqual(FULL_NB);
-    expect(cats).toBeDefined();
+    expect(cats).toEqual(derivedTagUnion(FULL_NB));
   });
 
   it('empty notebook (no sections) round-trips', () => {
@@ -343,7 +345,7 @@ describe('service/archive fields round-trip', () => {
     const { notebook, sections, cards } = notebookToRows(nb);
     const { cats, ...rest } = rowsToNotebook(notebook, sections, cards);
     expect(rest).toEqual(nb);
-    expect(cats).toBeDefined();
+    expect(cats).toEqual(derivedTagUnion(nb));
   });
 
   it('omits absent fields', () => {

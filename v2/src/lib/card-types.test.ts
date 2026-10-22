@@ -1,5 +1,6 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES, templateSlot, stampSlot } from './card-types';
+import { stampCard, cardToType, builtinCardTypes, typePreviewCard, placeType, prodIcon, STORES, templateSlot, stampSlot, LEGACY_SEEDED_BUILTINS, unseededBuiltins, parseSeededLedger } from './card-types';
 import type { CardType } from './card-types';
 import { getSlot } from './slots/registry';
 import type { Card } from './types';
@@ -243,5 +244,49 @@ describe('slot width survives sealing and stamping (E)', () => {
     const t = templateSlot({ id: 'sl1', type: 'text', props: {} });
     expect('w' in t).toBe(false);
     expect('w' in stampSlot(t)).toBe(false);
+  });
+});
+
+describe('unseededBuiltins', () => {
+  it('returns only builtins missing from the ledger', () => {
+    const fresh = unseededBuiltins(LEGACY_SEEDED_BUILTINS);
+    expect(fresh.map((b) => b.id)).toEqual(['ct_guided', 'ct_worked', 'ct_practiceset', 'ct_cheatsheet', 'ct_ironfly', 'ct_codecard']);
+  });
+  it('returns nothing when every builtin is in the ledger', () => {
+    expect(unseededBuiltins(builtinCardTypes.map((b) => b.id))).toEqual([]);
+  });
+  it('legacy ledger covers no ids that are not real builtins', () => {
+    const ids = new Set(builtinCardTypes.map((b) => b.id));
+    for (const id of LEGACY_SEEDED_BUILTINS) expect(ids.has(id)).toBe(true);
+  });
+  // The ledger is history: it names what shipped before the ledger existed. Adding a new
+  // builtin to it would make old DBs skip seeding that builtin forever.
+  it('legacy ledger is exactly the pre-ledger builtin set', () => {
+    expect([...LEGACY_SEEDED_BUILTINS]).toEqual([
+      'ct_flashcard', 'ct_quiz', 'ct_note', 'ct_tracker', 'ct_mastery',
+      'ct_sliderlab', 'ct_gaussian', 'ct_payoff', 'ct_compound', 'ct_quizcard',
+    ]);
+  });
+});
+
+describe('parseSeededLedger', () => {
+  it('parses a well-formed ledger', () => {
+    expect(parseSeededLedger('["ct_flashcard","ct_quiz"]')).toEqual(['ct_flashcard', 'ct_quiz']);
+  });
+
+  it('falls back to the legacy set on garbage JSON', () => {
+    expect(parseSeededLedger('not json')).toEqual([...LEGACY_SEEDED_BUILTINS]);
+  });
+
+  it('falls back to the legacy set on valid JSON of the wrong shape (number)', () => {
+    expect(parseSeededLedger('5')).toEqual([...LEGACY_SEEDED_BUILTINS]);
+  });
+
+  it('falls back to the legacy set on valid JSON of the wrong shape (object)', () => {
+    expect(parseSeededLedger('{}')).toEqual([...LEGACY_SEEDED_BUILTINS]);
+  });
+
+  it('falls back to the legacy set on an array of non-strings', () => {
+    expect(parseSeededLedger('[1,2,3]')).toEqual([...LEGACY_SEEDED_BUILTINS]);
   });
 });

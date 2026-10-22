@@ -52,6 +52,8 @@
     showArch = false,
     onpin,
     onarchive,
+    onreviewed,
+    kfocus = false,
   }: {
     card: Card;
     surface: 'bench' | 'notebook' | 'read';
@@ -98,6 +100,13 @@
     showArch?: boolean;
     onpin?: () => void;
     onarchive?: () => void;
+    /**
+     * D2d — mark this AI draft card reviewed. The host clears Card.draft undoably; without it
+     * (the shared Reader, previews) no draft chip renders.
+     */
+    onreviewed?: () => void;
+    /** The Study keyboard cursor is on this card — draws the focus ring (`.sel` is Edit-only). */
+    kfocus?: boolean;
   } = $props();
 
   let newSlotType = $state('text');
@@ -109,6 +118,8 @@
   const showEditSlots = $derived(surface !== 'read' && !studying);
   const flipped = $derived(cardState[CARD_STATE_KEY]?.flipped === true);
   const done = $derived(studying && isCardDone(card, cardState));
+  // D2d: an unreviewed AI card is flagged while authoring only — never in Study, never on a bench.
+  const showDraft = $derived(card.draft === true && !studying && surface !== 'bench' && onreviewed !== undefined);
 
   // Scope failures (e.g. a cycle authored in Edit mode) must be visible, not silently empty.
   // Variables are card-scoped: both faces of a flip card share one scope.
@@ -165,6 +176,7 @@
   const SLOT_ICONS: Record<string, string> = {
     text: '¶', list: '•', code: '‹›', table: '▦', image: '🖼', choice: '◉',
     slider: '⇄', 'text-input': '⌨', compute: '🟰', chart: '∿', progress: '▰',
+    problem: '🎲',
   };
   const SVERB_ICONS: Record<string, string> = {
     reveal: '👁', glow: '✦', emphasis: '❝', hint: '💡', sequential: '⏭', locked: '🔒',
@@ -470,8 +482,10 @@
   bind:this={furnEl}
   class="furn"
   class:sel={selected && !studying}
+  class:kfocus={kfocus && studying}
   class:bare={card.verbs?.bare}
   class:done
+  class:draft={showDraft}
   class:dragging={resizing}
   style={styleVars}
   data-card={card.id}
@@ -495,7 +509,7 @@
     <button
       class="arch btn sm ghost"
       data-act="arch"
-      style="right:36px"
+      style="right:36px; /* token-exempt: clears the pin button that sits to its right */"
       title={showArch ? 'restore' : 'archive'}
       onclick={onarchive}>{showArch ? '♻' : '🗄'}</button>
   {/if}
@@ -595,7 +609,7 @@
               {@render faceRows(card.back ?? [], false, 'back empty')}
             </div>
           </div>
-          <div class="sm muted" style="margin-top:6px">↻ click to flip</div>
+          <div class="sm muted" style="margin-top:var(--space-3)">↻ click to flip</div>
         </div>
       {:else if card.verbs?.flip}
         <!-- locked section in Edit mode: v1 renders both faces read-only (fc-edit, live slots) -->
@@ -628,6 +642,13 @@
         {/if}
       {/if}
     {/if}
+    {#if showDraft}
+      <div class="draft-chip" role="group" aria-label="Draft — made by AI, not yet reviewed">
+        <span class="draft-tag" title="Made by AI and not yet reviewed — check it, edit it if needed, then mark it reviewed">Draft</span>
+        <button class="btn sm draft-ok" aria-label="Mark this card reviewed" title="Mark this card reviewed (undoable)" onclick={() => onreviewed?.()}
+          ><span aria-hidden="true">✓</span> Reviewed</button>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -638,9 +659,9 @@
     border: none;
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.5;
-    padding: 2px 4px;
+    padding: var(--space-1) var(--space-2);
   }
   .slot-del:hover {
     opacity: 1;
@@ -652,50 +673,79 @@
     background: transparent;
     color: inherit;
     border: 1px solid var(--line);
-    border-radius: 4px;
-    font-size: 11px;
-    padding: 2px 6px;
-    width: 150px;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    padding: var(--space-1) var(--space-3);
+    width: 150px; /* token-exempt: one-off field width sized to the tag list */
   }
   .type-name-input {
     background: var(--panel);
     color: inherit;
     border: 1px solid var(--line);
-    border-radius: 4px;
-    font-size: 12px;
-    padding: 2px 6px;
-    width: 140px;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+    padding: var(--space-1) var(--space-3);
+    width: 140px; /* token-exempt: one-off field width sized to a type name */
+  }
+  /* D2d draft: a calm dashed halo plus a corner chip, both in the theme's secondary accent. */
+  .furn.draft {
+    outline: 1px dashed var(--accent2);
+    outline-offset: 3px;
+  }
+  .draft-chip {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .draft-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--accent2);
+    border: 1px dashed var(--accent2);
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+  @media print {
+    .furn.draft {
+      outline: none;
+    }
+    .draft-chip {
+      display: none;
+    }
   }
   .done-badge {
     position: absolute;
-    top: 8px;
-    right: 12px;
-    font-size: 11px;
+    top: var(--space-4);
+    right: var(--space-6);
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--accent, #7c3aed);
     opacity: 0.8;
   }
   .scope-error {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: #dc2626;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-4);
   }
   /* Out of flow like the ported pin/archive buttons (app.css .furn .arch), so a card with the
      notes service on reserves no blank line for it. Quiet until hover or keyboard focus (D9);
      a card that already carries notes keeps the marker visible. */
   .notes-toggle {
     position: absolute;
-    right: 9px;
-    bottom: 6px;
+    right: 9px; /* token-exempt: sits on the same edge as the app.css .furn .arch buttons */
+    bottom: var(--space-3);
     z-index: 2;
     background: none;
     border: none;
     color: inherit;
     cursor: pointer;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     opacity: 0;
-    padding: 2px 4px;
-    transition: opacity 0.12s ease;
+    padding: var(--space-1) var(--space-2);
+    transition: opacity var(--t-quick) ease;
   }
   .furn:hover .notes-toggle,
   .notes-toggle:focus-visible,
@@ -706,7 +756,7 @@
   .notes-toggle.open {
     position: static;
     opacity: 0.8;
-    padding: 4px 0 0;
+    padding: var(--space-2) 0 0;
   }
   .notes-toggle.has-notes {
     color: var(--accent, #7c3aed);
@@ -720,9 +770,9 @@
   .bs-head {
     display: flex;
     align-items: center;
-    gap: 5px;
-    margin: 0 0 6px;
-    padding-right: 12px;
+    gap: 5px; /* token-exempt: mirrors the v1 .benchslot .bs-head gap */
+    margin: 0 0 var(--space-3);
+    padding-right: var(--space-6);
   }
   .bs-head .spacer {
     flex: 1;
@@ -735,10 +785,10 @@
     position: absolute;
     top: 0;
     right: 0;
-    width: 11px;
+    width: 11px; /* token-exempt: mirrors the v1 .benchslot .rz grab strip */
     height: 100%;
     cursor: ew-resize;
-    border-radius: 0 10px 10px 0;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
     z-index: 2;
   }
   .cardslot:hover .bs-rz,
@@ -746,7 +796,7 @@
     background: linear-gradient(90deg, transparent, rgba(110, 168, 254, 0.3));
   }
   .slot {
-    margin-bottom: 8px;
+    margin-bottom: var(--space-4);
   }
   .slot:last-child {
     margin-bottom: 0;
@@ -754,7 +804,7 @@
   .slot.editing {
     display: flex;
     align-items: flex-start;
-    gap: 4px;
+    gap: var(--space-2);
   }
   .slot.editing > :global(:first-child) {
     flex: 1;
@@ -762,26 +812,26 @@
   .slot-adder {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 8px;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
   }
   .slot-adder select {
     background: var(--panel);
     color: inherit;
     border: 1px solid var(--line);
-    border-radius: 4px;
-    font-size: 12px;
-    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+    padding: var(--space-1) var(--space-3);
   }
   .slot-adder button {
     background: none;
     border: 1px dashed var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.6;
-    padding: 4px 10px;
+    padding: var(--space-2) var(--space-5);
   }
   .slot-adder button:hover {
     opacity: 1;

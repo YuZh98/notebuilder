@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { PRES_STATE_KEYS, resetPresentation, stripPresentation } from './presentation';
 import { CARD_STATE_KEY } from './card-done';

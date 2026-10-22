@@ -5,11 +5,14 @@ import type { NotebookJSON } from './json-io';
 import { injectNotebook, extractNotebook, type ReaderPayload } from './html-io';
 import { READER_TEMPLATE } from './generated/reader-template';
 import { isTauri } from './db';
+import { checkNotebookText, type CheckResult } from './import-hints';
+import { cyrb53 } from './hash';
 import type { Notebook } from './types';
 
 export type ImportResult =
   | { notebook: Notebook; warnings: string[] }
-  | { error: string }
+  /** `report`: the same problems with paths and fix hints, for ImportReport (absent for I/O errors). */
+  | { error: string; report?: CheckResult }
   | { cancelled: true };
 export type ExportResult = { path: string } | { error: string } | { cancelled: true };
 
@@ -17,12 +20,27 @@ const JSON_FILTER = [{ name: 'Notebook JSON', extensions: ['json'] }];
 const HTML_FILTER = [{ name: 'Shared Notebook (HTML)', extensions: ['html'] }];
 const IMPORT_FILTER = [{ name: 'Notebook', extensions: ['json', 'html'] }];
 
-/** Build a self-contained, interactive Reader HTML file embedding this notebook's document layer. */
-export function buildShareHtml(notebook: Notebook, theme?: string): string {
+/**
+ * The identity a shared file's students' progress is saved under: a hash of this install's random
+ * id and the notebook id. Stable across re-shares of one notebook (students keep their progress),
+ * distinct across installs even for the same notebook id (every install's demo is 'nb_demo'), and
+ * revealing neither id, so files from one install can't be linked to each other by it.
+ */
+export function shareDocId(installId: string, notebookId: string): string {
+  return `d${cyrb53(`${installId}:${notebookId}`)}`;
+}
+
+/**
+ * Build a self-contained, interactive Reader HTML file embedding this notebook's document layer.
+ * `docId` defaults to the bare notebook id; the app passes shareDocId(installId, notebook.id).
+ */
+export function buildShareHtml(notebook: Notebook, theme?: string, docId: string = notebook.id): string {
   const payload: ReaderPayload = {
     shared: true,
     // exportNotebook is the document-only path: no readerState, no progress, no local fold state.
     notebook: exportNotebook(notebook),
+    // Envelope-only identity: lets a re-shared, edited copy keep students' saved progress.
+    docId,
     ...(theme ? { theme } : {}),
   };
   return injectNotebook(READER_TEMPLATE, JSON.stringify(payload));
@@ -66,11 +84,16 @@ function importFromText(text: string, isHtml: boolean): ImportResult {
   try {
     json = isHtml ? payloadFromHtml(text) : JSON.parse(text);
   } catch (e) {
-    return { error: `Could not read notebook: ${message(e)}` };
+    return { error: `Could not read notebook: ${message(e)}`, report: isHtml ? undefined : checkNotebookText(text) };
   }
 
   const { errors, warnings } = validateNotebook(json);
-  if (errors.length > 0) return { error: `Invalid notebook file:\n${errors.join('\n')}` };
+  if (errors.length > 0) {
+    return {
+      error: `Invalid notebook file:\n${errors.join('\n')}`,
+      report: checkNotebookText(isHtml ? JSON.stringify(json, null, 2) : text),
+    };
+  }
 
   try {
     return { notebook: importNotebook(json as NotebookJSON), warnings };
@@ -105,8 +128,8 @@ function payloadFromHtml(html: string): NotebookJSON {
 }
 
 /** Share: write a self-contained interactive HTML file (Tauri save dialog, or browser download). */
-export async function shareNotebookToFile(notebook: Notebook, theme?: string): Promise<ExportResult> {
-  const html = buildShareHtml(notebook, theme);
+export async function shareNotebookToFile(notebook: Notebook, theme?: string, docId?: string): Promise<ExportResult> {
+  const html = buildShareHtml(notebook, theme, docId);
   const name = `${notebook.name}.html`;
   if (!isTauri()) {
     downloadInBrowser(html, name);

@@ -1,3 +1,22 @@
+import { toZoomedSpace } from './zoom';
+
+/**
+ * Where the floating bar sits for a field: a row above it, held inside the page. The field's rect
+ * and the viewport width are viewport px; `#mdbar` is fixed inside the zoomed <body>, so both the
+ * position and the gutters it is clamped against belong in the bar's own space.
+ */
+export function barPosition(
+  fieldRect: DOMRect,
+  viewportWidth: number,
+  zoom: number,
+): { left: number; top: number } {
+  const pageWidth = toZoomedSpace(viewportWidth, zoom);
+  return {
+    left: Math.max(6, Math.min(pageWidth - 260, toZoomedSpace(fieldRect.left, zoom))),
+    top: Math.max(60, toZoomedSpace(fieldRect.top, zoom) - 40),
+  };
+}
+
 export const SYMBOLS = ['α','β','γ','δ','ε','θ','λ','μ','π','ρ','σ','φ','ω','Σ','Π','∑','∫','√','∞','≤','≥','≠','≈','±','×','÷','→','∈','∉','∀','∃','¬','ℝ','ℕ','ℤ','𝔼','😀','🔥','✅','⭐','📌','💡','❓','📘','🎯','⚠️'];
 
 export type MdKey = 'b' | 'i' | 'code' | 'hl' | 'h' | 'ul' | 'math' | 'mathb';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ChoiceProps } from './choice';
+  import { isChoiceCorrect, type ChoiceProps } from './choice';
   import { renderMarkdown } from '../markdown';
   import type { Scope } from '../variable-graph';
 
@@ -17,6 +17,8 @@
     Array.isArray(state.selected) ? (state.selected as number[]) : []
   );
   const submitted = $derived(state.submitted === true);
+  // Whole-answer verdict — the same rule the results export scores with (choiceSlot.score).
+  const verdict = $derived(submitted ? isChoiceCorrect(props, state) : null);
 
   function toggle(idx: number) {
     if (submitted) return;
@@ -36,7 +38,9 @@
   }
 
   function optionClass(idx: number): string {
-    if (!submitted) return selected.includes(idx) ? 'option selected' : 'option';
+    // Unsubmitted, or ungraded (no answer key: a prediction or a poll; the same rule scoring
+    // uses) — a pick is just a pick, never painted wrong.
+    if (!submitted || verdict === null) return selected.includes(idx) ? 'option selected' : 'option';
     const isSelected = selected.includes(idx);
     const isCorrect = answer.includes(idx);
     if (isSelected && isCorrect) return 'option correct';
@@ -46,7 +50,10 @@
   }
 </script>
 
-<div class="choice-study">
+<div
+  class="choice-study"
+  data-verdict={verdict === null ? undefined : verdict ? 'correct' : 'incorrect'}
+>
   {#if props.q}
     <div class="choice-q">{@html renderMarkdown(props.q, scope)}</div>
   {/if}

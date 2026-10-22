@@ -1,5 +1,7 @@
 import { derivedTagUnion } from './tags';
+import { wellFormedJson } from './well-formed';
 import type { Notebook, Section, Card, Slot } from './types';
+import type { CardType } from './card-types';
 
 export type NotebookRow = {
   id: string;
@@ -22,7 +24,7 @@ export type CardRow = {
   section_id: string;
   type_id: string | null;
   position: number;
-  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent? }
+  data: string; // JSON.stringify of { slots, verbs?, back?, tags?, accent?, w?, archived?, draft? }
 };
 
 type CardData = {
@@ -31,7 +33,9 @@ type CardData = {
   back?: Slot[];
   tags?: string[];
   accent?: string;
+  w?: number;
   archived?: boolean;
+  draft?: boolean;
 };
 
 type SectionData = Pick<
@@ -51,12 +55,13 @@ export function notebookToRows(nb: Notebook): {
   if (nb.width !== undefined) nbData.width = nb.width;
   if (nb.cats !== undefined) nbData.cats = nb.cats;
 
+  // Blobs are written well-formed; names and ids are cleaned where db.ts binds them.
   const notebook: NotebookRow = {
     id: nb.id,
     name: nb.name,
     created_at: nb.createdAt,
     updated_at: nb.updatedAt,
-    data: JSON.stringify(nbData),
+    data: wellFormedJson(nbData),
   };
 
   const sections: SectionRow[] = nb.sections.map((s) => {
@@ -75,7 +80,7 @@ export function notebookToRows(nb: Notebook): {
       notebook_id: nb.id,
       name: s.name,
       position: s.position,
-      data: JSON.stringify(data),
+      data: wellFormedJson(data),
     };
   });
 
@@ -86,13 +91,15 @@ export function notebookToRows(nb: Notebook): {
       if (c.back) data.back = c.back;
       if (c.tags) data.tags = c.tags;
       if (c.accent !== undefined) data.accent = c.accent;
+      if (c.w !== undefined) data.w = c.w;
       if (c.archived !== undefined) data.archived = c.archived;
+      if (c.draft !== undefined) data.draft = c.draft;
       return {
         id: c.id,
         section_id: s.id,
         type_id: c.typeId ?? null,
         position: c.position,
-        data: JSON.stringify(data),
+        data: wellFormedJson(data),
       };
     })
   );
@@ -124,7 +131,9 @@ export function rowsToNotebook(
         if (data.back !== undefined) card.back = data.back;
         if (data.tags !== undefined) card.tags = data.tags;
         if (data.accent !== undefined) card.accent = data.accent;
+        if (data.w !== undefined) card.w = data.w;
         if (data.archived !== undefined) card.archived = data.archived;
+        if (data.draft !== undefined) card.draft = data.draft;
         return card;
       });
 
@@ -132,7 +141,8 @@ export function rowsToNotebook(
     const section: Section = {
       id: s.id,
       notebookId: notebookRow.id,
-      name: s.name,
+      // A column the driver could not decode comes back null; the next save stores '' instead.
+      name: s.name ?? '',
       position: s.position,
       cards: sectionCards,
     };
@@ -151,7 +161,7 @@ export function rowsToNotebook(
   const nbData: NotebookData = JSON.parse(notebookRow.data || '{}') as NotebookData;
   const notebook: Notebook = {
     id: notebookRow.id,
-    name: notebookRow.name,
+    name: notebookRow.name ?? '',
     createdAt: notebookRow.created_at,
     updatedAt: notebookRow.updated_at,
     sections,
@@ -161,4 +171,17 @@ export function rowsToNotebook(
   // Pre-D26 blob: derive cats from card tags so it is never undefined downstream.
   notebook.cats = nbData.cats ?? derivedTagUnion(notebook);
   return notebook;
+}
+
+/**
+ * Writes that bring stored card types in line with `next` after an undo/redo swapped the whole
+ * list in memory: upsert every type that is new or differs, delete every type that vanished.
+ */
+export function cardTypeChanges(prev: CardType[], next: CardType[]): { upsert: CardType[]; remove: string[] } {
+  const before = new Map(prev.map((t) => [t.id, JSON.stringify(t)]));
+  const kept = new Set(next.map((t) => t.id));
+  return {
+    upsert: next.filter((t) => before.get(t.id) !== JSON.stringify(t)),
+    remove: prev.filter((t) => !kept.has(t.id)).map((t) => t.id),
+  };
 }

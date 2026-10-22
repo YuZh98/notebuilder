@@ -14,13 +14,14 @@ describe('injectNotebook / extractNotebook round-trip', () => {
     expect(extractNotebook(html)).toBe(json);
   });
 
-  it('survives a </script> sequence inside the payload (escaped as <\\/)', () => {
+  it('survives a </script> sequence inside the payload (every < escaped as \\u003c)', () => {
     const json = JSON.stringify({ shared: true, note: 'a </script> b </SCRIPT>' });
     const html = injectNotebook(TEMPLATE, json);
     // the raw closing tag must be escaped so the browser never ends the script early
     expect(html).not.toContain('</script></script>');
-    expect(html).toContain('<\\/script>');
-    expect(extractNotebook(html)).toBe(json);
+    expect(html).toContain('\\u003c/script\\u003e');
+    // the extracted text carries the JSON escapes; parsing restores the exact value
+    expect(JSON.parse(extractNotebook(html)!)).toEqual(JSON.parse(json));
   });
 
   it('round-trips unicode and math content', () => {
@@ -51,7 +52,7 @@ describe('extractNotebook', () => {
     document.documentElement.innerHTML = injectNotebook(TEMPLATE, json)
       .replace(/^<!doctype html><html>/, '')
       .replace(/<\/html>$/, '');
-    expect(extractNotebook(document)).toBe(json);
+    expect(JSON.parse(extractNotebook(document)!)).toEqual(JSON.parse(json));
   });
 
   it('returns null from a Document when the script type is wrong', () => {

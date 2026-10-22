@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { mode, toggleMode } from '../stores/mode';
   import { THEMES, type ThemeId } from '../themes';
   import type { Place } from '../stores/place';
@@ -21,6 +21,7 @@
     onshare,
     onexport,
     onimport,
+    onfromai,
     onplacehouse,
     onplacefactory,
     onenterstudy,
@@ -45,6 +46,8 @@
     onshare: () => void;
     onexport: () => void;
     onimport: () => void;
+    /** "＋ → From AI…"; the item is hidden until a host provides it. */
+    onfromai?: () => void;
     onplacehouse: () => void;
     onplacefactory: () => void;
     onenterstudy: () => void;
@@ -56,7 +59,9 @@
     onredo: () => void;
   } = $props();
 
-  let openMenu: 'theme' | 'nb' | null = $state(null);
+  let openMenu: 'theme' | 'nb' | 'new' | null = $state(null);
+  let newBtn: HTMLButtonElement | undefined = $state();
+  let newMenuEl: HTMLDivElement | undefined = $state();
   let topHidden = $state(false);
   let topEl: HTMLDivElement | undefined = $state();
   let topHeight = $state(57);
@@ -96,6 +101,45 @@
     onswitch(id);
   }
 
+  // ＋ menu (menu-button pattern): keyboard opens onto the first item, arrows move, Escape
+  // returns focus to the ＋ button.
+  const newItems = (): HTMLButtonElement[] =>
+    newMenuEl ? [...newMenuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')] : [];
+
+  async function openNewMenu(focus: 'first' | 'last' | null) {
+    openMenu = 'new';
+    if (!focus) return;
+    await tick();
+    const items = newItems();
+    (focus === 'first' ? items[0] : items[items.length - 1])?.focus();
+  }
+
+  // Keys the menu handles stop here: App's window shortcuts would also move the section/card
+  // selection (arrows) or deselect (Escape) behind the open menu.
+  function newMenuKeys(e: KeyboardEvent) {
+    const items = newItems();
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const move = (to: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      items[(to + items.length) % items.length]?.focus();
+    };
+    if (e.key === 'ArrowDown') move(at + 1);
+    else if (e.key === 'ArrowUp') move(at - 1);
+    else if (e.key === 'Home') move(0);
+    else if (e.key === 'End') move(items.length - 1);
+    else if (e.key === 'Escape') {
+      e.stopPropagation();
+      openMenu = null;
+      newBtn?.focus();
+    } else if (e.key === 'Tab') openMenu = null;
+  }
+
+  function pickNew(action: () => void) {
+    openMenu = null;
+    action();
+  }
+
   import { printPage } from '../print';
 
   function printPdf() {
@@ -114,7 +158,7 @@
 
 <svelte:window
   onclick={(e) => {
-    if (openMenu !== null && !(e.target as Element).closest('.themewrap, .nbwrap')) openMenu = null;
+    if (openMenu !== null && !(e.target as Element).closest('.themewrap, .nbwrap, .newwrap')) openMenu = null;
   }}
   onkeydown={(e) => {
     if (e.key === 'Escape') openMenu = null;
@@ -171,7 +215,36 @@
         </div>
       {/if}
     </span>
-    <button class="btn" title="New notebook" onclick={oncreate}>＋</button>
+    <span class="newwrap">
+      <button
+        class="btn"
+        title="New notebook"
+        data-act="newmenu"
+        aria-haspopup="menu"
+        aria-expanded={openMenu === 'new'}
+        bind:this={newBtn}
+        onclick={(e) => {
+          if (openMenu === 'new') openMenu = null;
+          else void openNewMenu(e.detail === 0 ? 'first' : null); // detail 0: Enter/Space, not a pointer
+        }}
+        onkeydown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            e.stopPropagation();
+            void openNewMenu(e.key === 'ArrowDown' ? 'first' : 'last');
+          }
+        }}
+      >＋</button>
+      {#if openMenu === 'new'}
+        <div class="nbmenu newmenu" role="menu" tabindex="-1" aria-label="New notebook" bind:this={newMenuEl} onkeydown={newMenuKeys}>
+          <button class="nbitem" role="menuitem" data-new="blank" onclick={() => pickNew(oncreate)}>Blank notebook</button>
+          {#if onfromai}
+            <button class="nbitem" role="menuitem" data-new="ai" onclick={() => pickNew(onfromai)}>From AI…</button>
+          {/if}
+          <button class="nbitem" role="menuitem" data-new="import" onclick={() => pickNew(onimport)}>Import file…</button>
+        </div>
+      {/if}
+    </span>
   </div>
   <div class="spacer"></div>
   <div class="row" id="topright">
@@ -213,11 +286,11 @@
         <button class="btn sm" title="Add a chapter divider" onclick={onaddchapter}>＋ chapter</button>
       {/if}
     {/if}
-    <span style="width:10px;display:inline-block"></span>
+    <span style="width:var(--space-5);display:inline-block"></span>
     <button class="btn sm" title="Undo" disabled={!canUndo} onclick={() => onundo()}>↶</button>
     <button class="btn sm" title="Redo" disabled={!canRedo} onclick={() => onredo()}>↷</button>
     {#if place !== 'factory'}
-      <span style="width:8px;display:inline-block"></span>
+      <span style="width:var(--space-4);display:inline-block"></span>
       <button
         class="btn primary share-btn"
         title="Save this notebook as one living HTML file — opens anywhere, fully interactive, no app needed"
@@ -238,3 +311,13 @@
   title={topHidden ? 'show the top bar' : 'hide the top bar — focus on the note'}
   onclick={toggleTop}
 >{topHidden ? '˅' : '˄'}</button>
+
+<style>
+  .newwrap {
+    position: relative;
+    display: inline-block;
+  }
+  .newmenu {
+    min-width: 180px;
+  }
+</style>

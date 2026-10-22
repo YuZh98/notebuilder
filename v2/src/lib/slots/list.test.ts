@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { listSlot } from './list';
 
@@ -94,6 +95,10 @@ describe('listSlot', () => {
 
     it('check style with zero items → true (vacuously done)', () => {
       expect(listSlot.isDone!({ items: [], style: 'check' }, { checked: [] })).toBe(true);
+    });
+
+    it('check style with zero items and no state → true (vacuously done)', () => {
+      expect(listSlot.isDone!({ items: [], style: 'check' }, {})).toBe(true);
     });
   });
 });

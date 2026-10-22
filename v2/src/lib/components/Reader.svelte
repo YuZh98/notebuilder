@@ -11,6 +11,7 @@
   import Toast from './Toast.svelte';
   import Dustbin from './Dustbin.svelte';
   import CoverageMatrix from './CoverageMatrix.svelte';
+  import ResultsModal from './ResultsModal.svelte';
   import { computeProgress, progressScopeCards, type ProgressScope } from '../progress';
   import { addAnnotation, removeAnnotation, annotationsFor, type AnnotationMap } from '../annotations';
   import {
@@ -35,10 +36,15 @@
     canRedo,
     type HistSnapshot,
   } from '../history.svelte';
-  import { handleAppKey, type KeyCtx } from '../keyboard';
+  import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from '../keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from '../study-keys';
+  import ShortcutHelp from './ShortcutHelp.svelte';
   import { installEditCoalescing } from '../history-focus';
+  import { revealCard } from '../card-reveal';
+  import { setAppInert } from '../modal-inert';
   import { exportNotebook, importNotebook, validateNotebook, type NotebookJSON } from '../json-io';
-  import { clampSideW } from '../shell';
+  import { sideWidthAt } from '../shell';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from '../zoom';
   import {
     addSection,
     addChapter,
@@ -53,7 +59,7 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from '../notebook-ops';
-  import { session, shuffleSection, clearShuffle } from '../session.svelte';
+  import { session, sessionView, shuffleSection, clearSectionView } from '../session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from '../tags';
   import { stateLayerFor } from '../slots/registry';
   import type { Scope } from '../variable-graph';
@@ -63,21 +69,48 @@
   import { startEdgeResize } from '../drag/resize';
   import { startPointerDrag } from '../drag/engine';
   import { makeNotebookDropCallbacks } from '../drag/notebook-drop';
+  import { createProgressStore, installFlushOnHide, loadProgress, type LoadedProgress } from '../reader-store';
 
   let {
     notebook: initial,
     shared: sharedInit,
     initialTheme,
-  }: { notebook: Notebook; shared: boolean; initialTheme?: string } = $props();
+    initialState,
+    storageKey,
+    docId = '',
+  }: {
+    notebook: Notebook;
+    shared: boolean;
+    initialTheme?: string;
+    /** Progress restored by reader-main before mount (reader-store's synchronous load). */
+    initialState?: LoadedProgress;
+    /** localStorage key this file's progress persists under; absent = keep nothing. */
+    storageKey?: string;
+    /** Document identity stamped on results exports. */
+    docId?: string;
+  } = $props();
 
-  // The document lives entirely in memory here — no db, no localStorage. A reload reopens the file.
+  // The document lives entirely in memory here — no db, and it never touches localStorage: a
+  // reload reopens the file. Only the reader/progress layer persists (reader-store), and only
+  // while the file is still the shared original — Remix or Import diverges it and stops saving.
   let notebook: Notebook = $state(initial);
   // `shared` locks the file to reading; Remix (D10) unlocks the full author chrome in-memory.
   let shared = $state(sharedInit);
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
 
-  let readerState: Record<string, Record<string, Record<string, unknown>>> = $state({});
-  let annotations: AnnotationMap = $state({});
+  // Persist only the locked original. reader-main loads before mount; loading here when it didn't
+  // keeps a bare storageKey from ever saving an empty state over progress already stored.
+  const persist = !!storageKey && sharedInit;
+  const boot: LoadedProgress | undefined =
+    initialState ?? (persist ? loadProgress(storageKey!, initial) : undefined);
+  let readerState: Record<string, Record<string, Record<string, unknown>>> = $state(boot?.readerState ?? {});
+  let annotations: AnnotationMap = $state(boot?.annotations ?? {});
+  let storageOk = $state(boot?.available !== false);
+  let resultsOpen = $state(false);
+  // Keys are fixed from the pristine notebook as opened, before any in-session edit.
+  const progressStore = persist
+    ? createProgressStore({ key: storageKey!, notebook: initial, initial: boot, onStatus: (ok) => (storageOk = ok) })
+    : null;
   let notesFor: string | null = $state(null);
   let galleryFor: string | null = $state(null);
 
@@ -85,12 +118,20 @@
   let openTheme = $state(false);
 
   let sideW = $state(312);
-  let sideCollapsed = $state(false);
+  // Phones open with the panel closed: it holds little for a student, and open it would squeeze
+  // the lesson to a sliver. Same threshold as app.css's `@media (max-width: 760px)` Reader rules,
+  // under which an opened panel overlays the lesson instead of narrowing it.
+  const NARROW_MAX_PX = 760;
+  let sideCollapsed = $state(typeof window !== 'undefined' && window.innerWidth <= NARROW_MAX_PX);
 
   let selSection: string | null = $state(null);
   let selCard: string | null = $state(null);
   let selProd: string | null = $state(null);
   let selVariety: Variety | null = $state(null);
+
+  // Study cursor + its shortcut overlay: session-transient, exactly as in the app.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
 
   let mtxRow: MatrixAxis | null = $state(null);
   let mtxCol: MatrixAxis | null = $state(null);
@@ -138,16 +179,81 @@
     // A shared file always opens locked into Study; Remix later unlocks the mode toggle.
     mode.set('study');
     applyTheme(themeId);
+    // Scopes app.css's narrow-screen layout to the Reader; the authoring App never gets it.
+    document.body.classList.add('nb-reader');
     // Arm in-place text edits for undo (v1 parity) — Remix unlocks editing but keeps this file's
     // history; without it, post-Remix text-slot edits would silently escape the undo stack.
     const uninstallEditCoalescing = installEditCoalescing();
     window.addEventListener('keydown', handleKey);
+    // pagehide / tab-hidden are the last reliable moments to land a pending save.
+    const uninstallFlush = installFlushOnHide(() => progressStore?.flush());
     return () => {
       window.removeEventListener('keydown', handleKey);
       uninstallEditCoalescing();
+      uninstallFlush();
+      progressStore?.flush();
       delete document.body.dataset.theme;
+      document.body.classList.remove('nb-reader');
     };
   });
+
+  // Debounced save of the reader layer (the store strips presentation and skips no-op writes).
+  $effect(() => {
+    const state = $state.snapshot(readerState) as typeof readerState;
+    const notes = $state.snapshot(annotations) as AnnotationMap;
+    if (shared) progressStore?.schedule(state, notes);
+  });
+
+  // Reading this derived is what arms the effect: a mode switch or an import drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  // The overlays are modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind them and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen || resultsOpen);
+    return () => setAppInert(false);
+  });
+
+  // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
+  const studyOrderIds = $derived(
+    $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
+  );
+
+  // A filter, a search, a collapse or an archive swap can pull the focused card off the page under
+  // the cursor; when that happens the cursor goes with it rather than acting on what nobody sees.
+  $effect(() => {
+    if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
+  });
+
+  /** The focused card — null unless the cursor is on a card the reader can actually see. */
+  function focusedStudyCard(): Card | null {
+    if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
+    return findCard(notebook, studyFocus) ?? null;
+  }
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyOrderIds, studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    // 'center', not 'nearest': nearest parks the card flush against the viewport edge, where the
+    // ring is clipped and the pinned hint sits on top of it.
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'center' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = focusedStudyCard();
+    if (!card) return;
+    const live = session.live[card.id] ?? {};
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {}, live);
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
 
   function sectionCardsOf(cardId: string | null): string[] {
     if (!cardId) return [];
@@ -157,12 +263,20 @@
     return [];
   }
 
+  let zoomLevel = 1;
+
   // Reader keyboard map: the same pure dispatcher as App, in a locked-into-house context.
   // Mode toggle and undo/redo are meaningful only after Remix, so they gate on `!shared`.
   function handleKey(e: KeyboardEvent) {
+    // The results dialog owns the keyboard: keys pressed in it bubble here, and must not answer,
+    // flip or move the card the cursor was on behind it. Its own handler closes it on an Escape
+    // from inside; one that reaches us came from <body> (focus left the dialog), so close it here.
+    if (resultsOpen) {
+      if (e.key === 'Escape') resultsOpen = false;
+      return;
+    }
     const el = e.target as HTMLElement | null;
-    const inField =
-      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    const inField = isFieldTarget(el);
     const ctx: KeyCtx = {
       inField,
       singleLineField: false,
@@ -174,6 +288,17 @@
       selProd,
       sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
       cardIdsOfSelectedSection: sectionCardsOf(selCard),
+      studyFocus,
+      // Called only for a card key on a focused card: it builds the card's scope, which
+      // every keystroke typed into a field would otherwise pay for.
+      focusedSurfaces: () => {
+        const card = focusedStudyCard();
+        return card
+          ? studySurfaces(card, readerState[card.id] ?? {}, session.live[card.id] ?? {})
+          : NO_SURFACES;
+      },
+      targetInteractive: isInteractiveTarget(el),
+      helpOpen,
     };
     const action = handleAppKey(e, ctx);
     if (!action) return;
@@ -216,6 +341,29 @@
         break;
       case 'blur-single-line':
         el?.blur();
+        break;
+      // The action preventDefaults the browser's own zoom, so this file has to replace it.
+      case 'zoom':
+        zoomLevel = nextZoom(zoomLevel, action.delta);
+        applyZoom(zoomLevel);
+        toast(zoomLabel(zoomLevel));
+        break;
+      case 'study-focus-step':
+        moveStudyFocus(action.delta);
+        break;
+      case 'study-focus-clear':
+        studyFocus = null;
+        break;
+      case 'study-flip':
+      case 'study-submit':
+      case 'study-tick':
+        applyStudyKey(e.key);
+        break;
+      case 'study-choice':
+        applyStudyKey(String(action.digit));
+        break;
+      case 'study-help':
+        helpOpen = !helpOpen;
         break;
     }
   }
@@ -280,6 +428,7 @@
       toast(`Invalid notebook file:\n${errors.join('\n')}`, 4000);
       return;
     }
+    progressStore?.stop(); // a different document now — its progress isn't this file's
     notebook = importNotebook(json as NotebookJSON);
     selCard = null;
     selSection = null;
@@ -296,8 +445,23 @@
 
   // D10 Remix: unlock authoring in memory. Edits never touch disk — a reload reopens the original.
   function remix() {
+    // Land what the student already did, then stop: edits would drift the stable card keys.
+    progressStore?.stop();
     shared = false;
     toast('Editing unlocked — changes stay in this file (a reload reopens the original)');
+  }
+
+  // Start over: forget this file's saved progress here and in memory (notes included).
+  function resetProgress() {
+    const ok = window.confirm(
+      'Reset your progress in this notebook?\nYour answers, checkmarks and notes in this browser will be cleared.',
+    );
+    if (!ok) return;
+    progressStore?.reset();
+    readerState = {};
+    annotations = {};
+    notesFor = null;
+    toast('your progress was reset');
   }
 
   function setTheme(id: ThemeId) {
@@ -318,11 +482,11 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) sideW = startW;
-        else if (moved && !sideCollapsed) sideW = clampSideW(mv.clientX);
+        else if (moved && !sideCollapsed) sideW = sideWidthAt(mv.clientX, effectiveZoom());
         else toggleSide();
       },
     );
@@ -462,8 +626,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -569,8 +733,10 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function stampFromGallery(sectionId: string, ct: CardType) {
@@ -648,6 +814,15 @@
   <div class="spacer"></div>
   <div class="row" id="topright">
     {#if shared}
+      {#if progressStore && !storageOk}
+        <span class="muted sm" data-note="no-storage" title="This browser is blocking local storage">Progress isn’t saved in this browser</span>
+      {/if}
+      <button
+        class="btn sm"
+        data-act="results"
+        title="See your progress and send it to your teacher"
+        onclick={() => (resultsOpen = true)}
+      >📊 My results</button>
       <button
         class="btn sm primary"
         data-act="remix"
@@ -661,10 +836,10 @@
         <button class="btn sm" onclick={() => { pushHistory(); addSection(notebook); }}>＋ section</button>
         <button class="btn sm" title="Add a chapter divider" onclick={() => { pushHistory(); addChapter(notebook); }}>＋ chapter</button>
       {/if}
-      <span style="width:10px;display:inline-block"></span>
+      <span style="width:var(--space-5);display:inline-block"></span>
       <button class="btn sm" title="Undo" disabled={!undoable} onclick={() => toast(histUndo() ? 'undo' : 'nothing to undo')}>↶</button>
       <button class="btn sm" title="Redo" disabled={!redoable} onclick={() => toast(histRedo() ? 'redo' : 'nothing to redo')}>↷</button>
-      <span style="width:10px;display:inline-block"></span>
+      <span style="width:var(--space-5);display:inline-block"></span>
       <button class="btn sm" title="Export notebook as JSON" data-act="export" onclick={exportJson}>⤓</button>
       <button class="btn sm" title="Import a notebook JSON file" data-act="import" onclick={() => fileInput?.click()}>⤒</button>
       <input
@@ -712,6 +887,8 @@
 {/snippet}
 
 {#snippet cardView(section: Section, card: Card, editable: boolean)}
+  <!-- onreviewed is undefined on purpose: shared files never carry Card.draft (it is never
+       exported), so there is nothing to review and CardView renders no draft chip. -->
   <CardView
     {card}
     surface={editable ? 'notebook' : 'read'}
@@ -745,6 +922,8 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    onreviewed={void 0}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -770,7 +949,12 @@
 {#snippet stageFooter()}
   {#if $mode === 'edit'}
     <button class="add-section" onclick={() => { pushHistory(); addSection(notebook); }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
+  <footer class="madewith">
+    <a href="https://github.com/YuZh98/notebuilder" target="_blank" rel="noopener">Made with NoteBuilder</a>
+  </footer>
 {/snippet}
 
 <div id="main" style="--sidew:{sideW}px">
@@ -834,6 +1018,20 @@
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
 
+{#if resultsOpen}
+  <ResultsModal
+    {notebook}
+    {readerState}
+    {docId}
+    onclose={() => (resultsOpen = false)}
+    onreset={shared ? resetProgress : undefined}
+  />
+{/if}
+
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
+
 <MdBar />
 <Toast />
 <Dustbin />
@@ -841,24 +1039,24 @@
 <style>
   .brand-nb {
     font-weight: 600;
-    padding: 0 6px;
+    padding: 0 var(--space-3);
     opacity: 0.9;
   }
   .section-head {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 12px;
-    padding-right: 26px;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+    padding-right: 26px; /* token-exempt: one-off gutter that clears the section controls */
   }
   .section-name {
     flex: 1;
-    font-size: 16px;
+    font-size: var(--fs-lg);
     background: transparent;
     color: inherit;
     border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
   }
   .section-name:hover,
   .section-name:focus {
@@ -870,9 +1068,9 @@
     border: none;
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.5;
-    padding: 2px 4px;
+    padding: var(--space-1) var(--space-2);
   }
   .section-head button:hover {
     opacity: 1;
@@ -881,12 +1079,12 @@
   .add-section {
     background: none;
     border: 1px dashed var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.6;
-    padding: 4px 10px;
+    padding: var(--space-2) var(--space-5);
   }
   .add-card:hover,
   .add-section:hover {
@@ -895,17 +1093,18 @@
   }
   .add-row {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
   }
   .add-card {
     flex: 1;
   }
   .gallery {
     display: grid;
+    /* token-exempt: 160px is a grid track floor, not a spacing step */
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
   }
   .gallery-item {
     position: relative;
@@ -914,26 +1113,57 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-2);
     align-items: flex-start;
     text-align: left;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     color: inherit;
     cursor: pointer;
-    font-size: 12px;
-    padding: 10px;
+    font-size: var(--fs-sm);
+    padding: var(--space-5);
   }
   .gallery-stamp:hover {
     border-color: var(--accent, #7c3aed);
   }
   .gallery-stamp span {
     opacity: 0.6;
-    font-size: 11px;
+    font-size: var(--fs-xs);
   }
   .add-section {
     width: 100%;
-    padding: 8px;
+    padding: var(--space-4);
+  }
+  /* Pinned to the foot of the scrolling stage: as a plain last line of the document the hint sat
+     below every card, so the shortcuts it advertises were never seen on entering Study. */
+  .kb-hint {
+    position: sticky;
+    bottom: var(--space-2);
+    z-index: 2;
+    width: fit-content;
+    max-width: 100%;
+    margin: var(--space-5) auto 0;
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    opacity: 0.75;
+    /* It floats over the cards, so it must not take their clicks: a flip or an option under the
+       pill has to stay hittable. */
+    pointer-events: none;
+  }
+  .madewith {
+    text-align: center;
+    font-size: 11px;
+    opacity: 0.55;
+    padding: 28px 0 10px;
+  }
+  .madewith a {
+    color: inherit;
+  }
+  .madewith a:hover {
+    opacity: 1;
+    color: var(--accent);
   }
 </style>

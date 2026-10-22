@@ -7,6 +7,10 @@
   import Stage from './lib/components/Stage.svelte';
   import Factory from './lib/components/Factory.svelte';
   import SealModal from './lib/components/SealModal.svelte';
+  import FromAiModal from './lib/components/FromAiModal.svelte';
+  import ImportReport from './lib/components/ImportReport.svelte';
+  import type { HintedIssue } from './lib/import-hints';
+  import ShortcutHelp from './lib/components/ShortcutHelp.svelte';
   import CardView from './lib/components/CardView.svelte';
   import CoverageMatrix from './lib/components/CoverageMatrix.svelte';
   import MdBar from './lib/components/MdBar.svelte';
@@ -38,9 +42,19 @@
     loadAnnotations,
     getPreference,
     setPreference,
+    onDbError,
+    dbIdle,
+    saveSnapshot,
+    listSnapshots,
+    loadSnapshot,
+    type ReaderStateMap,
   } from './lib/db';
+  import { createVersionKeeper } from './lib/versions';
+  import { restoredNotebook, relativeTime, type SnapshotMeta } from './lib/snapshots';
+  import { cardTypeChanges } from './lib/db-map';
+  import { createAutosave, withTimeout, HYDRATION_FAILED_MESSAGE } from './lib/autosave';
   import { uid } from './lib/uid';
-  import { stampCard, placeType, cardToType, builtinCardTypes, STORES, type CardType, type Variety } from './lib/card-types';
+  import { stampCard, placeType, cardToType, builtinCardTypes, LEGACY_SEEDED_BUILTINS, unseededBuiltins, parseSeededLedger, STORES, type CardType, type Variety } from './lib/card-types';
   import type { SealOutcome } from './lib/seal';
   import { factory, addBench, typeToBench, serializeFactory, hydrateFactory, type Bench } from './lib/bench.svelte';
   import {
@@ -56,8 +70,11 @@
     canRedo,
     type HistSnapshot,
   } from './lib/history.svelte';
-  import { handleAppKey, type KeyCtx } from './lib/keyboard';
+  import { handleAppKey, isFieldTarget, isInteractiveTarget, type KeyCtx } from './lib/keyboard';
+  import { studyCards, stepFocus, studyKeyEffect, studySurfaces, NO_SURFACES } from './lib/study-keys';
   import { installEditCoalescing } from './lib/history-focus';
+  import { revealCard } from './lib/card-reveal';
+  import { setAppInert } from './lib/modal-inert';
   import { place, setPlace } from './lib/stores/place';
   import { demoNotebook } from './lib/demo';
   import {
@@ -75,24 +92,29 @@
     deleteSlot,
     reorderSectionsByValueIndex,
   } from './lib/notebook-ops';
-  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile } from './lib/share';
-  import { session, shuffleSection, clearShuffle, resetSession } from './lib/session.svelte';
+  import { importNotebookFromFile, exportNotebookToFile, shareNotebookToFile, shareDocId } from './lib/share';
+  import { createInstallId } from './lib/install-id';
+  import { importNotebook, exportNotebook, validateNotebookIssues, type NotebookJSON } from './lib/json-io';
+  import { markAllDraft, clearDraft, clearAllDrafts, draftCards, nextDraft, hidingChapter } from './lib/drafts';
+  import { session, sessionView, shuffleSection, clearSectionView, resetSession } from './lib/session.svelte';
   import { applyTag, removeTag, renameTag, deleteTag, tagUsage, createTag, setCardTags as setCardTagsOp } from './lib/tags';
   import { stateLayerFor } from './lib/slots/registry';
   import type { Scope } from './lib/variable-graph';
   import { togglePin, setArchived, flipAllCards, resetSectionState } from './lib/service-ops';
-  import { resetPresentation } from './lib/presentation';
+  import { resetPresentation, stripPresentation } from './lib/presentation';
   import { SERVICE_FEATURES, SERVICE_ACTIONS, type ServiceKey } from './lib/services';
-  import { debounce } from './lib/debounce';
   import { startEdgeResize } from './lib/drag/resize';
   import { startPointerDrag } from './lib/drag/engine';
   import { makeNotebookDropCallbacks } from './lib/drag/notebook-drop';
   import { makeFactoryDropCallbacks } from './lib/drag/factory-drop';
-  import { clampSideW, parseSideWidthPref } from './lib/shell';
+  import { parseSideWidthPref, sideWidthAt } from './lib/shell';
+  import { applyZoom, effectiveZoom, nextZoom, zoomLabel } from './lib/zoom';
   import { applyTheme, normalizeThemeId, type ThemeId } from './lib/themes';
   import { listen } from '@tauri-apps/api/event';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { invoke } from '@tauri-apps/api/core';
   import { confirm } from '@tauri-apps/plugin-dialog';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
 
   // Reader state: cardId → slotId → arbitrary state object (persisted to SQLite inside Tauri)
@@ -105,6 +127,72 @@
 
   let cardTypes: CardType[] = $state([...builtinCardTypes]);
   let galleryFor: string | null = $state(null);
+
+  // ---- persistence (D0 durability) ----
+  // Debounced autosave channels, gated on hydration: NOTHING persists until the startup load
+  // succeeded (so the pre-hydration demo notebook / empty reader + factory state can never
+  // overwrite stored data); a failed load keeps persistence off for the session and says so.
+  // Outside Tauri hydration never runs, so the demo lives in memory only. Every write funnels
+  // through db.ts's serialized queue, which also surfaces failures (onDbError → toast).
+  const autosave = createAutosave({ wait: 600, onError: (msg) => toast(msg, 6000) });
+  const notebookSave = autosave.channel('your notebook', async (nb: Notebook) => {
+    const stamped = { ...nb, updatedAt: new Date().toISOString() };
+    const ok = await saveNotebook(stamped);
+    // Version history rides on successful saves only (hash-gated, rate-limited). The decision is
+    // synchronous and the write queued, never awaited: typing never waits on a snapshot.
+    if (ok) void versionKeeper.saved(stamped);
+    return ok;
+  });
+  // Fingerprinted without volatile flip state, which is never stored: flipping alone saves nothing.
+  const readerSave = autosave.channel('your study progress', (map: ReaderStateMap) => saveReaderState(map), {
+    fingerprint: (map) => JSON.stringify(stripPresentation(map)),
+  });
+  const factorySave = autosave.channel('the Factory', (json: string) => setPreference('factory_state', json), {
+    fingerprint: (json) => json,
+  });
+
+  /** May this write reach SQLite? Only inside Tauri, and only once hydration succeeded. */
+  const persistOn = (): boolean => isTauri() && autosave.active;
+
+  /**
+   * This install's random id (preference 'install_id', created once, through the queued db
+   * functions). A shared file saves students' progress under shareDocId(installId, notebook.id), so
+   * two installs' demo notebooks (both 'nb_demo') never share it, while re-sharing one notebook
+   * keeps it. Per session wherever nothing can be stored (the browser build).
+   */
+  const getInstallId = createInstallId({ persistOn, get: getPreference, set: setPreference });
+
+  // ---- version history (W7): local snapshots of the open notebook ----
+  // The open notebook's versions, newest first; null while there is no storage to keep them in
+  // (browser demo, before hydration, failed hydration) — the panel then shows nothing.
+  let versionList: SnapshotMeta[] | null = $state(null);
+  const versionKeeper = createVersionKeeper({
+    list: listSnapshots,
+    save: saveSnapshot,
+    enabled: persistOn,
+    onlist: (id, list) => {
+      if (id === notebook.id && persistOn()) versionList = list;
+    },
+  });
+
+  /**
+   * Save the CURRENT notebook, reader state and factory state now — straight from state, not
+   * just whatever debounce happens to be pending (an effect may not have fired yet). Identical
+   * saves are skipped. Resolves once every queued db write (card types, notes, preferences
+   * too) has settled. Never rejects.
+   */
+  async function flushAll(): Promise<void> {
+    if (!autosave.active) return;
+    try {
+      void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
+      void readerSave.saveNow($state.snapshot(readerState) as ReaderStateMap);
+      void factorySave.saveNow(serializeFactory());
+      await autosave.flushAll();
+      await dbIdle();
+    } catch (err) {
+      console.error('flush failed', err);
+    }
+  }
 
   // Coverage-matrix session state (v1 view.mtxRow/mtxCol/cells/fold) — never undoable, not persisted.
   let mtxRow: MatrixAxis | null = $state(null);
@@ -120,7 +208,7 @@
   function setTheme(id: ThemeId) {
     themeId = id;
     applyTheme(id);
-    if (isTauri()) void setPreference('theme', id);
+    if (persistOn()) void setPreference('theme', id);
   }
 
   // Reader annotations: private layer on top of the document, never exported.
@@ -130,12 +218,12 @@
   function addNote(cardId: string, body: string) {
     const note = { id: uid('ann'), cardId, kind: 'note' as const, body, createdAt: new Date().toISOString() };
     annotations = addAnnotation(annotations, note);
-    if (isTauri()) void saveAnnotation(note);
+    if (persistOn()) void saveAnnotation(note);
   }
 
   function deleteNote(id: string) {
     annotations = removeAnnotation(annotations, id);
-    if (isTauri()) void deleteAnnotation(id);
+    if (persistOn()) void deleteAnnotation(id);
   }
 
   // Effective axes (pure fallback) + matrix visibility, rebuilt from the selection.
@@ -179,6 +267,67 @@
   // Session-picked variety for the open product; drops stamp this (v1 90:94), else the default.
   let selVariety: Variety | null = $state(null);
 
+  // Study cursor + its shortcut overlay: session-transient, never persisted, never undoable.
+  let studyFocus: string | null = $state(null);
+  let helpOpen = $state(false);
+
+  // Reading this derived is what arms the effect: a mode switch or a notebook swap drops the cursor.
+  const studySession = $derived(`${$mode}/${notebook.id}`);
+  $effect(() => {
+    if (studySession) {
+      studyFocus = null;
+      helpOpen = false;
+    }
+  });
+
+  // The cards the Study grid is rendering right now, in render order — the cursor's whole world.
+  const studyOrderIds = $derived(
+    $mode === 'study' ? studyCards(notebook, (s) => sessionView(s.id), visibleCardIds) : [],
+  );
+
+  // A filter, a search, a collapse or an archive swap can pull the focused card off the page under
+  // the cursor; when that happens the cursor goes with it rather than acting on what nobody sees.
+  $effect(() => {
+    if (studyFocus !== null && !studyOrderIds.includes(studyFocus)) studyFocus = null;
+  });
+
+  // The overlay lists house study keys, and those keys are house-only: left open in the Factory it
+  // would be a list of dead shortcuts that ? and Escape can no longer close.
+  $effect(() => {
+    if ($place !== 'house') helpOpen = false;
+  });
+
+  // The overlay is modal to focus as well as to keys: without this Tab still reaches the chrome
+  // behind it and Enter activates whatever it lands on.
+  $effect(() => {
+    setAppInert(helpOpen);
+    return () => setAppInert(false);
+  });
+
+  /** The focused card — null unless the cursor is on a card the reader can actually see. */
+  function focusedStudyCard(): Card | null {
+    if (!studyFocus || !studyOrderIds.includes(studyFocus)) return null;
+    return findCard(notebook, studyFocus) ?? null;
+  }
+
+  function moveStudyFocus(delta: 1 | -1) {
+    const next = stepFocus(studyOrderIds, studyFocus, delta);
+    if (!next) return;
+    studyFocus = next;
+    // 'center', not 'nearest': nearest parks the card flush against the viewport edge, where the
+    // ring is clipped and the pinned hint sits on top of it.
+    document.querySelector(`.furn[data-card="${next}"]`)?.scrollIntoView({ block: 'center' });
+  }
+
+  // Card keys write through the same reader-state path as a click on the slot itself.
+  function applyStudyKey(key: string) {
+    const card = focusedStudyCard();
+    if (!card) return;
+    const live = session.live[card.id] ?? {};
+    const effect = studyKeyEffect(key, card, readerState[card.id] ?? {}, live);
+    if (effect) onSlotState(card, effect.slotId, effect.next);
+  }
+
   function selectSection(id: string | null) {
     selSection = id;
     selCard = null;
@@ -189,17 +338,6 @@
     selSection = null;
   }
 
-  // Persistence is active only inside the Tauri app; in a plain browser/tests it no-ops so the demo still runs.
-  const persistNotebook = debounce((nb: Notebook) => {
-    if (isTauri()) void saveNotebook({ ...nb, updatedAt: new Date().toISOString() });
-  }, 600);
-  const persistReaderState = debounce((map: typeof readerState) => {
-    if (isTauri()) void saveReaderState(map);
-  }, 600);
-  const persistFactory = debounce((json: string) => {
-    if (isTauri()) void setPreference('factory_state', json);
-  }, 600);
-
   function confirmDialog(msg: string, title: string): Promise<boolean> {
     return isTauri() ? confirm(msg, { title, kind: 'warning' }) : Promise.resolve(window.confirm(msg));
   }
@@ -208,7 +346,7 @@
 
   function toggleSide() {
     sideCollapsed = !sideCollapsed;
-    if (isTauri()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
+    if (persistOn()) void setPreference('side_collapsed', sideCollapsed ? '1' : '0');
   }
 
   function startSideResize(e: PointerEvent) {
@@ -219,14 +357,14 @@
       e,
       (dx) => {
         if (Math.abs(dx) > 4) moved = true;
-        if (moved && !sideCollapsed) sideW = clampSideW(startX + dx);
+        if (moved && !sideCollapsed) sideW = sideWidthAt(startX + dx, effectiveZoom());
       },
       (mv) => {
         if (mv === null) {
           sideW = startW;
         } else if (moved && !sideCollapsed) {
-          sideW = clampSideW(mv.clientX);
-          if (isTauri()) void setPreference('side_width', String(sideW));
+          sideW = sideWidthAt(mv.clientX, effectiveZoom());
+          if (persistOn()) void setPreference('side_width', String(sideW));
         } else {
           toggleSide();
         }
@@ -236,23 +374,55 @@
 
   // ---- notebook shell ----
 
-  async function switchNotebook(id: string) {
-    if (id === notebook.id) return;
-    const nb = await loadNotebook(id);
-    if (nb) {
-      notebook = nb;
-      notebookList = notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e));
-      resetSession();
-      clearHistory();
+  /**
+   * Make `nb` the open notebook (switch / new / import). The outgoing notebook is saved FIRST,
+   * synchronously queued from its current state — otherwise its pending debounced save would be
+   * replaced by the incoming notebook's and its last edits lost. Then list, session, selection
+   * and history reset. `persisted`: storage already holds `nb` exactly (a switch) — else (new,
+   * import) it is written at once instead of after the debounce.
+   */
+  function openNotebook(nb: Notebook, persisted: boolean) {
+    // A notebook just removed (no longer listed) is not saved back; db.ts tombstones it as well.
+    if (notebookList.some((e) => e.id === notebook.id)) {
+      void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
     }
+    notebook = nb;
+    notebookList = notebookList.some((e) => e.id === nb.id)
+      ? notebookList.map((e) => (e.id === nb.id ? { ...e, name: nb.name } : e))
+      : [{ id: nb.id, name: nb.name }, ...notebookList];
+    resetSession();
+    selCard = null;
+    selSection = null;
+    galleryFor = null;
+    notesFor = null;
+    mtxCells = [];
+    clearHistory();
+    const snap = $state.snapshot(notebook) as Notebook;
+    if (persisted) notebookSave.prime(snap);
+    else void notebookSave.saveNow(snap);
+    // Its own versions replace the outgoing notebook's; a stored one is kept as it was opened
+    // when it changed since its newest version (a new one gets its first version on that save).
+    versionList = persistOn() ? [] : null;
+    void versionKeeper.opened(snap, persisted);
+  }
+
+  /** Load and open a stored notebook; false when it could not be loaded. */
+  async function switchNotebook(id: string): Promise<boolean> {
+    if (id === notebook.id) return true;
+    let nb: Notebook | null;
+    try {
+      nb = await loadNotebook(id);
+    } catch (err) {
+      toast(`Couldn’t open that notebook — ${err instanceof Error ? err.message : String(err)}`, 5000);
+      return false;
+    }
+    if (!nb) return false;
+    openNotebook(nb, true);
+    return true;
   }
 
   function newNotebook() {
-    const nb = createNotebook(`Notebook ${notebookList.length + 1}`);
-    notebook = nb;
-    notebookList = [{ id: nb.id, name: nb.name }, ...notebookList];
-    resetSession();
-    clearHistory();
+    openNotebook(createNotebook(`Notebook ${notebookList.length + 1}`), false);
   }
 
   // Undo/redo capture author state only (notebook + card types + factory benches); reader
@@ -267,7 +437,15 @@
   }
 
   function restoreHistory(s: HistSnapshot) {
+    // Card types persist per write (not via autosave), so an undo/redo that swaps the list must
+    // resync storage — or undoing a delete would resurrect the type in memory only.
+    if (persistOn()) {
+      const { upsert, remove } = cardTypeChanges($state.snapshot(cardTypes) as CardType[], s.cardTypes);
+      for (const ct of upsert) void saveCardType(ct);
+      for (const id of remove) void deleteCardType(id);
+    }
     notebook = s.notebook;
+    syncListedName();
     cardTypes = s.cardTypes;
     factory.benches = s.benches;
     factory.active = s.benchActive;
@@ -282,9 +460,15 @@
     const trimmed = name.trim();
     if (!trimmed || trimmed === notebook.name) return;
     notebook.name = trimmed;
-    notebookList = notebookList.map((e) =>
-      e.id === notebook.id ? { ...e, name: trimmed } : e,
-    );
+    syncListedName();
+  }
+
+  /** The notebook menu lists the open notebook under its current name (rename, undo, restore). */
+  function syncListedName() {
+    const { id, name } = notebook;
+    if (notebookList.some((e) => e.id === id && e.name !== name)) {
+      notebookList = notebookList.map((e) => (e.id === id ? { ...e, name } : e));
+    }
   }
 
   async function removeNotebook() {
@@ -293,24 +477,113 @@
       'Delete Notebook',
     );
     if (!ok) return;
-    if (isTauri()) await deleteNotebook(notebook.id);
-    notebookList = notebookList.filter((e) => e.id !== notebook.id);
-    if (notebookList.length > 0 && isTauri()) {
-      await switchNotebook(notebookList[0].id);
-    } else {
-      newNotebook();
+    const goneId = notebook.id;
+    if (persistOn()) {
+      const goneCards = new Set(notebook.sections.flatMap((s) => s.cards.map((c) => c.id)));
+      notebookSave.cancel();
+      if (!(await deleteNotebook(goneId))) {
+        // Nothing was deleted: it stays open, listed and saving (the edit cancelled above
+        // included), and its progress stays in memory for the full-replace reader save.
+        void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
+        toast('Couldn’t delete the notebook — nothing was changed', 6000);
+        return;
+      }
+      versionKeeper.forget(goneId);
+      // Its reader rows went with it; drop them in memory too, so the next full-replace
+      // reader-state save does not write them back.
+      if (Object.keys(readerState).some((id) => goneCards.has(id))) {
+        readerState = Object.fromEntries(Object.entries(readerState).filter(([id]) => !goneCards.has(id)));
+      }
     }
+    notebookList = notebookList.filter((e) => e.id !== goneId);
+    const next = notebookList[0];
+    if (next && isTauri() && (await switchNotebook(next.id))) return;
+    newNotebook();
+  }
+
+  // ---- version history: save now / restore ----
+
+  async function saveVersionNow() {
+    if (!persistOn()) return;
+    // What is on screen — pending edits included — whatever the rate limit.
+    if (await versionKeeper.take($state.snapshot(notebook) as Notebook, 'manual')) toast('Version saved');
+  }
+
+  /**
+   * Put version `id` back: confirm → keep the current notebook as a 'before-restore' version →
+   * pushHistory → replace the content under the CURRENT id (the stored card ids still match
+   * reader_state) → save at once. Undo returns to what was there before.
+   */
+  async function restoreVersion(id: string) {
+    if (!persistOn()) return;
+    const nbId = notebook.id;
+    const meta = versionList?.find((v) => v.id === id);
+    const when = meta ? relativeTime(meta.createdAt, Date.now()) : 'earlier';
+    const ok = await confirmDialog(
+      `Restore the version from ${when}?\nWhat you have now is kept as a version first, and Undo brings it back.`,
+      'Restore Version',
+    );
+    if (!ok || notebook.id !== nbId) return;
+    let stored: Notebook | null;
+    try {
+      stored = await loadSnapshot(id);
+    } catch (err) {
+      toast(`Couldn’t restore that version — ${err instanceof Error ? err.message : String(err)}`, 5000);
+      return;
+    }
+    if (notebook.id !== nbId) return; // switched notebooks while it loaded
+    // Only this notebook's own versions: another's card ids would clash with that notebook's rows.
+    if (!stored || stored.id !== nbId) {
+      toast('That version is no longer available', 4000);
+      void versionKeeper.refresh(nbId);
+      return;
+    }
+    // The safety net is stored before anything changes; without it, nothing is restored.
+    if (!(await versionKeeper.take($state.snapshot(notebook) as Notebook, 'before-restore'))) {
+      toast('Couldn’t keep your current notebook as a version first — nothing was restored', 6000);
+      return;
+    }
+    if (notebook.id !== nbId) return;
+    const current = $state.snapshot(notebook) as Notebook;
+    pushHistory();
+    notebook = restoredNotebook(stored, current);
+    syncListedName();
+    if (selCard && !findCard(notebook, selCard)) selCard = null;
+    if (selSection && !notebook.sections.some((x) => x.id === selSection)) selSection = null;
+    void notebookSave.saveNow($state.snapshot(notebook) as Notebook);
+    toast(`Restored the version from ${when} — Undo brings back what you had`, 5000);
   }
 
   // ---- import / export ----
 
+  // D2: "From AI" and readable import problems. Both are modal: app shortcuts pause while open.
+  // The report also lists what holds back a Share or Export (with its own title, no AI fix request).
+  type ProblemReport = { errors: HintedIssue[]; warnings: HintedIssue[]; title?: string; fixRequest?: boolean };
+  let fromAiOpen = $state(false);
+  let importProblems: ProblemReport | null = $state.raw(null);
+
+  function createFromAi(json: NotebookJSON) {
+    let nb: Notebook;
+    try {
+      nb = importNotebook(json);
+    } catch (e) {
+      toast(`Couldn’t create the notebook — ${e instanceof Error ? e.message : String(e)}`, 5000);
+      return;
+    }
+    // D2d: AI-written cards carry errors often enough that each one waits for the author's review.
+    markAllDraft(nb);
+    fromAiOpen = false;
+    openNotebook(nb, false);
+    toast(`Created "${nb.name}" — its cards are drafts: review each one, then Study`);
+  }
+
   async function handleImport() {
     const result = await importNotebookFromFile();
     if ('error' in result) {
-      toast(result.error, 4000);
+      if (result.report && (result.report.errors.length || result.report.syntax)) importProblems = result.report;
+      else toast(result.error, 4000);
     } else if ('notebook' in result) {
-      notebook = result.notebook;
-      notebookList = [{ id: notebook.id, name: notebook.name }, ...notebookList];
+      openNotebook(result.notebook, false);
       const n = result.warnings.length;
       if (n > 0) {
         toast(
@@ -323,22 +596,110 @@
     }
   }
 
+  /**
+   * Held back by validation? The Reader validates a shared file before it shows anything — but
+   * the Study view tolerates some invalid slots (a problem parameter named "e", step 0, an
+   * unfinished answer). Sharing such a notebook would give every student an error page, so the
+   * errors are listed with their paths instead; warnings (a formula reading another card's
+   * variable) never block.
+   */
+  function heldBack(nb: Notebook, action: 'sharing'): boolean {
+    const { errors, warnings } = validateNotebookIssues(exportNotebook(nb));
+    if (errors.length === 0) return false;
+    const what = errors.length === 1 ? 'this problem' : `these ${errors.length} problems`;
+    importProblems = { errors, warnings, title: `Fix ${what} before ${action}`, fixRequest: false };
+    return true;
+  }
+
   async function handleExport() {
-    const result = await exportNotebookToFile($state.snapshot(notebook));
+    // Export is also the backup: it is never refused. An invalid notebook is still written, then
+    // the problems that would stop it from importing again are listed.
+    const nb = $state.snapshot(notebook) as Notebook;
+    const { errors, warnings } = validateNotebookIssues(exportNotebook(nb));
+    const result = await exportNotebookToFile(nb);
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
-      toast(`Exported to ${result.path}`);
+      if (errors.length > 0) {
+        const what = errors.length === 1 ? 'this problem' : `these ${errors.length} problems`;
+        importProblems = { errors, warnings, title: `Exported, but fix ${what} before importing it again`, fixRequest: false };
+      } else {
+        toast(`Exported to ${result.path}`);
+      }
     }
   }
 
   async function handleShare() {
-    const result = await shareNotebookToFile($state.snapshot(notebook), themeId);
+    // One snapshot: what was validated (and confirmed) is exactly what is written.
+    const nb = $state.snapshot(notebook) as Notebook;
+    if (heldBack(nb, 'sharing')) return;
+    // D2d: AI-written cards nobody has checked should not reach students unnoticed.
+    const n = draftsLeft;
+    if (n > 0) {
+      const ok = await confirmDialog(
+        n === 1
+          ? '1 card is still a draft (made by AI and not yet reviewed). Share anyway?'
+          : `${n} cards are still drafts (made by AI and not yet reviewed). Share anyway?`,
+        'Unreviewed Drafts',
+      );
+      if (!ok) return;
+    }
+    const result = await shareNotebookToFile(nb, themeId, shareDocId(await getInstallId(), nb.id));
     if ('error' in result) {
       toast(result.error, 4000);
     } else if ('path' in result) {
       toast('Shared — one file, opens anywhere, fully interactive');
     }
+  }
+
+  // ---- AI drafts review (D2d) ----
+
+  const draftsLeft = $derived(draftCards(notebook).length);
+
+  function reviewCard(card: Card) {
+    if (card.draft !== true) return;
+    pushHistory();
+    clearDraft(card);
+  }
+
+  async function markAllReviewed() {
+    const n = draftsLeft;
+    if (n === 0) return;
+    const id = notebook.id;
+    if (n > 3 && !(await confirmDialog(`Mark all ${n} drafts as reviewed? (Undoable)`, 'Mark All Reviewed'))) return;
+    if (notebook.id !== id) return; // switched notebooks while the dialog was open
+    pushHistory();
+    const cleared = clearAllDrafts(notebook);
+    toast(`${cleared} draft${cleared === 1 ? '' : 's'} marked reviewed (Undo to restore)`);
+  }
+
+  // Where Next last landed: the queue position when it could not select (a locked card).
+  let draftCursor: string | null = null;
+
+  /** Select the next draft after the selected card (wrapping) and bring it into view. */
+  async function gotoNextDraft() {
+    const card = nextDraft(notebook, selCard ?? draftCursor);
+    if (!card) return;
+    const id = card.id;
+    draftCursor = id;
+    // A coverage filter or a folded chapter would hide it: show it, or Next scrolls to nothing.
+    if (visibleCardIds && !visibleCardIds.has(id)) mtxCells = [];
+    const chapter = hidingChapter(notebook, id);
+    if (chapter) {
+      pushHistory();
+      delete chapter.folded;
+    }
+    // A locked section's card is never selected (the inspector would edit around the lock):
+    // it is only brought into view, where its own chip can still mark it reviewed.
+    if (sectionOfCard(id)?.locked) {
+      selCard = null;
+      selSection = null;
+    } else {
+      selectCard(id);
+    }
+    await tick();
+    const el = [...document.querySelectorAll<HTMLElement>('#stage [data-card]')].find((e) => e.dataset.card === id);
+    el?.scrollIntoView?.({ block: 'center' });
   }
 
   // ---- section / card / slot CRUD ----
@@ -427,8 +788,12 @@
 
   function editCardInFactory(card: Card) {
     const ct = card.typeId ? cardTypes.find((t) => t.id === card.typeId) : null;
-    // structuredClone chokes on the $state proxy, so snapshot before capturing a typeless card.
-    addBench(typeToBench(ct ?? cardToType($state.snapshot(card) as Card, 'Untitled')));
+    // structuredClone chokes on $state proxies, so snapshot both branches at the boundary.
+    addBench(
+      typeToBench(
+        ct ? ($state.snapshot(ct) as CardType) : cardToType($state.snapshot(card) as Card, 'Untitled'),
+      ),
+    );
     setPlace('factory');
   }
 
@@ -477,8 +842,8 @@
       toast('flipped all');
     } else if (key === 'reset') {
       readerState = resetSectionState(section, readerState);
-      clearShuffle(section.id);
-      toast('reset — flips & answers cleared (pins and archive kept)');
+      clearSectionView(section.id);
+      toast('reset — flips, answers & search cleared (pins and archive kept)');
     }
   }
 
@@ -573,7 +938,7 @@
     },
     setStore: (ct, store) => {
       ct.store = store ?? undefined;
-      if (isTauri()) void saveCardType($state.snapshot(ct) as CardType);
+      if (persistOn()) void saveCardType($state.snapshot(ct) as CardType);
     },
     storeName: (store) => STORES.find((s) => s.id === store)?.name ?? store ?? 'Workshop',
     confirmDelete: confirmDialog,
@@ -659,7 +1024,7 @@
       cardTypes = [...cardTypes, o.type];
       if (b) b.src = null;
     }
-    if (isTauri()) void saveCardType(o.type);
+    if (persistOn()) void saveCardType(o.type);
     sealBenchId = null;
     toast(`sealed "${o.type.name}"`);
   }
@@ -702,14 +1067,16 @@
         draft[String(i)] ? { ...t, props: { ...t.props, ...draft[String(i)] } } : t,
       ),
     };
-    target.cards.push(placeType(drafted, target.id, target.cards.length, variety ?? undefined));
-    toast(`placed "${ct.name}"`);
+    const placed = placeType(drafted, target.id, target.cards.length, variety ?? undefined);
+    target.cards.push(placed);
+    toast(`placed "${ct.name}" in ${target.name}`);
+    void revealCard(placed.id);
   }
 
   function saveCardAsType(card: Card, name: string) {
     const ct = cardToType($state.snapshot(card) as Card, name);
     cardTypes = [...cardTypes, ct];
-    if (isTauri()) void saveCardType(ct);
+    if (persistOn()) void saveCardType(ct);
     toast(`Saved card type "${name}"`);
   }
 
@@ -718,7 +1085,7 @@
     if (!ok) return;
     pushHistory();
     cardTypes = cardTypes.filter((t) => t.id !== ct.id);
-    if (isTauri()) void deleteCardType(ct.id);
+    if (persistOn()) void deleteCardType(ct.id);
   }
 
   // Cmd+Enter to toggle mode; on launch, hydrate from SQLite when running as the app.
@@ -728,7 +1095,12 @@
     unlisteners.push(installEditCoalescing());
     delete document.documentElement.dataset.theme;
     if (isTauri()) {
-      void (async () => {
+      onDbError((msg) => toast(msg, 6000));
+      unlisteners.push(() => onDbError(null));
+      // The notebook exactly as storage holds it — what its version history compares against.
+      let storedNotebook: Notebook | null = null;
+      // Persistence turns on only when this whole load succeeded (autosave.hydrate).
+      void autosave.hydrate(async () => {
         const savedTheme = await getPreference('theme');
         themeId = normalizeThemeId(savedTheme);
         applyTheme(themeId);
@@ -741,30 +1113,110 @@
         if (w !== null) sideW = w;
         sideCollapsed = savedCollapsed === '1';
         hydrateFactory(savedFactory);
+        // Each channel is primed with exactly what storage holds, the moment it is known — NOT
+        // with the in-memory value at the end of the load, which may already include an edit
+        // made while the rest of the load was still running (that edit would never be saved).
         const rows = await listNotebooks();
         if (rows.length === 0) {
-          await saveNotebook($state.snapshot(notebook));
+          const first = $state.snapshot(notebook) as Notebook;
+          if (!(await saveNotebook(first))) throw new Error('could not create the first notebook');
+          notebookSave.prime(first);
+          storedNotebook = first;
           notebookList = [{ id: notebook.id, name: notebook.name }];
         } else {
           notebookList = rows.map((r) => ({ id: r.id, name: r.name }));
           const nb = await loadNotebook(rows[0].id);
-          if (nb) notebook = nb;
+          if (nb) {
+            notebookSave.prime(nb);
+            storedNotebook = structuredClone(nb);
+            notebook = nb;
+          }
         }
-        readerState = await loadReaderState();
+        const storedReader = await loadReaderState();
+        readerSave.prime(storedReader);
+        readerState = storedReader;
         const anns = await loadAnnotations();
         for (const a of anns) annotations = addAnnotation(annotations, a);
-        // Seed built-in card types once; after that the DB is the source of truth.
+        // Seed built-in card types the DB has never seen; the ledger preference
+        // remembers what was seeded so user deletions of builtins stay deleted.
+        // A present ledger always wins over an empty table: a table emptied by
+        // deliberate deletion must not resurrect those deletions on next boot.
+        // Only a genuinely absent ledger falls back to "seed everything" (fresh
+        // install) or the pre-ledger legacy set (table already had rows).
+        // 0.3.0 pre-release builds kept the same record under 'builtin_seeded';
+        // it is read too, so nothing they seeded (or saw deleted) comes back.
+        // Only types actually stored are recorded: a failed write retries next boot.
         const types = await listCardTypes();
-        if (types.length === 0) {
-          for (const ct of builtinCardTypes) await saveCardType(ct);
-        } else {
+        try {
+          const [raw, rawPre] = await Promise.all([getPreference('seeded_builtins'), getPreference('builtin_seeded')]);
+          const base = raw ? parseSeededLedger(raw) : types.length === 0 ? [] : [...LEGACY_SEEDED_BUILTINS];
+          const seeded = new Set([...base, ...(rawPre ? parseSeededLedger(rawPre) : [])]);
+          const have = new Set(types.map((t) => t.id));
+          const stored: CardType[] = [];
+          for (const ct of unseededBuiltins(seeded)) {
+            if (have.has(ct.id)) seeded.add(ct.id);
+            else if (await saveCardType(ct)) stored.push(ct);
+          }
+          cardTypes = [...types, ...stored];
+          const next = JSON.stringify([...seeded, ...stored.map((b) => b.id)]);
+          if (next !== raw) await setPreference('seeded_builtins', next);
+        } catch {
           cardTypes = types;
         }
-      })();
+        // Undo must never step back into the pre-hydration demo state (it would then be saved),
+        // and a selection made on the demo must not dangle into the loaded notebook.
+        clearHistory();
+        selCard = null;
+        selSection = null;
+        if (savedFactory !== null) factorySave.prime(savedFactory);
+        // Let the effects see the hydrated values while persistence is still off.
+        await tick();
+      }).then((ok) => {
+        if (!ok) return;
+        // The gate dropped every schedule while the load ran, including real edits made after
+        // the stored values arrived: queue the current values now. Identical ones are skipped,
+        // so an untouched launch writes nothing.
+        notebookSave.schedule($state.snapshot(notebook) as Notebook);
+        readerSave.schedule($state.snapshot(readerState) as ReaderStateMap);
+        factorySave.schedule(serializeFactory());
+        // Version history starts only now, never on pre-hydration state.
+        versionList = [];
+        if (storedNotebook && storedNotebook.id === notebook.id) void versionKeeper.opened(storedNotebook, true);
+        else void versionKeeper.refresh(notebook.id);
+      });
       void listen('menu://import-json', () => void handleImport()).then((un) => unlisteners.push(un));
       void listen('menu://export-json', () => void handleExport()).then((un) => unlisteners.push(un));
       void listen('menu://export-html', () => void handleShare()).then((un) => unlisteners.push(un));
+      // Window close: the API destroys the window only after this handler resolves, so it must
+      // never throw or hang — withTimeout resolves after 2s whatever the flush does.
+      void getCurrentWindow()
+        .onCloseRequested(async () => {
+          await withTimeout(flushAll(), 2000);
+        })
+        .then((un) => unlisteners.push(un))
+        .catch((err) => console.error('close-requested flush not installed', err));
+      // Cmd+Q / app quit: Rust holds the exit, asks us to flush, and exits on exit_app (or after 3s).
+      void listen('app://flush-then-exit', async () => {
+        try {
+          await withTimeout(flushAll(), 2000);
+        } finally {
+          await invoke('exit_app').catch(() => {});
+        }
+      })
+        .then((un) => unlisteners.push(un))
+        .catch((err) => console.error('quit flush not installed', err));
     }
+    // Leaving the app (tab hidden, window blur) flushes everything right away.
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') void flushAll();
+    };
+    const onBlur = () => void flushAll();
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', onBlur);
+    unlisteners.push(() => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', onBlur);
+    });
     function sectionCardsOf(cardId: string | null): string[] {
       if (!cardId) return [];
       for (const s of notebook.sections) {
@@ -772,10 +1224,12 @@
       }
       return [];
     }
+    let zoomLevel = 1;
     function handleKey(e: KeyboardEvent) {
+      // A modal dialog owns the keyboard: no undo, mode toggle or selection moves behind it.
+      if (fromAiOpen || importProblems) return;
       const el = e.target as HTMLElement | null;
-      const inField =
-        !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      const inField = isFieldTarget(el);
       const cur = get(place);
       const ctx: KeyCtx = {
         inField,
@@ -789,6 +1243,17 @@
         selProd,
         sectionIds: notebook.sections.filter((s) => s.kind !== 'divider').map((s) => s.id),
         cardIdsOfSelectedSection: sectionCardsOf(selCard),
+        studyFocus,
+        // Called only for a card key on a focused card: it builds the card's scope, which
+        // every keystroke typed into a field would otherwise pay for.
+        focusedSurfaces: () => {
+          const card = focusedStudyCard();
+          return card
+            ? studySurfaces(card, readerState[card.id] ?? {}, session.live[card.id] ?? {})
+            : NO_SURFACES;
+        },
+        targetInteractive: isInteractiveTarget(el),
+        helpOpen,
       };
       const action = handleAppKey(e, ctx);
       if (!action) return;
@@ -801,7 +1266,8 @@
           else toggleMode();
           break;
         case 'toast-save':
-          toast('everything autosaves — you’re always saved');
+          void flushAll();
+          toast(autosave.failed ? HYDRATION_FAILED_MESSAGE : 'everything autosaves — you’re always saved');
           break;
         case 'undo':
           toast(histUndo() ? 'undo' : 'nothing to undo');
@@ -832,6 +1298,28 @@
         case 'blur-single-line':
           el?.blur();
           break;
+        case 'zoom':
+          zoomLevel = nextZoom(zoomLevel, action.delta);
+          applyZoom(zoomLevel);
+          toast(zoomLabel(zoomLevel));
+          break;
+        case 'study-focus-step':
+          moveStudyFocus(action.delta);
+          break;
+        case 'study-focus-clear':
+          studyFocus = null;
+          break;
+        case 'study-flip':
+        case 'study-submit':
+        case 'study-tick':
+          applyStudyKey(e.key);
+          break;
+        case 'study-choice':
+          applyStudyKey(String(action.digit));
+          break;
+        case 'study-help':
+          helpOpen = !helpOpen;
+          break;
       }
     }
     window.addEventListener('keydown', handleKey);
@@ -841,10 +1329,10 @@
     };
   });
 
-  // Debounced autosave whenever the document or reader state changes.
-  $effect(() => persistNotebook($state.snapshot(notebook)));
-  $effect(() => persistReaderState($state.snapshot(readerState)));
-  $effect(() => persistFactory(serializeFactory()));
+  // Debounced autosave whenever the document, reader state or factory changes (dropped until hydrated).
+  $effect(() => notebookSave.schedule($state.snapshot(notebook) as Notebook));
+  $effect(() => readerSave.schedule($state.snapshot(readerState) as ReaderStateMap));
+  $effect(() => factorySave.schedule(serializeFactory()));
   $effect(() => {
     document.body.classList.toggle('side-collapsed', sideCollapsed);
   });
@@ -887,6 +1375,7 @@
   factoryPreview={factory.preview}
   onswitch={(id) => void switchNotebook(id)}
   oncreate={newNotebook}
+  onfromai={() => (fromAiOpen = true)}
   onsettheme={setTheme}
   onaddsection={() => {
     pushHistory();
@@ -1012,6 +1501,8 @@
     showArch={session.showArch[section.id] === true}
     onpin={() => togglePinCard(card)}
     onarchive={() => toggleArchiveCard(section, card)}
+    onreviewed={() => reviewCard(card)}
+    kfocus={studyFocus === card.id}
   />
 {/snippet}
 
@@ -1055,6 +1546,8 @@
         pushHistory();
         addSection(notebook);
       }}>+ section</button>
+  {:else}
+    <div class="kb-hint muted sm">⌨ j/k move · space flip · 1-9 answer · ? help</div>
   {/if}
 {/snippet}
 
@@ -1097,6 +1590,12 @@
       ongrip={gripProductHouse}
       onvariety={(v) => (selVariety = v)}
       onsvctoggle={toggleSectionService}
+      drafts={draftsLeft}
+      ondraftnext={() => void gotoNextDraft()}
+      ondraftsreviewed={() => void markAllReviewed()}
+      versions={versionList}
+      onversionsave={() => void saveVersionNow()}
+      onversionrestore={(id) => void restoreVersion(id)}
     />
   {/if}
   <div id="resizer" role="separator" aria-orientation="vertical" onpointerdown={startSideResize}></div>
@@ -1135,6 +1634,10 @@
   onclick={toggleSide}
 >{sideCollapsed ? '›' : '‹'}</button>
 
+{#if helpOpen}
+  <ShortcutHelp onclose={() => (helpOpen = false)} />
+{/if}
+
 {#if sealBench}
   <SealModal
     bench={sealBench}
@@ -1142,6 +1645,25 @@
     taken={sealTaken}
     onconfirm={confirmSeal}
     oncancel={() => (sealBenchId = null)}
+  />
+{/if}
+
+{#if fromAiOpen}
+  <FromAiModal
+    onclose={() => (fromAiOpen = false)}
+    oncreate={createFromAi}
+    oncopied={(what) => toast(what === 'prompt' ? 'Prompt copied — paste it into your AI chat' : 'Fix request copied — paste it back to your AI')}
+  />
+{/if}
+
+{#if importProblems}
+  <ImportReport
+    errors={importProblems.errors}
+    warnings={importProblems.warnings}
+    title={importProblems.title}
+    fixRequest={importProblems.fixRequest ?? true}
+    onclose={() => (importProblems = null)}
+    oncopied={() => toast('Fix request copied — paste it back to your AI')}
   />
 {/if}
 
@@ -1257,5 +1779,23 @@
   .add-section {
     width: 100%;
     padding: 8px;
+  }
+  /* Pinned to the foot of the scrolling stage: as a plain last line of the document the hint sat
+     below every card, so the shortcuts it advertises were never seen on entering Study. */
+  .kb-hint {
+    position: sticky;
+    bottom: var(--space-2);
+    z-index: 2;
+    width: fit-content;
+    max-width: 100%;
+    margin: var(--space-5) auto 0;
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    opacity: 0.75;
+    /* It floats over the cards, so it must not take their clicks: a flip or an option under the
+       pill has to stay hittable. */
+    pointer-events: none;
   }
 </style>

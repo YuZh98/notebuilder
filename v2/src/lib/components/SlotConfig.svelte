@@ -49,7 +49,7 @@
     <div class="benchcard" style="background:var(--panel2)">
       <div class="sm muted">Reveal when:</div>
       <div class="row" style="align-items:center">
-        <span class="palette" style="display:inline-flex;gap:3px">
+        <span class="palette" style="display:inline-flex;gap:3px; /* token-exempt: 3px sits off the 2px scale; snapping it would rewrap the chip rows */">
           {#if revKeys.length}
             {#each revKeys as k (k)}
               <button
@@ -64,7 +64,7 @@
             <span class="muted sm">add a slider/number/choice first</span>
           {/if}
         </span>
-        <span class="palette" style="display:inline-flex;gap:3px">
+        <span class="palette" style="display:inline-flex;gap:3px; /* token-exempt: 3px sits off the 2px scale; snapping it would rewrap the chip rows */">
           {#each REVOPS as o (o)}
             <button
               class="chip xs"
@@ -76,7 +76,7 @@
           {/each}
         </span>
         <input
-          style="width:64px"
+          style="width:64px; /* token-exempt: one-off field width sized to a numeric value */"
           data-history="edit"
           value={reveal.val ?? ''}
           placeholder="val"
@@ -117,7 +117,7 @@
     {/if}
   {/if}
 
-  <div style="margin-top:8px">
+  <div style="margin-top:var(--space-4)">
     <button class="btn sm warn" onclick={ondelete}>🗑 delete slot</button>
   </div>
 </div>

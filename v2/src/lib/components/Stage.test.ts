@@ -5,6 +5,7 @@ import Stage from './Stage.svelte';
 import App from '../../App.svelte';
 import { mode } from '../stores/mode';
 import { place } from '../stores/place';
+import { resetSession } from '../session.svelte';
 import type { Notebook, Section, Card } from '../types';
 
 const cardView = createRawSnippet<[Section, Card, boolean]>((_section, card, editable) => ({
@@ -62,7 +63,11 @@ function chapteredNotebook(): Notebook {
   ]);
 }
 
-afterEach(() => mode.set('edit'));
+// Study collapse is session state now (shared with the keyboard cursor), so it must not leak.
+afterEach(() => {
+  mode.set('edit');
+  resetSession();
+});
 
 describe('Stage — chapter folding', () => {
   it('a folded divider hides its sections until the next divider', () => {

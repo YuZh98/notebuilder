@@ -13,6 +13,23 @@ export type ChoiceProps = {
   explanation?: string;
 };
 
+const indexSet = (v: unknown): Set<number> =>
+  new Set(Array.isArray(v) ? v.filter((i): i is number => Number.isInteger(i)) : []);
+
+/**
+ * Whole-answer correctness: the reader's selection equals the answer key as a set. `null` means
+ * ungraded — the author gave no answer key (missing or empty), so there is nothing to be right
+ * about. Independent of `submitted`; callers decide whether a pending pick counts.
+ */
+export function isChoiceCorrect(props: ChoiceProps, state: Record<string, unknown> | undefined): boolean | null {
+  const answer = indexSet(props.answer);
+  if (answer.size === 0) return null;
+  const selected = indexSet(state?.selected);
+  if (selected.size !== answer.size) return false;
+  for (const i of selected) if (!answer.has(i)) return false;
+  return true;
+}
+
 export const choiceSlot: SlotType<ChoiceProps> = {
   type: 'choice',
   kind: 'interact',
@@ -28,6 +45,14 @@ export const choiceSlot: SlotType<ChoiceProps> = {
 
   isDone(_props: ChoiceProps, state: Record<string, unknown>): boolean {
     return state.submitted === true;
+  },
+
+  // Only a submitted answer counts: a correct-but-pending pick is neither answered nor correct.
+  score(props: ChoiceProps, state: Record<string, unknown> | undefined) {
+    const verdict = isChoiceCorrect(props, state);
+    if (verdict === null) return null;
+    const answered = state?.submitted === true;
+    return { correct: answered && verdict ? 1 : 0, answered: answered ? 1 : 0 };
   },
 
   validate(props: ChoiceProps): string[] {

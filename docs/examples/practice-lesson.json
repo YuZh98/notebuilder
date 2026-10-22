@@ -1,0 +1,219 @@
+{
+  "version": 2,
+  "notebook": {
+    "name": "Percent Change",
+    "subtitle": "Predict, explore, study a worked example, then practise until it sticks",
+    "cats": ["explore", "worked", "practice", "check"],
+    "sections": [
+      { "name": "Part I · Explore", "kind": "divider", "cards": [] },
+      {
+        "name": "Up, then down",
+        "title": "Up, then down",
+        "subtitle": "A price rises by p%, then falls by p%. Where does it end up?",
+        "cards": [
+          {
+            "tags": ["explore"],
+            "accent": "#34e1ff",
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "## Up, then down\n\nA jacket costs **100**. Its price rises by **p%**, and later the new price falls by **p%**. Make a prediction first: the simulation unlocks once you submit it."
+                }
+              },
+              {
+                "type": "choice",
+                "props": {
+                  "q": "**Your prediction.** After rising by p% and then falling by p%, the price is…",
+                  "options": ["back to exactly 100", "above 100", "below 100", "it depends on p"],
+                  "multi": false,
+                  "explanation": "Prediction locked in. Now drag p and test it."
+                }
+              },
+              {
+                "type": "slider",
+                "props": { "key": "p", "value": 20, "min": 0, "max": 90, "step": 5 },
+                "verbs": { "sequential": true }
+              },
+              {
+                "type": "compute",
+                "props": { "expr": "round(100 * (1 + p/100) * 100) / 100", "out": "up", "note": "after the rise:" },
+                "verbs": { "sequential": true },
+                "w": 6
+              },
+              {
+                "type": "compute",
+                "props": { "expr": "round(up * (1 - p/100) * 100) / 100", "out": "down", "note": "after the fall:" },
+                "verbs": { "sequential": true },
+                "w": 6
+              },
+              {
+                "type": "compute",
+                "props": { "expr": "round((down - 100) * 100) / 100", "out": "net", "note": "net change (the start was 100):" },
+                "verbs": { "sequential": true },
+                "w": 6
+              },
+              {
+                "type": "compute",
+                "props": { "expr": "round(-(p * p) / 100 * 100) / 100", "out": "rule", "note": "−p² ÷ 100 =" },
+                "verbs": { "sequential": true },
+                "w": 6
+              },
+              {
+                "type": "chart",
+                "props": {
+                  "fn": "x * (1 + p/100) * (1 - p/100) - x",
+                  "label": "net change for any starting price x: never above zero",
+                  "x0": 0,
+                  "x1": 200,
+                  "y0": -200,
+                  "y1": 0,
+                  "xticks": 4,
+                  "yticks": 4,
+                  "hover": true
+                },
+                "verbs": { "sequential": true }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Explain.** With p = {{p}}%, the price went 100 → {{up}} → {{down}}, a net change of **{{net}}**. Compare that with your prediction.\n\nThe fall takes p% of a *bigger* number than the one the rise started from, so whenever p > 0 the price ends below where it began. The net change is exactly −p²/100 percent (here {{rule}}), which is why the loss grows much faster than p. Try p = 10, then p = 50."
+                },
+                "verbs": { "sequential": true }
+              }
+            ]
+          }
+        ]
+      },
+      { "name": "Part II · Learn and practise", "kind": "divider", "cards": [] },
+      {
+        "name": "Worked example",
+        "title": "Worked example",
+        "subtitle": "Explain each step to yourself before the next one appears.",
+        "cards": [
+          {
+            "tags": ["worked"],
+            "accent": "#54d6a0",
+            "slots": [
+              {
+                "type": "text",
+                "props": { "text": "## Worked example: percent change\n\n**Problem.** A ticket price goes from **40** to **50**. What is the percent change?" }
+              },
+              {
+                "type": "text",
+                "props": { "text": "**Step 1. Find the change.** new − old = 50 − 40 = **10**." }
+              },
+              {
+                "type": "text-input",
+                "props": { "placeholder": "Why is this step valid? Why new − old, and not old − new?" }
+              },
+              {
+                "type": "text",
+                "props": { "text": "**Step 2. Compare with the original.** Divide the change by the *old* price: $\\dfrac{10}{40} = 0.25$." },
+                "verbs": { "sequential": true }
+              },
+              {
+                "type": "text-input",
+                "props": { "placeholder": "Why divide by the old price and not the new one?" },
+                "verbs": { "sequential": true }
+              },
+              {
+                "type": "text",
+                "props": {
+                  "text": "**Step 3. Convert to a percent.** $0.25 \\times 100 = 25\\%$, so the price rose by **25%**.\n\n$$\\text{percent change} = \\frac{\\text{new} - \\text{old}}{\\text{old}} \\times 100$$"
+                },
+                "verbs": { "sequential": true }
+              },
+              {
+                "type": "problem",
+                "props": {
+                  "prompt": "**Now you try.** A price goes from **{{a}}** to **{{b}}**. Step 1 is done for you: the change is {{b}} − {{a}}. Finish steps 2 and 3: what is the percent change? Round to the nearest whole percent and type just the number.",
+                  "params": [
+                    { "name": "a", "min": 20, "max": 50, "step": 10 },
+                    { "name": "b", "min": 55, "max": 90, "step": 5 }
+                  ],
+                  "answer": "(b - a) / a * 100",
+                  "tol": 0.5,
+                  "need": 1,
+                  "explain": "Divide the change by the old price {{a}}, then multiply by 100: $\\dfrac{ {{b}} - {{a}} }{ {{a}} } \\times 100$."
+                },
+                "verbs": { "sequential": true }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Practice",
+        "title": "Practice",
+        "subtitle": "Fresh numbers every time. Finish each problem, then check yourself.",
+        "cards": [
+          {
+            "tags": ["practice"],
+            "accent": "#f0a500",
+            "slots": [
+              {
+                "type": "text",
+                "props": {
+                  "text": "## Practice set\n\nTwo kinds of problem, mixed. Press **New numbers** for a fresh one; each problem is finished after enough correct answers. Round to the nearest whole percent and type just the number, without the % sign."
+                }
+              },
+              {
+                "type": "problem",
+                "props": {
+                  "prompt": "**1. Increase.** A price rises from **{{a}}** to **{{b}}**. By what percent did it rise?",
+                  "params": [
+                    { "name": "a", "min": 20, "max": 60, "step": 10 },
+                    { "name": "b", "min": 70, "max": 120, "step": 10 }
+                  ],
+                  "answer": "(b - a) / a * 100",
+                  "tol": 0.5,
+                  "need": 3,
+                  "explain": "The change divided by the **old** price, times 100: $\\dfrac{ {{b}} - {{a}} }{ {{a}} } \\times 100$."
+                }
+              },
+              {
+                "type": "problem",
+                "props": {
+                  "prompt": "**2. Decrease.** A price falls from **{{c}}** to **{{d}}**. What is the percent change? A decrease is negative, for example -25.",
+                  "params": [
+                    { "name": "c", "min": 80, "max": 200, "step": 20 },
+                    { "name": "d", "min": 10, "max": 70, "step": 10 }
+                  ],
+                  "answer": "(d - c) / c * 100",
+                  "tol": 0.5,
+                  "need": 2,
+                  "explain": "Same rule; the change is negative because the price fell: $\\dfrac{ {{d}} - {{c}} }{ {{c}} } \\times 100$."
+                }
+              }
+            ]
+          },
+          {
+            "tags": ["check"],
+            "slots": [
+              {
+                "type": "choice",
+                "props": {
+                  "q": "A shop raises a price by **25%**, then cuts the new price by **20%**. Compared with the original, the final price is…",
+                  "options": ["5% higher", "the same", "5% lower", "45% higher"],
+                  "answer": [1],
+                  "multi": false,
+                  "explanation": "$1.25 \\times 0.80 = 1.00$: back to exactly the original. Each percent is taken of a different base, and the 20% cut comes off the *bigger* price."
+                }
+              }
+            ]
+          },
+          {
+            "tags": ["check"],
+            "slots": [
+              {
+                "type": "progress",
+                "props": { "scope": "notebook", "label": "Lesson progress", "show": { "mn": true, "pct": true, "bar": true } }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

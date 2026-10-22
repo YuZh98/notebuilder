@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { buildShareHtml, exportNotebookToFile, importNotebookFromFile } from './share';
+import { hintFor } from './import-hints';
 import { extractNotebook, type ReaderPayload } from './html-io';
 import type { Notebook } from './types';
 
@@ -50,6 +51,26 @@ describe('buildShareHtml', () => {
     const raw = extractNotebook(buildShareHtml(sample()))!;
     expect(raw).not.toContain('readerState');
     expect(raw).not.toContain('progress');
+  });
+
+  // The Reader namespaces each student's saved progress by docId, so re-sharing an edited
+  // notebook keeps progress on the cards that did not change.
+  it('carries the author notebook id as an envelope docId, outside the interchange JSON', () => {
+    const p = payloadOf(buildShareHtml(sample()));
+    expect(p.docId).toBe('nb_1');
+    expect(p.notebook.version).toBe(2);
+    expect(JSON.stringify(p.notebook)).not.toContain('nb_1');
+  });
+
+  it('keeps the docId stable across re-shares of an edited notebook', () => {
+    const a = payloadOf(buildShareHtml(sample('first draft')));
+    const b = payloadOf(buildShareHtml(sample('fixed a typo')));
+    expect(a.docId).toBe(b.docId);
+  });
+
+  it('still never embeds reader state with the docId present (only the four envelope keys)', () => {
+    const p = payloadOf(buildShareHtml(sample(), 'noir'));
+    expect(Object.keys(p).sort()).toEqual(['docId', 'notebook', 'shared', 'theme']);
   });
 
   it('keeps a </script> inside card text from closing the payload tag early', () => {
@@ -117,6 +138,18 @@ describe('importNotebookFromFile — browser fallback', () => {
   it('reports an error for an invalid notebook file', async () => {
     const res = await importNotebookFromFile(() => Promise.resolve(fakeFile('{"nope":true}', 'bad.json')));
     expect('error' in res).toBe(true);
+  });
+
+  it('attaches a hinted report to an invalid file so the UI can show what to fix', async () => {
+    const bad = JSON.stringify({ version: 2, notebook: { name: 'X', sections: [{ name: 'S', cards: [{ slots: [{ type: 'quizz', props: {} }] }] }] } });
+    const res = await importNotebookFromFile(() => Promise.resolve(fakeFile(bad, 'bad.json')));
+    expect('error' in res && res.report?.errors.some((e) => /quizz/.test(e.message))).toBe(true);
+    expect('error' in res && res.report?.errors.some((e) => /choice/.test(hintFor(e) ?? ''))).toBe(true);
+  });
+
+  it('reports a JSON syntax error with its line', async () => {
+    const res = await importNotebookFromFile(() => Promise.resolve(fakeFile('{\n  "version": 2,\n  "notebook": {,}\n}', 'bad.json')));
+    expect('error' in res && res.report?.syntax?.line).toBe(3);
   });
 
   it('reports cancelled when the picker returns no file', async () => {

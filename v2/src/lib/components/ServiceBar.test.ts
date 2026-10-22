@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import ServiceBar from './ServiceBar.svelte';
 import { _setElementFromPoint } from '../drag/engine';
+import { applyZoom } from '../zoom';
 import type { Section, Card } from '../types';
 
 // jsdom has no PointerEvent; listeners key off the type string, so a MouseEvent stand-in works.
@@ -128,6 +130,7 @@ describe('ServiceBar — edit chips', () => {
     document.dispatchEvent(pev('pointerup'));
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true })); // flush a live click suppressor
     _setElementFromPoint(null);
+    applyZoom(1);
     document.body.innerHTML = '';
   });
 
@@ -195,6 +198,24 @@ describe('ServiceBar — edit chips', () => {
     document.dispatchEvent(new MouseEvent('pointermove', { clientX: 900, bubbles: true, cancelable: true }));
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 900, bubbles: true }));
     expect(p.onresize).toHaveBeenCalledWith('shuffle', 440);
+  });
+
+  // The committed width becomes `width:${w}px` inside the zoomed <body>: a viewport-space number
+  // written there would store — and render — the chip `zoom` times too wide.
+  it('commits a logical width when the app is zoomed', async () => {
+    applyZoom(1.5);
+    const section = sec({ services: { shuffle: true } });
+    const p = props(section, 'edit');
+    const { container } = render(ServiceBar, { props: p });
+    const handle = container.querySelector('[data-svcrz="shuffle"]') as HTMLElement;
+    handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 0, bubbles: true, cancelable: true }));
+    // jsdom has no layout, so startW is 0: 300px of cursor travel is 200px of chip.
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 300, bubbles: true, cancelable: true }));
+    await tick();
+    const live = container.querySelector('[data-svcbtn="shuffle"]') as HTMLElement;
+    expect(live.style.width).toBe('200px');
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 300, bubbles: true }));
+    expect(p.onresize).toHaveBeenCalledWith('shuffle', 200);
   });
 
   it('applies a persisted svcW as an inline width in study mode too', () => {

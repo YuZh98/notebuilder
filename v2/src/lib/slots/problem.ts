@@ -1,0 +1,450 @@
+import type { SlotType } from '../slot-contract';
+import type { VarDeclaration } from '../types';
+import type { Scope } from '../variable-graph';
+import { evalExpr, parseExpr, EXPR_BUILTINS } from '../expr';
+import { mulberry32, drawParam } from '../rng';
+import { parseNumericInput } from '../numeric-input';
+import { exprPitfalls } from '../expr-pitfalls';
+import { hashString } from '../practice-salt';
+import { extractReads } from './identifiers';
+import ProblemEdit from './ProblemEdit.svelte';
+import ProblemStudy from './ProblemStudy.svelte';
+
+/** One randomized parameter, drawn from min..max on the step grid. Slot-local: never enters card scope. */
+export type ProblemParam = { name: string; min: number; max: number; step: number };
+
+export type ProblemProps = {
+  /** Markdown; `{{name}}` interpolates drawn params (over card variables); KaTeX allowed. */
+  prompt: string;
+  params: ProblemParam[];
+  /** Expression over the params and card variables (lib/expr grammar). */
+  answer: string;
+  /** Absolute tolerance; 0 means "exact" up to a relative epsilon of 1e-9·max(1, |answer|). */
+  tol: number;
+  /** Correct answers needed for the slot to count as done (default 1). */
+  need: number;
+  /** Markdown shown after a correct answer or after the student gives up. */
+  explain?: string;
+};
+
+/**
+ * Reader (progress-layer) state. Only the seed is stored — values are always redrawn from it.
+ * Until the student first checks or asks for new numbers there is no seed: the problem starts
+ * from baseSeed, so mounting writes nothing.
+ */
+export type ProblemState = {
+  seed: number;
+  correct: number;
+  attempts: number;
+  /** The last checked input on the current numbers; cleared by "New numbers". */
+  last?: { input: string; ok: boolean };
+  /** The student chose "Show answer" on the current numbers; cleared by "New numbers". */
+  revealed?: boolean;
+  /**
+   * The answer "Show answer" put on screen, carried across "New numbers" / "Try again" while it
+   * would still be accepted (see carryShown): a correct check then earns no credit.
+   */
+  shown?: number;
+  /**
+   * Fingerprints (instanceKey) of every set of numbers whose answer was shown, most recent last,
+   * at most SEEN_CAP. Kept across "New numbers": in a small range the same numbers come back
+   * within a click or two, and the answer shown for them must not earn credit then either.
+   */
+  seen?: number[];
+};
+
+/** The starting seed where there is no practice salt (storage unavailable): the same for everyone. */
+export const DEFAULT_SEED = 1;
+/** How many successive seeds (seed+1 … seed+N) to try when the answer is not finite. */
+export const MAX_REDRAWS = 20;
+/** Most revealed number sets a problem remembers (ProblemState.seen); older ones drop first. */
+export const SEEN_CAP = 32;
+/** How many seeds ahead shownStatus looks for numbers that would still earn credit. */
+const SHOWN_SCAN = 4 * SEEN_CAP;
+
+const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const KEY_RE = /\{\{(\w+)\}\}/g;
+const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
+const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+const count = (v: unknown): number => (Number.isSafeInteger(v) && (v as number) >= 0 ? (v as number) : 0);
+
+/** The params that can be drawn: objects with a string name (invalid entries are skipped). */
+export function paramsOf(props: unknown): ProblemParam[] {
+  const ps = isObj(props) && Array.isArray(props.params) ? props.params : [];
+  return ps.filter((p): p is ProblemParam => isObj(p) && typeof p.name === 'string');
+}
+
+/** `need` as used at runtime: a whole number ≥ 1, else 1. */
+export function needOf(props: unknown): number {
+  const n = isObj(props) ? props.need : undefined;
+  return Number.isSafeInteger(n) && (n as number) >= 1 ? (n as number) : 1;
+}
+
+/** `tol` as used at runtime: a finite number ≥ 0, else 0. */
+export function tolOf(props: unknown): number {
+  const t = isObj(props) ? props.tol : undefined;
+  return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : 0;
+}
+
+/**
+ * The seed a reader starts from until they check or ask for new numbers: hashed from this
+ * browser's practice salt (practice-salt.ts) and what shapes the numbers (prompt, params,
+ * answer). Each reader gets their own numbers, in their own order, so one shared answer list no
+ * longer reaches `need` for a whole class; one reader gets the same numbers on every reload; two
+ * different problems on one page start apart. No salt: DEFAULT_SEED, as before.
+ */
+export function baseSeed(props: ProblemProps, salt: string | null): number {
+  if (salt === null) return DEFAULT_SEED;
+  const p: Record<string, unknown> = isObj(props) ? props : {};
+  // Arrays, not objects: the key order of a param as written must not change the numbers.
+  const params = paramsOf(props).map((q) => [q.name, q.min, q.max, q.step]);
+  return hashString(`${salt}:${JSON.stringify([str(p.prompt), params, str(p.answer)])}`);
+}
+
+/** Tolerant read of reader state: anything malformed falls back to its default (no seed: `start`). */
+export function readProblemState(state: Record<string, unknown> | undefined, start = DEFAULT_SEED): ProblemState {
+  const s = isObj(state) ? state : {};
+  const out: ProblemState = {
+    seed: Number.isSafeInteger(s.seed) ? (s.seed as number) : start,
+    correct: count(s.correct),
+    attempts: count(s.attempts),
+  };
+  const last = s.last;
+  if (isObj(last) && typeof last.input === 'string' && typeof last.ok === 'boolean') {
+    out.last = { input: last.input, ok: last.ok };
+  }
+  if (s.revealed === true) out.revealed = true;
+  if (typeof s.shown === 'number' && Number.isFinite(s.shown)) out.shown = s.shown;
+  if (Array.isArray(s.seen)) {
+    const seen = s.seen.filter((k): k is number => Number.isSafeInteger(k) && k >= 0 && k < 2 ** 32);
+    if (seen.length > 0) out.seen = seen.slice(-SEEN_CAP);
+  }
+  return out;
+}
+
+/** Draw every param, in order, from one mulberry32 stream seeded with `seed`. */
+export function drawValues(params: ProblemParam[], seed: number): Record<string, number> {
+  const rng = mulberry32(seed);
+  // fromEntries defines own properties, so no name can reach a prototype setter.
+  return Object.fromEntries(params.map((p) => [p.name, drawParam(rng, p)]));
+}
+
+export type ProblemInstance =
+  | { ok: true; seed: number; values: Record<string, number>; answer: number }
+  | { ok: false; seed: number; values: Record<string, number>; error: string };
+
+/**
+ * The concrete problem for a seed: drawn values and the expected answer. Seeds seed, seed+1, …
+ * seed+MAX_REDRAWS are tried until the answer is a finite number. A formula that does not parse,
+ * or that reads a variable missing from the card scope, is refused rather than graded against
+ * evalExpr's silent 0.
+ */
+export function instantiate(props: ProblemProps, scope: Scope, seed: number): ProblemInstance {
+  const params = paramsOf(props);
+  const fail = (error: string): ProblemInstance => ({ ok: false, seed, values: drawValues(params, seed), error });
+  const answer = isObj(props) ? str(props.answer) : '';
+  let ids: string[];
+  try {
+    ids = parseExpr(answer).identifiers;
+  } catch (e) {
+    return fail(`The answer formula has an error: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const names = new Set(params.map((p) => p.name));
+  const sc: Scope = isObj(scope) ? scope : {};
+  const missing = ids.find((id) => !names.has(id) && !own(sc, id));
+  if (missing) return fail(`The answer uses "${missing}", which is not a parameter or a variable on this card`);
+
+  for (let k = 0; k <= MAX_REDRAWS; k++) {
+    const values = drawValues(params, seed + k);
+    const v = evalExpr(answer, { ...sc, ...values });
+    if (typeof v === 'number' && Number.isFinite(v)) return { ok: true, seed: seed + k, values, answer: v };
+  }
+  return fail("Couldn't draw numbers that give a finite answer — check the ranges and the answer formula");
+}
+
+const sameValues = (a: Record<string, number>, b: Record<string, number>): boolean =>
+  Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((k) => own(b, k) && a[k] === b[k]);
+
+/**
+ * The seed "New numbers" moves to: normally seed+1 (counted from the seed actually used after any
+ * redraw), skipping successors that would show the very same numbers or no valid problem; if no
+ * different numbers exist (no params, or single-value ranges) it still advances by one.
+ */
+export function nextSeed(props: ProblemProps, scope: Scope, seed: number): number {
+  const cur = instantiate(props, scope, seed);
+  const base = cur.ok ? cur.seed : seed;
+  for (let k = 1; k <= MAX_REDRAWS + 1; k++) {
+    const nx = instantiate(props, scope, base + k);
+    if (nx.ok && !sameValues(nx.values, cur.values)) return base + k;
+  }
+  return base + 1;
+}
+
+/** Whether `got` matches `expected`: within tol (absolute), plus a 1e-9 relative epsilon for float noise. */
+export function isCorrect(expected: number, got: number, tol: number): boolean {
+  if (!Number.isFinite(expected) || !Number.isFinite(got)) return false;
+  const t = Number.isFinite(tol) && tol > 0 ? tol : 0;
+  return Math.abs(got - expected) <= t + 1e-9 * Math.max(1, Math.abs(expected));
+}
+
+/** Would typing the shown answer pass on this instance? */
+const givesAway = (props: ProblemProps, inst: ProblemInstance, shown: number | undefined): boolean =>
+  shown !== undefined && inst.ok && isCorrect(inst.answer, shown, tolOf(props));
+
+/**
+ * A fingerprint of one concrete problem: its drawn values and its expected answer (a card
+ * variable can move the answer under the same values). What ProblemState.seen stores.
+ */
+export function instanceKey(inst: Extract<ProblemInstance, { ok: true }>): number {
+  const values = Object.keys(inst.values)
+    .sort()
+    .map((k) => [k, inst.values[k]]);
+  return hashString(JSON.stringify([values, inst.answer]));
+}
+
+/** `seen` with the numbers of `inst` added: most recent last, no duplicates, at most SEEN_CAP. */
+export function withSeen(seen: readonly number[] | undefined, inst: ProblemInstance): number[] {
+  if (!inst.ok) return [...(seen ?? [])];
+  const key = instanceKey(inst);
+  return [...(seen ?? []).filter((k) => k !== key), key].slice(-SEEN_CAP);
+}
+
+export type ShownStatus = 'none' | 'try-new' | 'all-shown' | 'fixed';
+
+/**
+ * Whether a correct answer on the numbers at `seed` counts. 'none': it does. Otherwise these
+ * numbers had their answer shown (`seen`), or the answer "Show answer" just revealed (`shown`)
+ * would itself pass here, so a correct check shows ✓ but earns nothing toward `need` or the
+ * results — else a student could copy what they were shown. Looking ahead along what "New
+ * numbers" draws: 'try-new' when some numbers there would still count; 'all-shown' when the
+ * answers vary but every one was shown; 'fixed' when the answer never changes (no params,
+ * single-value ranges, or an answer that does not depend on them). Decided on numbers and
+ * answers, never on seeds: seeds always differ, and the same numbers come back in a small range.
+ */
+export function shownStatus(
+  props: ProblemProps,
+  scope: Scope,
+  seed: number,
+  shown: number | undefined,
+  seen: readonly number[] = [],
+): ShownStatus {
+  if (shown === undefined && seen.length === 0) return 'none';
+  const isSeen = (inst: ProblemInstance): boolean => inst.ok && seen.includes(instanceKey(inst));
+  const cur = instantiate(props, scope, seed);
+  if (!cur.ok || !(givesAway(props, cur, shown) || isSeen(cur))) return 'none';
+  // Every seed New numbers can reach is one of seed+1, seed+2, …; the ones it skips repeat the
+  // numbers before them. The carried answer drops at the first draw it does not fit (carryShown).
+  let carry = shown;
+  let answerVaries = false;
+  for (let k = 1; k <= SHOWN_SCAN; k++) {
+    const nx = instantiate(props, scope, seed + k);
+    if (!nx.ok) continue;
+    if (!isCorrect(cur.answer, nx.answer, tolOf(props))) answerVaries = true;
+    if (!givesAway(props, nx, carry)) carry = undefined;
+    if (carry === undefined && !isSeen(nx)) return 'try-new';
+  }
+  return answerVaries ? 'all-shown' : 'fixed';
+}
+
+/**
+ * What "New numbers" / "Try again" carries from `cur` to `next`: the answer revealed on the
+ * current numbers (or one carried from before), kept only while it would still pass on `next`.
+ */
+export function carryShown(
+  props: ProblemProps,
+  cur: ProblemInstance,
+  st: ProblemState,
+  next: ProblemInstance,
+): number | undefined {
+  const shown = st.revealed && cur.ok ? cur.answer : st.shown;
+  return givesAway(props, next, shown) ? shown : undefined;
+}
+
+/**
+ * The last check, if it still applies. A correct check whose input no longer matches the expected
+ * answer (a card variable such as a slider, or the formula, changed since) is dropped, so the
+ * problem reopens instead of showing a stale ✓ and staying locked.
+ */
+export function freshLast(
+  props: ProblemProps,
+  inst: ProblemInstance,
+  last: ProblemState['last'],
+): ProblemState['last'] {
+  if (!last || !last.ok) return last;
+  if (!inst.ok) return undefined;
+  const p = parseNumericInput(last.input);
+  return p.ok && isCorrect(inst.answer, p.value, tolOf(props)) ? last : undefined;
+}
+
+/** An answer for display: 12 significant digits, no float noise, never "-0". */
+export function formatAnswer(n: number): string {
+  if (!Number.isFinite(n)) return String(n);
+  const r = Number(n.toPrecision(12));
+  return String(r === 0 ? 0 : r);
+}
+
+function keysOf(text: unknown): string[] {
+  return [...str(text).matchAll(KEY_RE)].map((m) => m[1]);
+}
+
+function readKeys(props: unknown): string[] {
+  const names = new Set(paramsOf(props).map((p) => p.name));
+  const p = isObj(props) ? props : {};
+  const keys = [
+    ...extractReads(str(p.answer), names),
+    ...keysOf(p.prompt).filter((k) => !names.has(k)),
+    ...keysOf(p.explain).filter((k) => !names.has(k)),
+  ];
+  return [...new Set(keys)];
+}
+
+/**
+ * Every authoring problem with these props. With `knownVars` (the card's variable names) it also
+ * flags reads no slot on the card provides — typos like `a*bb`. Without it (import-time
+ * `validate`) card reads are trusted; the card-graph check warns about missing writers.
+ */
+export function problemIssues(props: ProblemProps, knownVars?: ReadonlySet<string>): string[] {
+  if (!isObj(props)) return ['props must be an object'];
+  const errors: string[] = [];
+
+  if (typeof props.prompt !== 'string') errors.push('prompt must be a string');
+  if (props.explain !== undefined && typeof props.explain !== 'string') errors.push('explain must be a string');
+
+  const names = new Set<string>();
+  if (props.params !== undefined && !Array.isArray(props.params)) {
+    errors.push('params must be an array');
+  } else {
+    (props.params ?? []).forEach((p: unknown, i: number) => {
+      if (!isObj(p)) {
+        errors.push(`parameter ${i + 1} must be an object`);
+        return;
+      }
+      const name = p.name;
+      const label = typeof name === 'string' && IDENT.test(name) ? `parameter "${name}"` : `parameter ${i + 1}`;
+      if (typeof name !== 'string' || !IDENT.test(name)) {
+        errors.push(`${label}: ${JSON.stringify(name ?? '')} is not a valid name (letters, digits and _, not starting with a digit)`);
+      } else if (EXPR_BUILTINS.has(name) || RESERVED.has(name)) {
+        errors.push(`${label}: "${name}" is reserved — pick another name`);
+      } else if (names.has(name)) {
+        errors.push(`${label} is declared twice`);
+      } else {
+        names.add(name);
+      }
+      const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+      if (!finite(p.min)) errors.push(`${label}: min must be a number`);
+      if (!finite(p.max)) errors.push(`${label}: max must be a number`);
+      if (finite(p.min) && finite(p.max) && p.min > p.max) errors.push(`${label}: min must be ≤ max`);
+      if (p.step !== undefined && !(finite(p.step) && p.step > 0)) errors.push(`${label}: step must be greater than 0`);
+    });
+  }
+
+  if (typeof props.answer !== 'string' || !props.answer.trim()) {
+    errors.push('answer is required');
+  } else {
+    try {
+      const { identifiers } = parseExpr(props.answer);
+      const allNames = new Set(paramsOf(props).map((p) => p.name));
+      const reads = new Set(extractReads(props.answer, allNames));
+      for (const id of identifiers) {
+        if (allNames.has(id)) continue;
+        if (!reads.has(id)) errors.push(`answer: "${id}" is a built-in function — call it like ${id}(x)`);
+        else if (knownVars && !knownVars.has(id)) {
+          errors.push(`answer: unknown variable "${id}" — not a parameter or a variable on this card`);
+        }
+      }
+    } catch (e) {
+      // "Unexpected "*"" says nothing to someone (or an LLM) who meant ** as a power.
+      errors.push(
+        props.answer.includes('**')
+          ? 'answer: ** is not an operator — write powers with ^, e.g. a^2'
+          : `answer: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  if (knownVars) {
+    const allNames = new Set(paramsOf(props).map((p) => p.name));
+    for (const field of ['prompt', 'explain'] as const) {
+      for (const k of new Set(keysOf(props[field]))) {
+        if (!allNames.has(k) && !knownVars.has(k)) {
+          errors.push(`${field}: unknown variable "${k}" in {{${k}}} — not a parameter or a variable on this card`);
+        }
+      }
+    }
+  }
+
+  if (props.tol !== undefined && !(typeof props.tol === 'number' && Number.isFinite(props.tol) && props.tol >= 0)) {
+    errors.push('tol must be a number ≥ 0');
+  }
+  if (props.need !== undefined && !(Number.isSafeInteger(props.need) && props.need >= 1)) {
+    errors.push('need must be a whole number ≥ 1');
+  }
+  return errors;
+}
+
+/**
+ * Answers that are valid but probably not what the author meant — shown in the editor, never a
+ * validation error (an author may well mean (-a)^2, and errors hold back Share and Export).
+ * Today: a negated power, "-a^2 + b", which the grammar reads as (-a)^2 + b, so a student's
+ * correct −a² + b would be graded wrong on every draw. (`**` never parses: problemIssues has it.)
+ */
+export function problemWarnings(props: ProblemProps): string[] {
+  const answer = isObj(props) ? str(props.answer) : '';
+  try {
+    parseExpr(answer);
+  } catch {
+    return [];
+  }
+  return exprPitfalls(answer)
+    .filter((p) => p.kind === 'negated-power')
+    .map((p) => `answer: ${p.message}. To negate the power, parenthesize it: -(${p.name}^2), not -${p.name}^2.`);
+}
+
+export const problemSlot: SlotType<ProblemProps> = {
+  type: 'problem',
+  kind: 'interact',
+  completable: true,
+
+  create(): ProblemProps {
+    return {
+      prompt: 'What is {{a}} × {{b}}?',
+      params: [
+        { name: 'a', min: 2, max: 12, step: 1 },
+        { name: 'b', min: 2, max: 12, step: 1 },
+      ],
+      answer: 'a*b',
+      tol: 0,
+      need: 1,
+    };
+  },
+
+  variables(props: ProblemProps): { reads: VarDeclaration[]; writes: VarDeclaration[] } {
+    // Params are slot-local: they shadow card variables inside this slot and are never written.
+    return { reads: readKeys(props).map((key) => ({ key, type: 'number' as const })), writes: [] };
+  },
+
+  isDone(props: ProblemProps, state: Record<string, unknown>): boolean {
+    return readProblemState(state).correct >= needOf(props);
+  },
+
+  // One question, like every other score(): answered once tried, correct once done (`need` met).
+  // The raw counts — "3 correct in 7 tries" — are practice, reported apart from the questions.
+  score(props: ProblemProps, state: Record<string, unknown> | undefined) {
+    const s = readProblemState(state);
+    const done = s.correct >= needOf(props);
+    return {
+      correct: done ? 1 : 0,
+      answered: done || s.attempts > 0 ? 1 : 0,
+      practice: { correct: s.correct, attempts: s.attempts },
+    };
+  },
+
+  validate(props: ProblemProps): string[] {
+    return problemIssues(props);
+  },
+
+  renderEdit: ProblemEdit,
+  renderStudy: ProblemStudy,
+};

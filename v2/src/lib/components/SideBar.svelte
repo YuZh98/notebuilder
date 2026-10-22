@@ -4,6 +4,8 @@
   import ProductDetail from './ProductDetail.svelte';
   import CardPanel from './CardPanel.svelte';
   import TagsPanel from './TagsPanel.svelte';
+  import DraftsBar from './DraftsBar.svelte';
+  import VersionsPanel from './VersionsPanel.svelte';
   import {
     SERVICE_ORDER,
     SERVICE_FEATURES,
@@ -14,6 +16,7 @@
   import { STORES, type CardType, type Variety } from '../card-types';
   import type { Card, Section, SlotProps } from '../types';
   import type { Scope } from '../variable-graph';
+  import type { SnapshotMeta } from '../snapshots';
 
   let {
     notebookName,
@@ -47,6 +50,12 @@
     onvariety,
     onsvctoggle,
     onsvcgrip,
+    drafts = 0,
+    ondraftnext,
+    ondraftsreviewed,
+    versions = null,
+    onversionsave,
+    onversionrestore,
   }: {
     notebookName: string;
     canPersist: boolean;
@@ -84,6 +93,14 @@
     onsvctoggle?: (key: ServiceKey) => void;
     /** Chip pointerdown → the owner starts the svcattach engine drag (section attach / dust detach). */
     onsvcgrip?: (key: ServiceKey, ev: PointerEvent, srcEl: HTMLElement) => void;
+    /** D2d — AI draft cards still to review (the bar hides at 0, the default). */
+    drafts?: number;
+    ondraftnext?: () => void;
+    ondraftsreviewed?: () => void;
+    /** W7 — the open notebook's stored versions; null (the default) hides the panel (no storage). */
+    versions?: SnapshotMeta[] | null;
+    onversionsave?: () => void;
+    onversionrestore?: (id: string) => void;
   } = $props();
 
   const selType = $derived(selProd ? (cardTypes.find((t) => t.id === selProd) ?? null) : null);
@@ -113,6 +130,8 @@
       <h3>📓 Notebook</h3>
       <div class="col">
         <input value={notebookName} placeholder="notebook name" data-history="edit" onchange={(e) => onrename(e.currentTarget.value)} />
+        <DraftsBar count={drafts} onnext={() => ondraftnext?.()} onmarkall={() => ondraftsreviewed?.()} />
+        {#if canPersist && versions}<VersionsPanel {versions} onsave={() => onversionsave?.()} onrestore={(id) => onversionrestore?.(id)} />{/if}
         {#if candelete}
           <button class="btn warn" onclick={ondelete}>🗑 Delete notebook</button>
         {/if}
@@ -165,7 +184,7 @@
         {#if section}<span class="muted sm">{section.name}</span>{/if}
       </h4>
       {#if !secOpsFolded}
-        <div class="palette" style="margin:6px 0">
+        <div class="palette" style="margin:var(--space-3) 0">
           {#each SERVICE_ORDER as key (key)}
             {@const cap = svcCap(key)}
             <button

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { plotSVG, sampleCurve, resolveYRange, buildPath, hoverAt, fmtNum } from './plot';
 
