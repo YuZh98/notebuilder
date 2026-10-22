@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const DEMOS = [
-  { file: 'practice-lesson', out: 'percent-change', theme: 'sketch' },
+  { file: 'practice-lesson', out: 'percent-change', theme: 'study' },
   { file: 'compound-interest', out: 'compound-interest' },
   { file: 'grand-tour', out: 'grand-tour' },
 ];

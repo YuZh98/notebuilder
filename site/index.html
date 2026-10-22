@@ -8,46 +8,46 @@
 <meta name="description" content="Build study lessons from live cards: sliders, formulas, charts, quizzes and practice problems. Share one file that works offline on any device and remembers each student's progress.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap">
+<script>try { const t = localStorage.getItem('nb-site-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <style>
-/* Layout: a notebook of full-height pages on engineering paper (light) or blueprint (dark);
-   pages snap like slides, ink is navy, live values are teal, margin notes are red pen. */
+/* A quiet study notebook: warm dotted paper, italic serif headlines, book serif text, small
+   letter-spaced mono for the interface, hairline frames with square corners. Live values are
+   teal; margin notes are red pen. Panels are "specimens": the product, framed and captioned. */
 :root {
-  --paper: #edf2ee;
-  --paper-2: #e2eae5;
-  --grid: rgba(28, 92, 80, 0.10);
-  --grid-major: rgba(28, 92, 80, 0.20);
-  --ink: #15233d;
-  --ink-soft: #4a5872;
-  --live: #0a7a6c;
-  --pen: #c3352b;
-  --marker: #ffe14a;
-  --marker-ink: #15233d;
-  --card: #ffffff;
-  --edge: rgba(21, 35, 61, 0.14);
-  --shadow: 0 1px 0 rgba(21, 35, 61, 0.05), 0 18px 40px -18px rgba(21, 35, 61, 0.35);
-  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
-  --cell: 24px;
+  --paper: #eeece6;
+  --panel: #f7f6f2;
+  --panel-head: #ebe9e3;
+  --dot: rgba(50, 46, 38, 0.22);
+  --ink: #25282e;
+  --ink-soft: #555a63;
+  --ink-faint: #82868d;
+  --rule: rgba(37, 40, 46, 0.15);
+  --rule-strong: rgba(37, 40, 46, 0.34);
+  --live: #2b786e;
+  --live-tint: rgba(43, 120, 110, 0.09);
+  --pen: #ad4639;
+  --marker: rgba(244, 204, 74, 0.6);
+  --lift: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 18px 40px -26px rgba(37, 40, 46, 0.38);
+  --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0d2445; --paper-2: #0a1d39;
-    --grid: rgba(150, 200, 255, 0.08); --grid-major: rgba(150, 200, 255, 0.16);
-    --ink: #eaf2ff; --ink-soft: #a7bcdc; --live: #5fe3d1; --pen: #ff8b7b;
-    --marker: #f4d64a; --marker-ink: #15233d; --card: #12305a; --edge: rgba(234, 242, 255, 0.16);
-    --shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 18px 40px -18px rgba(0, 0, 0, 0.7);
+    --paper: #16181b; --panel: #1d2024; --panel-head: #22252a; --dot: rgba(231, 226, 214, 0.09);
+    --ink: #e8e4db; --ink-soft: #aba79f; --ink-faint: #7f7d77; --rule: rgba(232, 228, 219, 0.12);
+    --rule-strong: rgba(232, 228, 219, 0.28); --live: #74c8ba; --live-tint: rgba(116, 200, 186, 0.09);
+    --pen: #e8907f; --marker: rgba(236, 192, 72, 0.42); --lift: 0 20px 44px -26px rgba(0, 0, 0, 0.9);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #0d2445; --paper-2: #0a1d39;
-  --grid: rgba(150, 200, 255, 0.08); --grid-major: rgba(150, 200, 255, 0.16);
-  --ink: #eaf2ff; --ink-soft: #a7bcdc; --live: #5fe3d1; --pen: #ff8b7b;
-  --marker: #f4d64a; --marker-ink: #15233d; --card: #12305a; --edge: rgba(234, 242, 255, 0.16);
-  --shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 18px 40px -18px rgba(0, 0, 0, 0.7);
+  --paper: #16181b; --panel: #1d2024; --panel-head: #22252a; --dot: rgba(231, 226, 214, 0.09);
+  --ink: #e8e4db; --ink-soft: #aba79f; --ink-faint: #7f7d77; --rule: rgba(232, 228, 219, 0.12);
+  --rule-strong: rgba(232, 228, 219, 0.28); --live: #74c8ba; --live-tint: rgba(116, 200, 186, 0.09);
+  --pen: #e8907f; --marker: rgba(236, 192, 72, 0.42); --lift: 0 20px 44px -26px rgba(0, 0, 0, 0.9);
   color-scheme: dark;
 }
 
@@ -56,261 +56,319 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 400 17px/1.55 var(--font-body);
+  font: 400 18px/1.6 var(--serif);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
 }
-body::after { /* the paper */
+body::before { /* dotted notebook paper */
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background-image:
-    linear-gradient(var(--grid-major) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: calc(var(--cell) * 5) calc(var(--cell) * 5), calc(var(--cell) * 5) calc(var(--cell) * 5), var(--cell) var(--cell), var(--cell) var(--cell);
+  background-image: radial-gradient(circle, var(--dot) 0.9px, transparent 1.2px);
+  background-size: 20px 20px; background-position: 10px 10px;
 }
-a { color: inherit; }
-:focus-visible { outline: 3px solid var(--live); outline-offset: 3px; border-radius: 4px; }
-mark { -webkit-box-decoration-break: clone; box-decoration-break: clone; background: linear-gradient(transparent 12%, var(--marker) 12%, var(--marker) 88%, transparent 88%); color: var(--marker-ink); padding: 0 0.12em; border-radius: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: var(--rule-strong); }
+a:hover { text-decoration-color: currentColor; }
+:focus-visible { outline: 2px solid var(--live); outline-offset: 3px; }
+::selection { background: var(--marker); }
+mark {
+  color: inherit; padding: 0 0.06em;
+  background: linear-gradient(transparent 66%, var(--marker) 66%, var(--marker) 91%, transparent 91%) no-repeat;
+  background-size: 100% 100%;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+p { margin: 0 0 14px; }
+code { font: 400 0.8em/1.4 var(--mono); padding: 2px 6px; border: 1px solid var(--rule); background: var(--panel); }
+.label { font: 500 11.5px/1.3 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.accent { color: var(--live); }
+.fine { font-size: 15px; color: var(--ink-faint); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hand { font-family: var(--hand); font-weight: 600; color: var(--pen); line-height: 1; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.live { color: var(--live); font-weight: 600; }
 
 /* ---------- chrome ---------- */
-.topbar {
-  position: fixed; inset: 0 0 auto 0; z-index: 20;
+.nav {
+  position: fixed; z-index: 30;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1180px; margin-inline: auto; height: 52px; box-sizing: border-box;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-bottom: 10px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--edge);
+  padding: 0 8px 0 16px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--lift);
 }
-.wordmark { font: 800 20px/1 var(--font-display); letter-spacing: -0.02em; text-decoration: none; display: flex; align-items: center; gap: 8px; }
-.wordmark svg { width: 22px; height: 22px; }
-.wordmark b { color: var(--live); font-weight: 800; }
-.topbar nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--live); transition: width 0.25s ease; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 600 12.5px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; }
+.brand svg { width: 22px; height: 22px; flex: none; }
+.nav-links { display: flex; gap: 24px; }
+.nav-links a { font: 500 11.5px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); text-decoration: none; }
+.nav-links a:hover { color: var(--ink); }
+.nav-end { display: flex; gap: 6px; align-items: center; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid transparent; background: transparent; color: var(--ink-soft); cursor: pointer; padding: 0; }
+.icon-btn:hover { border-color: var(--rule); color: var(--ink); }
+.icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.progress { position: absolute; left: -1px; bottom: -1px; height: 1px; width: 0; background: var(--live); transition: width 0.2s linear; }
 
 .btn {
-  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
-  font: 700 15px/1 var(--font-body); text-decoration: none; cursor: pointer;
-  padding: 11px 16px; border-radius: 10px; border: 1.5px solid var(--ink);
-  background: transparent; color: var(--ink); transition: transform 0.15s ease, background 0.15s ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  font: 500 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none;
+  color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong);
+  padding: 13px 16px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.btn:hover { transform: translateY(-1px); }
-.btn.solid { background: var(--ink); color: var(--paper); }
-.btn.small { padding: 8px 12px; font-size: 14px; border-width: 1px; }
-.btn.ghost { border-color: transparent; }
+.btn:hover { border-color: var(--ink); background: var(--panel-head); }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.primary:hover { background: color-mix(in srgb, var(--ink) 86%, var(--live)); }
+.btn.small { padding: 9px 12px; font-size: 11px; }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.btn.quiet:hover { color: var(--ink); border-color: var(--rule); }
+.btn .arr { opacity: 0.65; }
 
-.dots { position: fixed; z-index: 20; right: max(14px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; }
-.dots a { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink-soft); display: block; }
-.dots a[aria-current="true"] { background: var(--live); border-color: var(--live); transform: scale(1.25); }
+.dots { position: fixed; z-index: 20; right: max(18px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 12px; }
+.dots a { width: 7px; height: 7px; border: 1px solid var(--ink-faint); display: block; box-sizing: border-box; }
+.dots a[aria-current="true"] { background: var(--live); border-color: var(--live); }
 .pageno {
-  position: fixed; z-index: 20; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  font: 600 12px/1 var(--font-mono); color: var(--ink-soft); letter-spacing: 0.08em; text-transform: uppercase;
+  position: fixed; z-index: 20; left: max(18px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  font: 500 11px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint);
 }
 
 /* ---------- deck ---------- */
 .deck { position: relative; z-index: 1; height: 100%; overflow-y: auto; scroll-snap-type: y proximity; scroll-behavior: smooth; }
 @media (min-width: 960px) and (min-height: 820px) { .deck { scroll-snap-type: y mandatory; } }
 .slide {
-  min-height: 100%; scroll-snap-align: start; box-sizing: border-box;
+  min-height: 100%; box-sizing: border-box; scroll-snap-align: start;
   display: grid; grid-template-columns: minmax(0, 1fr); align-items: center;
-  padding-block: calc(84px + env(safe-area-inset-top, 0px)) 72px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(44px, env(safe-area-inset-right, 0px));
+  padding-block: calc(100px + env(safe-area-inset-top, 0px)) 64px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(48px, env(safe-area-inset-right, 0px));
 }
-.wrap { width: 100%; max-width: 1180px; margin-inline: auto; }
-.split { display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(28px, 5vw, 72px); align-items: center; }
-.split > * { min-width: 0; }
-@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.wrap { width: 100%; max-width: 1140px; margin-inline: auto; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: clamp(32px, 6vw, 88px); align-items: center; }
+.split.media-left { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .split, .split.media-left { grid-template-columns: minmax(0, 1fr); } }
 
-.eyebrow { font: 600 12.5px/1.2 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--live); margin: 0 0 14px; }
-h1, h2 { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.035em; line-height: 0.98; margin: 0 0 18px; text-wrap: balance; }
-h1 { font-size: clamp(46px, 7.4vw, 104px); font-variation-settings: "opsz" 96; }
-h2 { font-size: clamp(36px, 5.2vw, 72px); font-variation-settings: "opsz" 96; }
-h3 { font: 700 20px/1.25 var(--font-display); margin: 0 0 6px; letter-spacing: -0.01em; }
-.lede { font-size: clamp(18px, 1.6vw, 21px); color: var(--ink-soft); max-width: 36em; margin: 0 0 26px; }
-.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.fine { font-size: 14px; color: var(--ink-soft); }
-.hand { font-family: var(--font-hand); color: var(--pen); font-weight: 700; line-height: 1; }
-.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.live { color: var(--live); font-weight: 700; }
+.eyebrow { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; font: 500 11.5px/1.3 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--ink-faint); flex: none; }
+h1, h2, h3 { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(46px, 6.4vw, 94px); line-height: 1.0; letter-spacing: -0.025em; margin-bottom: 24px; }
+h2 { font-size: clamp(36px, 4.6vw, 64px); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 22px; }
+h3 { font-size: 23px; line-height: 1.2; letter-spacing: -0.005em; margin-bottom: 8px; }
+.lede { font-size: clamp(18.5px, 1.45vw, 21px); line-height: 1.55; color: var(--ink-soft); max-width: 33em; margin: 0 0 30px; }
+.center { text-align: center; }
+.center .lede { margin-inline: auto; }
+.center .eyebrow { justify-content: center; }
 
-/* the NoteBuilder card */
-.card {
-  position: relative; background: var(--card); border: 1px solid var(--edge); border-radius: 14px;
-  box-shadow: var(--shadow); padding: 20px 22px; box-sizing: border-box;
+/* specimen panels */
+.panel { position: relative; background: var(--panel); border: 1px solid var(--rule); box-shadow: var(--lift); }
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--panel-head);
+  font: 500 11px/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft);
 }
-.card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--live); }
-.card-title { font: 700 13px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 14px; display: flex; justify-content: space-between; gap: 12px; }
+.panel-head .t { display: flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.panel-head .t::before { content: ""; flex: none; width: 7px; height: 7px; background: var(--live); }
+.status { color: var(--live); display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.status.pulse::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+.panel-body { padding: 20px 22px; }
+.panel-foot { padding: 10px 14px; border-top: 1px solid var(--rule); font: 400 12px/1.5 var(--mono); color: var(--ink-faint); }
 
-/* ---------- 1: hero ---------- */
-.hero-card { max-width: 520px; justify-self: end; width: 100%; }
-.ctl { display: grid; grid-template-columns: 4.6em 1fr auto; gap: 12px; align-items: center; margin-bottom: 10px; }
-.ctl label { font: 600 15px/1 var(--font-mono); }
-.ctl output { font: 600 15px/1 var(--font-mono); color: var(--live); min-width: 5.5em; text-align: right; }
-input[type="range"] { width: 100%; accent-color: var(--live); }
-.formula { font: 400 15px/1.4 var(--font-mono); padding: 10px 12px; margin: 6px 0 12px; border-radius: 8px; background: var(--paper-2); overflow-x: auto; white-space: nowrap; }
+/* ---------- 1: start ---------- */
+.news { margin: 0 0 26px; font-style: italic; font-size: 16.5px; color: var(--ink-soft); }
+.news .tag { margin-right: 8px; }
+.news a { white-space: nowrap; }
+.tag { display: inline-block; font: 600 10px/1 var(--mono); font-style: normal; letter-spacing: 0.14em; text-transform: uppercase; color: var(--live); border: 1px solid currentColor; padding: 4px 6px; position: relative; top: -2px; }
+.hero-card { width: 100%; max-width: 540px; justify-self: end; }
+.ctl { display: grid; grid-template-columns: 3.2em 1fr 5.6em; gap: 14px; align-items: center; margin-bottom: 12px; }
+.ctl label { font: 500 13px/1 var(--mono); color: var(--ink-soft); }
+.ctl output { font: 600 14px/1 var(--mono); color: var(--live); text-align: right; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--live); margin: 0; }
+.formula { font: 400 14px/1.45 var(--mono); padding: 10px 12px; margin: 8px 0 14px; border: 1px solid var(--rule); background: var(--panel-head); overflow-x: auto; white-space: nowrap; }
 .formula sup { font-size: 0.72em; }
-.prose { margin: 0 0 10px; font-size: 16.5px; }
+.prose { margin: 0 0 10px; font-size: 17.5px; color: var(--ink-soft); }
 .chart { width: 100%; height: auto; display: block; }
-.chart text { fill: var(--ink-soft); font: 400 10px var(--font-mono); }
-.chart .axis { stroke: var(--edge); stroke-width: 1; }
-.chart .curve { fill: none; stroke: var(--live); stroke-width: 2.5; }
-.chart .area { fill: var(--live); opacity: 0.12; }
+.chart text { fill: var(--ink-faint); font: 400 10px var(--mono); }
+.chart .axis { stroke: var(--rule); stroke-width: 1; }
+.chart .curve { fill: none; stroke: var(--live); stroke-width: 2; }
+.chart .area { fill: var(--live); opacity: 0.08; }
 .chart .pin { fill: var(--pen); }
-.chart .pinline { stroke: var(--pen); stroke-dasharray: 3 3; }
-.note { position: absolute; font-size: 26px; white-space: nowrap; pointer-events: none; }
+.chart .pinline { stroke: var(--pen); stroke-dasharray: 2 3; }
+.note { position: absolute; font-size: 24px; white-space: nowrap; pointer-events: none; }
 .note svg { position: absolute; overflow: visible; }
-.note path { fill: none; stroke: var(--pen); stroke-width: 2; stroke-linecap: round; }
-.note-drag { left: -128px; top: 64px; transform: rotate(-6deg); }
-.note-live { right: -18px; bottom: -44px; transform: rotate(-3deg); }
-@media (max-width: 1100px) { .note-drag { left: auto; right: 12px; top: -34px; } .note-drag svg { display: none; } }
-@media (max-width: 560px) { .note-live { right: 0; bottom: -40px; font-size: 22px; } .formula { white-space: normal; font-size: 13.5px; } }
+.note path { fill: none; stroke: var(--pen); stroke-width: 1.6; stroke-linecap: round; }
+.note-drag { left: -152px; top: 50px; transform: rotate(-5deg); }
+.note-live { right: -6px; bottom: -40px; transform: rotate(-2deg); }
+@media (max-width: 1100px) { .note-drag { left: auto; right: 14px; top: -32px; } .note-drag svg { display: none; } }
+@media (max-width: 560px) { .note-live { right: 0; bottom: -36px; font-size: 20px; } .formula { white-space: normal; font-size: 13px; } }
 
 /* ---------- 2: why ---------- */
-.evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 28px 0 22px; }
-@media (max-width: 860px) { .evidence { grid-template-columns: minmax(0, 1fr); } }
-.ev { border-top: 2px solid var(--ink); padding-top: 14px; }
-.ev .big { font: 800 clamp(30px, 3.4vw, 44px)/1 var(--font-display); letter-spacing: -0.03em; margin-bottom: 8px; }
-.ev p { margin: 0 0 8px; }
-.ev cite { font: 400 12.5px/1.4 var(--font-mono); color: var(--ink-soft); font-style: normal; }
+.evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 30px 0 26px; border-top: 1px solid var(--rule-strong); }
+.ev { padding: 22px 26px 4px 0; }
+.ev + .ev { padding-left: 26px; border-left: 1px solid var(--rule); }
+.ev .big { font: italic 400 clamp(34px, 3.6vw, 50px)/1 var(--serif); letter-spacing: -0.02em; margin-bottom: 14px; }
+.ev p { color: var(--ink-soft); font-size: 17px; }
+.ev cite { display: block; font: 400 11.5px/1.5 var(--mono); font-style: normal; color: var(--ink-faint); }
+@media (max-width: 860px) {
+  .evidence { grid-template-columns: minmax(0, 1fr); }
+  .ev, .ev + .ev { padding: 18px 0 4px; border-left: 0; }
+  .ev + .ev { border-top: 1px solid var(--rule); }
+}
 .maps { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { font: 600 13.5px/1 var(--font-mono); padding: 8px 11px; border-radius: 999px; border: 1px solid var(--edge); background: var(--card); }
+.chip { font: 500 12px/1 var(--mono); padding: 9px 12px; border: 1px solid var(--rule-strong); background: var(--panel); }
 .chip i { font-style: normal; color: var(--live); }
 
-/* ---------- 3: slots ---------- */
-.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 22px 0 14px; }
+/* ---------- 3: cards ---------- */
+.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 26px 0 16px; }
 @media (max-width: 480px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .slot-btn {
   display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
-  font: 600 14.5px/1.15 var(--font-body); color: var(--ink);
-  padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--ink-soft); background: transparent;
+  font: 400 15.5px/1.15 var(--serif); color: var(--ink-soft);
+  padding: 10px 11px; border: 1px dashed var(--rule-strong); background: transparent;
 }
-.slot-btn svg { flex: none; width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
-.slot-btn[aria-pressed="true"] { border-style: solid; border-color: var(--live); background: var(--card); color: var(--live); box-shadow: var(--shadow); }
-.builder { min-height: 360px; display: flex; flex-direction: column; gap: 10px; }
-.mini { border: 1px solid var(--edge); border-radius: 9px; padding: 10px 12px; background: var(--paper-2); animation: drop 0.35s ease both; }
-.mini small { display: block; font: 600 11px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 7px; }
-.bar { height: 7px; border-radius: 4px; background: var(--edge); }
+.slot-btn svg { flex: none; width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+.slot-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.slot-btn[aria-pressed="true"] { border-style: solid; border-color: var(--live); color: var(--ink); background: var(--panel); }
+.slot-btn[aria-pressed="true"] svg { stroke: var(--live); }
+.builder-body { min-height: 330px; display: flex; flex-direction: column; gap: 8px; }
+.mini { border: 1px solid var(--rule); background: var(--paper); padding: 10px 12px; animation: drop 0.35s ease both; }
+.mini small { display: block; font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px; }
+.bar { height: 6px; background: var(--rule); }
 .bar.short { width: 60%; margin-top: 6px; }
-.track { height: 4px; border-radius: 2px; background: var(--edge); position: relative; margin: 8px 0 4px; }
-.track::after { content: ""; position: absolute; left: 42%; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--live); }
-.opts { display: grid; gap: 5px; }
-.opts span { font-size: 13.5px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--edge); background: var(--card); }
-.opts span.ok { border-color: var(--live); color: var(--live); font-weight: 700; }
-.empty-builder { font-family: var(--font-hand); font-size: 26px; color: var(--pen); text-align: center; margin: auto; }
-@keyframes drop { from { transform: translateY(-8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.track { height: 2px; background: var(--rule-strong); position: relative; margin: 10px 0 6px; }
+.track::after { content: ""; position: absolute; left: 42%; top: -6px; width: 14px; height: 14px; border-radius: 50%; background: var(--live); }
+.opts { display: grid; gap: 4px; }
+.opts span { font-size: 15px; padding: 4px 8px; border: 1px solid var(--rule); background: var(--panel); }
+.opts span.ok { border-color: var(--live); color: var(--live); }
+.empty-builder { font-family: var(--hand); font-size: 26px; color: var(--pen); text-align: center; margin: auto; }
+@keyframes drop { from { transform: translateY(-6px); opacity: 0.3; } to { transform: none; opacity: 1; } }
 
-/* ---------- 4: AI ---------- */
-.steps { list-style: none; padding: 0; margin: 22px 0 18px; display: grid; gap: 6px; counter-reset: step; }
-.steps li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
-.steps li::before { content: counter(step); font: 700 14px/30px var(--font-mono); width: 30px; height: 30px; text-align: center; border-radius: 50%; border: 1.5px solid var(--ink-soft); }
-.steps li[aria-current="step"] { background: var(--card); border-color: var(--edge); box-shadow: var(--shadow); }
-.steps li[aria-current="step"]::before { background: var(--live); border-color: var(--live); color: var(--paper); }
-.steps b { display: block; font-family: var(--font-display); font-size: 18px; }
-.steps span { color: var(--ink-soft); font-size: 15px; }
-.window { padding: 0; overflow: hidden; }
-.window::before { display: none; }
-.win-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--edge); background: var(--paper-2); align-items: center; }
-.win-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--edge); }
-.win-bar span { margin-left: 8px; font: 600 12px/1 var(--font-mono); color: var(--ink-soft); }
-.win-body { padding: 18px; min-height: 300px; font-size: 15px; }
-.win-body pre { font: 400 12.5px/1.5 var(--font-mono); background: var(--paper-2); padding: 12px; border-radius: 8px; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; }
-.issue { border-left: 3px solid var(--pen); padding: 8px 12px; background: var(--paper-2); border-radius: 0 8px 8px 0; margin-bottom: 10px; }
-.issue .where { font: 600 12px/1.3 var(--font-mono); color: var(--ink-soft); }
+/* ---------- 4: from AI ---------- */
+.steps { list-style: none; padding: 0; margin: 26px 0 18px; display: grid; gap: 2px; counter-reset: step; }
+.steps li {
+  counter-increment: step; display: grid; grid-template-columns: 36px 1fr; gap: 10px;
+  padding: 12px 14px 12px 12px; cursor: pointer; border: 1px solid transparent; border-left: 2px solid transparent;
+}
+.steps li::before { content: counter(step, decimal-leading-zero); font: 500 12px/2 var(--mono); letter-spacing: 0.08em; color: var(--ink-faint); }
+.steps li[aria-current="step"] { background: var(--panel); border-color: var(--rule); border-left-color: var(--live); }
+.steps li[aria-current="step"]::before { color: var(--live); }
+.steps b { display: block; font: italic 400 21px/1.3 var(--serif); color: var(--ink); }
+.steps span { color: var(--ink-soft); font-size: 16px; }
+.win-body { min-height: 300px; font-size: 16px; }
+.win-body pre { font: 400 12.5px/1.55 var(--mono); background: var(--panel-head); border: 1px solid var(--rule); padding: 12px; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; color: var(--ink); }
+.issue { border-left: 2px solid var(--pen); padding: 10px 12px; background: var(--panel-head); margin-bottom: 12px; }
+.issue .where { font: 500 11.5px/1.4 var(--mono); color: var(--ink-faint); margin-bottom: 4px; }
 .issue .fix b { color: var(--live); }
-.draft { display: flex; justify-content: space-between; align-items: center; border: 1px dashed var(--ink-soft); border-radius: 9px; padding: 10px 12px; margin-bottom: 8px; }
-.draft em { font: 700 11px/1 var(--font-mono); font-style: normal; color: var(--pen); border: 1px dashed var(--pen); padding: 4px 6px; border-radius: 6px; }
+.draft { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed var(--rule-strong); padding: 10px 12px; margin-bottom: 6px; }
+.draft em { font: 600 10.5px/1 var(--mono); font-style: normal; letter-spacing: 0.12em; color: var(--pen); border: 1px dashed currentColor; padding: 4px 6px; white-space: nowrap; }
 .draft.ok { border-style: solid; border-color: var(--live); }
-.draft.ok em { color: var(--live); border-color: var(--live); border-style: solid; }
+.draft.ok em { color: var(--live); border-style: solid; }
 
 /* ---------- 5: practice ---------- */
-.problem .q { font-size: clamp(20px, 2vw, 25px); font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 16px; }
+.problem .q { font: italic 400 clamp(22px, 2.1vw, 27px)/1.3 var(--serif); margin: 0 0 18px; }
 .answer-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.answer-row label { flex-basis: 100%; }
 .answer-row input {
-  flex: 1 1 10em; min-width: 0; font: 600 18px/1 var(--font-mono); padding: 12px 14px; border-radius: 10px;
-  border: 1.5px solid var(--edge); background: var(--paper-2); color: var(--ink);
+  flex: 1 1 9em; min-width: 0; font: 500 17px/1 var(--mono); padding: 12px 14px; border-radius: 0;
+  border: 1px solid var(--rule-strong); background: var(--paper); color: var(--ink);
 }
-.feedback { min-height: 28px; margin: 12px 0 6px; font-weight: 700; }
+.answer-row input:focus { outline: none; border-color: var(--live); box-shadow: 0 0 0 3px var(--live-tint); }
+.feedback { min-height: 26px; margin: 14px 0 8px; font-size: 16.5px; }
 .feedback.ok { color: var(--live); }
 .feedback.no { color: var(--pen); }
-.streak { display: flex; gap: 6px; align-items: center; font: 600 13px/1 var(--font-mono); color: var(--ink-soft); }
-.streak i { width: 22px; height: 6px; border-radius: 3px; background: var(--edge); }
+.streak { display: flex; gap: 6px; align-items: center; font: 500 11.5px/1 var(--mono); letter-spacing: 0.08em; color: var(--ink-faint); }
+.streak i { width: 18px; height: 6px; background: var(--rule); }
 .streak i.on { background: var(--live); }
-.facts { display: grid; gap: 14px; }
-.fact { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; }
-.fact svg { width: 22px; height: 22px; stroke: var(--live); fill: none; stroke-width: 2; margin-top: 3px; }
+.points { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 18px; }
+.points li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; color: var(--ink-soft); }
+.points li::before { content: attr(data-k); font: 500 12px/1.9 var(--mono); color: var(--live); }
+.points b { color: var(--ink); font-weight: 600; }
 
 /* ---------- 6: share ---------- */
-.file { display: inline-flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; background: var(--card); border: 1px solid var(--edge); box-shadow: var(--shadow); font: 600 15px/1.2 var(--font-mono); }
-.file svg { width: 28px; height: 34px; }
-.devices { display: flex; align-items: flex-end; gap: clamp(10px, 2vw, 24px); margin-top: 26px; flex-wrap: wrap; }
-.dev { border: 2px solid var(--ink); border-radius: 12px; background: var(--card); position: relative; overflow: hidden; }
-.dev .scr { position: absolute; inset: 8px; border-radius: 6px; background: var(--paper-2); display: flex; flex-direction: column; gap: 6px; padding: 8px; }
-.dev .scr .bar { height: 6px; }
-.dev .scr .tick { font: 700 11px/1 var(--font-mono); color: var(--live); }
-.laptop { width: min(250px, 60vw); height: 160px; }
-.tablet { width: 120px; height: 160px; }
-.phone { width: 70px; height: 130px; border-radius: 14px; }
-.points { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
-.points li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; }
-.points svg { width: 22px; height: 22px; stroke: var(--live); fill: none; stroke-width: 2; margin-top: 3px; }
+.file { display: inline-flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--rule); background: var(--panel); box-shadow: var(--lift); font: 500 13.5px/1.4 var(--mono); }
+.file svg { width: 26px; height: 32px; flex: none; }
+.file small { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-faint); letter-spacing: 0.04em; }
+.devices { display: flex; align-items: flex-end; gap: clamp(12px, 2vw, 26px); margin-top: 28px; flex-wrap: wrap; }
+.dev { border: 1px solid var(--rule-strong); background: var(--panel); position: relative; overflow: hidden; }
+.dev .scr { position: absolute; inset: 7px; background: var(--paper); border: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.dev .tick { font: 500 10.5px/1.2 var(--mono); color: var(--live); letter-spacing: 0.04em; }
+.laptop { width: min(250px, 60vw); height: 158px; }
+.tablet { width: 118px; height: 158px; }
+.phone { width: 68px; height: 128px; border-radius: 12px; }
 
 /* ---------- 7: demo ---------- */
-#demo h2 { font-size: clamp(32px, 4.2vw, 58px); }
-#demo .lede { margin-bottom: 18px; }
-.demo-frame { width: 100%; height: clamp(340px, calc(100vh - 400px), 640px); border-radius: 14px; overflow: hidden; border: 1px solid var(--edge); box-shadow: var(--shadow); background: var(--card); position: relative; max-width: 100%; }
+#demo h2 { font-size: clamp(32px, 4vw, 54px); }
+#demo .lede { margin-bottom: 22px; }
+.demo-frame { height: clamp(340px, calc(100vh - 445px), 620px); position: relative; background: var(--paper); }
 .demo-frame iframe { width: 100%; height: 100%; border: 0; display: block; position: relative; z-index: 1; }
-.demo-frame .fallback { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--ink-soft); }
-.demo-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
-@media (max-width: 700px) { .demo-frame { height: 70vh; } }
+.demo-frame .fallback { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--ink-faint); }
+.demo-links { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
+.demo-links a { font: 500 11.5px/1.5 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+@media (max-width: 700px) { .demo-frame { height: 66vh; } }
 
 /* ---------- 8: trust ---------- */
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); margin: 26px 0; }
-@media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.tile { padding: 18px 14px; border-right: 1px solid var(--edge); }
-.tile:last-child { border-right: 0; }
-.tile .big { font: 800 clamp(38px, 4.4vw, 60px)/1 var(--font-display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
-.tile p { margin: 6px 0 0; font-size: 14.5px; color: var(--ink-soft); }
-.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
-@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
-.cols p { margin: 0; color: var(--ink-soft); font-size: 15.5px; }
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 48px; margin-top: 44px; }
+.feature svg { width: 30px; height: 30px; stroke: var(--ink-soft); fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 12px; }
+.feature p { color: var(--ink-soft); font-size: 16.5px; max-width: 24em; margin: 0 auto; }
+@media (max-width: 860px) { .features { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
 
 /* ---------- 9: compare ---------- */
-.table-wrap { overflow-x: auto; margin-top: 24px; border-radius: 12px; border: 1px solid var(--edge); background: var(--card); box-shadow: var(--shadow); }
-table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
-th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--edge); vertical-align: top; }
-thead th { font: 700 12px/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); background: var(--paper-2); }
+.table-wrap { overflow-x: auto; margin-top: 28px; border: 1px solid var(--rule); background: var(--panel); box-shadow: var(--lift); }
+table { border-collapse: collapse; width: 100%; min-width: 660px; font-size: 16.5px; }
+th, td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+td { color: var(--ink-soft); }
+thead th { font: 500 11px/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); background: var(--panel-head); }
+tbody th { font-weight: 400; font-style: italic; color: var(--ink); }
+.us { background: var(--live-tint); }
 thead th.us { color: var(--live); }
-tbody th { font-weight: 700; }
-td.us { font-weight: 700; color: var(--live); }
-td .soon { color: var(--pen); font-weight: 700; }
+td.us { color: var(--ink); }
+td .yes { color: var(--live); }
+td .soon { color: var(--pen); font-style: italic; }
 tr:last-child th, tr:last-child td { border-bottom: 0; }
 
 /* ---------- 10: get ---------- */
-.get h2 { font-size: clamp(42px, 6.6vw, 92px); }
-.install { margin-top: 26px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-@media (max-width: 860px) { .install { grid-template-columns: minmax(0, 1fr); } }
-.install .card { padding-left: 24px; }
-.install code { font: 400 13px/1.5 var(--font-mono); display: block; background: var(--paper-2); padding: 10px; border-radius: 8px; margin-top: 8px; overflow-x: auto; white-space: pre; }
-footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--ink-soft); }
+.get-panel { max-width: 780px; margin: 34px auto 0; text-align: left; }
+.tabs { display: flex; border-bottom: 1px solid var(--rule); background: var(--panel-head); overflow-x: auto; }
+.tabs button {
+  font: 500 11px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; cursor: pointer;
+  color: var(--ink-faint); background: transparent; border: 0; border-right: 1px solid var(--rule);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 14px 18px;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--ink); background: var(--panel); border-bottom-color: var(--ink); }
+.tabpanel { padding: 22px 24px 24px; color: var(--ink-soft); }
+@media (max-width: 560px) { .tabs { display: grid; grid-template-columns: 1fr 1fr; } .tabs button { white-space: normal; line-height: 1.3; border-bottom: 1px solid var(--rule); margin-bottom: 0; } .tabs button[aria-selected="true"] { border-bottom-color: var(--ink); } .tabpanel { padding: 18px 16px 20px; } }
+.tabpanel[hidden] { display: none; }
+.tabpanel ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.cmd { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--rule); background: var(--paper); padding: 8px 8px 8px 14px; margin: 4px 0 12px; }
+.cmd code { border: 0; background: none; padding: 0; font-size: 13px; white-space: nowrap; overflow-x: auto; color: var(--ink); min-width: 0; }
+.cmd code::before { content: "$ "; color: var(--ink-faint); }
+.foot {
+  margin: 56px auto 0; max-width: 1140px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px 24px;
+  border-top: 1px solid var(--rule); padding-top: 18px; text-align: left;
+  font: 400 12px/1.6 var(--mono); letter-spacing: 0.03em; color: var(--ink-faint);
+}
+.foot nav { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 
+/* ---------- responsive ---------- */
+@media (max-width: 860px) { .nav-links { display: none; } }
 @media (max-width: 700px) {
   .dots, .pageno { display: none; }
+  .slide { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .split.rev > :first-child { order: 2; }
-  .slide { padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  .topbar .hide-sm { display: none; }
+  .hide-sm { display: none; }
 }
 @media (max-height: 780px) and (min-width: 701px) {
-  .slide { padding-block: calc(70px + env(safe-area-inset-top, 0px)) 44px; }
-  h1 { font-size: clamp(42px, 6vw, 84px); }
-  h2 { font-size: clamp(32px, 4.2vw, 56px); }
-  .lede { margin-bottom: 18px; }
+  .slide { padding-block: calc(84px + env(safe-area-inset-top, 0px)) 40px; }
+  h1 { font-size: clamp(42px, 5.6vw, 80px); }
+  h2 { font-size: clamp(32px, 4vw, 54px); }
+  .lede { margin-bottom: 20px; }
+  .features { margin-top: 28px; gap: 26px 40px; }
 }
+
 /* entrances: only with JS and when motion is welcome; without either, everything is simply visible */
 @media (prefers-reduced-motion: no-preference) {
-  .js .slide .wrap { transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
-  .js .slide:not(.seen) .wrap { opacity: 0; transform: translateY(22px); }
-  .js mark { background-size: 100% 100%; background-repeat: no-repeat; transition: background-size 0.75s cubic-bezier(0.6, 0, 0.3, 1) 0.35s, color 0.3s ease 0.45s; }
-  .js .slide:not(.seen) mark { background-size: 0% 100%; color: inherit; }
+  .js .slide .wrap { transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .js .slide:not(.seen) .wrap { opacity: 0; transform: translateY(16px); }
+  .js mark { transition: background-size 0.9s cubic-bezier(0.6, 0, 0.3, 1) 0.45s; }
+  .js .slide:not(.seen) mark { background-size: 0% 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -318,21 +376,26 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 </style>
 </head>
 <body>
-<header class="topbar">
-  <a class="wordmark" href="#start" aria-label="NoteBuilder, back to start">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="2.5" width="16" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 15.5 L10 11.5 L12.5 13.5 L16 8" fill="none" stroke="var(--live)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.6" fill="var(--pen)"/></svg>
-    <span>Note<b>Builder</b></span>
+<header class="nav">
+  <a class="brand" href="#start" aria-label="NoteBuilder, back to start">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="2.5" width="15" height="19" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 15.5 L10 11.5 L12.5 13.5 L16 8" fill="none" stroke="var(--live)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.5" fill="var(--pen)"/></svg>
+    <span>NoteBuilder</span>
   </a>
-  <nav aria-label="Site">
-    <a class="btn small ghost hide-sm" href="#demo">Live demo</a>
-    <a class="btn small ghost hide-sm" href="https://github.com/YuZh98/notebuilder">GitHub</a>
-    <a class="btn small solid" href="#get">Get it free</a>
+  <nav class="nav-links" aria-label="Site">
+    <a href="#demo">Live demo</a>
+    <a href="#cards">How it works</a>
+    <a href="#ai">From AI</a>
+    <a href="https://github.com/YuZh98/notebuilder">GitHub</a>
   </nav>
+  <div class="nav-end">
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Theme: automatic. Change theme"><svg viewBox="0 0 24 24" aria-hidden="true" id="themeIcon"></svg></button>
+    <a class="btn small primary" href="#get">Get it free</a>
+  </div>
   <div class="progress" id="progress"></div>
 </header>
 
 <nav class="dots" id="dots" aria-label="Pages"></nav>
-<div class="pageno" id="pageno" aria-hidden="true">p. 01 / 10</div>
+<div class="pageno" id="pageno" aria-hidden="true">01 / 10 — Start</div>
 
 <main class="deck" id="deck">
 
@@ -340,26 +403,29 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <section class="slide" id="start" data-name="Start">
   <div class="wrap split">
     <div>
-      <p class="eyebrow">Local-first study notebooks · macOS app + any browser</p>
+      <p class="news"><span class="tag">New in 0.3.0</span>Shared lessons now remember each student's progress. <a href="https://github.com/YuZh98/notebuilder/blob/main/CHANGELOG.md">What's new</a></p>
       <h1>Study notes that <mark>do something.</mark></h1>
       <p class="lede">Build lessons from live cards: sliders, formulas, charts, quizzes and practice problems that react to each other. Then share one file that opens offline on any device and remembers each student's progress.</p>
       <div class="row">
-        <a class="btn solid" href="#demo">Try a live lesson</a>
-        <a class="btn" href="#get">Get the app</a>
+        <a class="btn primary" href="#demo">Try a live lesson <span class="arr">→</span></a>
+        <a class="btn" href="https://github.com/YuZh98/notebuilder/releases/latest">Download for macOS <span class="arr">↓</span></a>
       </div>
-      <p class="fine" style="margin-top:16px">Free and open source under the MIT license. No account, no cloud.</p>
+      <p class="label" style="margin:22px 0 0">Free · MIT licensed · No account · No cloud</p>
     </div>
 
-    <div class="card hero-card" aria-label="A live NoteBuilder card: compound interest">
+    <div class="panel hero-card" aria-label="A live NoteBuilder card: compound interest">
       <span class="note hand note-drag" aria-hidden="true">drag me
-        <svg width="70" height="30" style="left:92px;top:8px"><path d="M2 14 C 22 2, 44 26, 66 12 M58 6 L66 12 L57 17"/></svg>
+        <svg width="70" height="30" style="left:84px;top:8px"><path d="M2 14 C 22 2, 44 26, 66 12 M58 6 L66 12 L57 17"/></svg>
       </span>
-      <p class="card-title"><span>Compound interest</span><span class="live">live card</span></p>
-      <div class="ctl"><label for="p">P</label><input id="p" type="range" min="100" max="5000" step="100" value="1000"><output id="pOut" for="p">$1,000</output></div>
-      <div class="ctl"><label for="r">r %</label><input id="r" type="range" min="0.5" max="15" step="0.5" value="5"><output id="rOut" for="r">5.0%</output></div>
-      <div class="formula" aria-label="A equals P times one plus r over 100, to the power t">A = P · (1 + r/100)<sup>t</sup> &nbsp;→&nbsp; A(10) = <span class="live" id="a10">$1,629</span></div>
-      <p class="prose" id="prose">At <b class="live">5%</b>, <b class="live">$1,000</b> grows to <b class="live">$1,629</b> in 10 years and <b class="live">$4,322</b> in 30.</p>
-      <svg class="chart" id="chart" viewBox="0 0 340 170" role="img" aria-label="Growth of the balance over 30 years"></svg>
+      <div class="panel-head"><span class="t">Card · Compound interest</span><span class="status pulse">Live</span></div>
+      <div class="panel-body">
+        <div class="ctl"><label for="p">P</label><input id="p" type="range" min="100" max="5000" step="100" value="1000"><output id="pOut" for="p">$1,000</output></div>
+        <div class="ctl"><label for="r">r %</label><input id="r" type="range" min="0.5" max="15" step="0.5" value="5"><output id="rOut" for="r">5.0%</output></div>
+        <div class="formula" aria-label="A equals P times one plus r over 100, to the power t">A = P · (1 + r/100)<sup>t</sup> &nbsp;→&nbsp; A(10) = <span class="live" id="a10">$1,629</span></div>
+        <p class="prose" id="prose">At <b class="live">5%</b>, <b class="live">$1,000</b> grows to <b class="live">$1,629</b> in 10 years and <b class="live">$4,322</b> in 30.</p>
+        <svg class="chart" id="chart" viewBox="0 0 340 170" role="img" aria-label="Growth of the balance over 30 years"></svg>
+      </div>
+      <div class="panel-foot">Drag either slider. The formula, the sentence and the chart are wired together.</div>
       <span class="note hand note-live" aria-hidden="true">every number here is live</span>
     </div>
   </div>
@@ -368,8 +434,8 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <!-- 2 -->
 <section class="slide" id="why" data-name="Why">
   <div class="wrap">
-    <p class="eyebrow">The problem with notes</p>
-    <h2>Rereading feels like studying. <mark>Testing yourself is studying.</mark></h2>
+    <p class="eyebrow">02 — The problem with notes</p>
+    <h2>Rereading feels like studying. <span class="accent">Testing yourself is studying.</span></h2>
     <p class="lede">Learning research is unusually clear about what works. Static notes support almost none of it.</p>
     <div class="evidence">
       <div class="ev">
@@ -388,7 +454,7 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
         <cite>Barbieri et al., 2023 · Educational Psychology Review</cite>
       </div>
     </div>
-    <p style="margin:0 0 12px;font-weight:700">So the built-in card types are those techniques, ready to drop into any lesson:</p>
+    <p style="margin:0 0 12px;color:var(--ink-soft)">So the built-in card types are those techniques, ready to drop into any lesson:</p>
     <div class="maps">
       <span class="chip">Quiz <i>→ retrieval practice</i></span>
       <span class="chip">Practice Set <i>→ varied, repeated practice</i></span>
@@ -402,13 +468,17 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <section class="slide" id="cards" data-name="Cards">
   <div class="wrap split">
     <div>
-      <p class="eyebrow">How it works</p>
-      <h2>Twelve building blocks. <mark>Infinite lessons.</mark></h2>
+      <p class="eyebrow">03 — How it works</p>
+      <h2>Twelve building blocks. <span class="accent">Endless lessons.</span></h2>
       <p class="lede">A card is a small stack of slots. Slots in the same card share variables, so a slider drives a formula, the formula drives a chart, and the text quotes the result. Tap the blocks to build a card.</p>
       <div class="slots" id="slots" role="group" aria-label="Slot types"></div>
-      <p class="fine">Variables stay inside their card, so one card can never break another. Cycles and missing values are caught when you import.</p>
+      <p class="fine">Cycles and missing values are caught when you import, before anyone sees the lesson.</p>
     </div>
-    <div class="card builder" id="builder" aria-live="polite" aria-label="Card being built"></div>
+    <div class="panel">
+      <div class="panel-head"><span class="t">Card · Your card</span><span class="status" id="slotCount">4 slots</span></div>
+      <div class="panel-body builder-body" id="builder" aria-live="polite" aria-label="Card being built"></div>
+      <div class="panel-foot">Slots in one card share variables. Cards never touch each other.</div>
+    </div>
   </div>
 </section>
 
@@ -416,49 +486,52 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <section class="slide" id="ai" data-name="From AI">
   <div class="wrap split">
     <div>
-      <p class="eyebrow">New notebook from AI</p>
-      <h2>Any chat AI drafts it. <mark>You stay the author.</mark></h2>
+      <p class="eyebrow">04 — New notebook from AI</p>
+      <h2>Any chat AI drafts it. <span class="accent">You stay the author.</span></h2>
       <ol class="steps" id="steps">
         <li data-step="0"><div><b>Copy the prompt</b><span>NoteBuilder writes it for you: the format, every slot with an example, the formula rules.</span></div></li>
         <li data-step="1"><div><b>Paste the reply</b><span>Code fences and chatter around the JSON are fine.</span></div></li>
         <li data-step="2"><div><b>See what to fix</b><span>Each problem says where it is, what is wrong and how to fix it, with a fix request to paste back.</span></div></li>
         <li data-step="3"><div><b>Review the drafts</b><span>Every AI-made card arrives as a draft. Share reminds you while drafts remain.</span></div></li>
       </ol>
-      <div class="row"><button class="btn small" id="aiPlay" type="button" aria-pressed="false">Play</button><span class="fine">Works with ChatGPT, Claude, Gemini or any chat AI. No AI runs inside the app.</span></div>
+      <button class="btn small" id="aiPlay" type="button" aria-pressed="false">Play</button>
     </div>
-    <div class="card window" aria-live="polite">
-      <div class="win-bar"><i></i><i></i><i></i><span id="winTitle">New notebook from AI</span></div>
-      <div class="win-body" id="winBody"></div>
+    <div class="panel" aria-live="polite">
+      <div class="panel-head"><span class="t" id="winTitle">New notebook from AI</span><span class="status">From AI</span></div>
+      <div class="panel-body win-body" id="winBody"></div>
+      <div class="panel-foot">Works with ChatGPT, Claude, Gemini or any chat AI. No AI runs inside the app.</div>
     </div>
   </div>
 </section>
 
 <!-- 5 -->
 <section class="slide" id="practice" data-name="Practice">
-  <div class="wrap split rev">
-    <div class="card problem" aria-label="A live practice problem">
-      <p class="card-title"><span>Practice set · percent change</span><span class="live">problem slot</span></p>
-      <p class="q" id="pq">A price rises from $40 to $50. By what percent did it rise?</p>
-      <form class="answer-row" id="pform" autocomplete="off">
-        <label class="fine" for="pin" style="flex-basis:100%">Your answer, in %</label>
-        <input id="pin" inputmode="text" placeholder="e.g. 25">
-        <button class="btn solid" type="submit">Check</button>
-        <button class="btn" type="button" id="pnew">New numbers</button>
-      </form>
-      <p class="feedback" id="pfb" aria-live="polite"></p>
-      <div class="row" style="justify-content:space-between">
-        <div class="streak" id="pstreak" aria-label="0 of 3 correct"><i></i><i></i><i></i><span>0 / 3 correct</span></div>
-        <button class="btn small ghost" type="button" id="pshow">Show answer</button>
+  <div class="wrap split media-left rev">
+    <div class="panel problem" aria-label="A live practice problem">
+      <div class="panel-head"><span class="t">Practice set · Percent change</span><span class="status">Problem slot</span></div>
+      <div class="panel-body">
+        <p class="q" id="pq">A price rises from $40 to $50. By what percent did it rise?</p>
+        <form class="answer-row" id="pform" autocomplete="off">
+          <label class="label" for="pin">Your answer, in %</label>
+          <input id="pin" inputmode="text" placeholder="e.g. 25">
+          <button class="btn primary" type="submit">Check</button>
+          <button class="btn" type="button" id="pnew">New numbers</button>
+        </form>
+        <p class="feedback" id="pfb" aria-live="polite"></p>
+        <div class="row" style="justify-content:space-between">
+          <div class="streak" id="pstreak" aria-label="0 of 3 correct"><i></i><i></i><i></i><span>0 / 3 correct</span></div>
+          <button class="btn small quiet" type="button" id="pshow">Show answer</button>
+        </div>
       </div>
     </div>
     <div>
-      <p class="eyebrow">Practice problems</p>
-      <h2>Fresh numbers <mark>every attempt.</mark></h2>
-      <div class="facts">
-        <div class="fact"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/></svg><p style="margin:0">You write the problem once with ranges and a formula. Every attempt draws new numbers, so students practise the idea, not the answer.</p></div>
-        <div class="fact"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><p style="margin:0">Each student gets their own sequence, so one shared answer list doesn't help anyone.</p></div>
-        <div class="fact"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><p style="margin:0">Peek at an answer and those numbers earn no credit. Done means done for real.</p></div>
-      </div>
+      <p class="eyebrow">05 — Practice problems</p>
+      <h2>Fresh numbers, <span class="accent">every attempt.</span></h2>
+      <ul class="points">
+        <li data-k="→"><span>You write the problem once with ranges and a formula. Every attempt draws new numbers, so students practise the idea, not the answer.</span></li>
+        <li data-k="→"><span>Each student gets their own sequence, so one shared answer list doesn't help anyone.</span></li>
+        <li data-k="→"><span>Peek at an answer and those numbers earn no credit. Done means done for real.</span></li>
+      </ul>
     </div>
   </div>
 </section>
@@ -467,26 +540,26 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <section class="slide" id="share" data-name="Share">
   <div class="wrap split">
     <div>
-      <p class="eyebrow">Sharing</p>
-      <h2>One file. Opens anywhere. <mark>Remembers everything.</mark></h2>
+      <p class="eyebrow">06 — Sharing</p>
+      <h2>One file. Opens anywhere. <span class="accent">Remembers everything.</span></h2>
       <ul class="points">
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span><b>No install, no account, no internet.</b> Email it, drop it in your course page, put it on a USB stick. It opens in any browser on any phone or laptop.</span></li>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span><b>Progress stays with the student.</b> Answers, ticks and practice streaks are saved in their browser and come back when they reopen the file.</span></li>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span><b>My results for the teacher.</b> Students copy or download a summary of their progress and graded answers, and send it to you.</span></li>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span><b>Nothing is sent anywhere.</b> The file itself makes no network requests, not even for fonts.</span></li>
+        <li data-k="✓"><span><b>No install, no account, no internet.</b> Email it, drop it in your course page, put it on a USB stick. It opens in any browser on any phone or laptop.</span></li>
+        <li data-k="✓"><span><b>Progress stays with the student.</b> Answers, ticks and practice streaks are saved in their browser and come back when they reopen the file.</span></li>
+        <li data-k="✓"><span><b>My results for the teacher.</b> Students copy or download a summary of their progress and graded answers, and send it to you.</span></li>
+        <li data-k="✓"><span><b>Nothing is sent anywhere.</b> The file itself makes no network requests, not even for fonts.</span></li>
       </ul>
     </div>
     <div>
       <div class="file">
-        <svg viewBox="0 0 28 34" aria-hidden="true"><path d="M2 2h16l8 8v22H2z" fill="var(--card)" stroke="var(--ink)" stroke-width="1.8"/><path d="M18 2v8h8" fill="none" stroke="var(--ink)" stroke-width="1.8"/><path d="M7 24l4-5 3 3 5-7" fill="none" stroke="var(--live)" stroke-width="2"/></svg>
-        <span>percent-change.html<br><span class="fine num">907 KB · works offline</span></span>
+        <svg viewBox="0 0 28 34" aria-hidden="true"><path d="M2 2h16l8 8v22H2z" fill="var(--panel)" stroke="var(--ink-soft)" stroke-width="1.4"/><path d="M18 2v8h8" fill="none" stroke="var(--ink-soft)" stroke-width="1.4"/><path d="M7 24l4-5 3 3 5-7" fill="none" stroke="var(--live)" stroke-width="1.8"/></svg>
+        <span>percent-change.html<small>907 KB · works offline</small></span>
       </div>
       <div class="devices" aria-hidden="true">
         <div class="dev laptop"><div class="scr"><div class="bar"></div><div class="bar short"></div><div class="track"></div><span class="tick">✓ 3 / 4 cards done</span></div></div>
         <div class="dev tablet"><div class="scr"><div class="bar"></div><div class="track"></div><span class="tick">✓ saved</span></div></div>
         <div class="dev phone"><div class="scr"><div class="bar"></div><div class="bar short"></div><span class="tick">✓</span></div></div>
       </div>
-      <p class="hand" style="font-size:26px;margin:18px 0 0;transform:rotate(-2deg)">same file, every screen</p>
+      <p class="hand" style="font-size:25px;margin:20px 0 0;transform:rotate(-2deg)">same file, every screen</p>
     </div>
   </div>
 </section>
@@ -494,36 +567,61 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <!-- 7 -->
 <section class="slide" id="demo" data-name="Demo">
   <div class="wrap">
-    <p class="eyebrow">Live demo</p>
-    <h2>This is the real thing. <mark>Go ahead, break it.</mark></h2>
+    <p class="eyebrow">07 — Live demo</p>
+    <h2>This is the real thing. <span class="accent">Go ahead, break it.</span></h2>
     <p class="lede">Below is an actual shared lesson made with NoteBuilder. Make a prediction, drag the slider, solve a problem, then reload the page: your progress is still there.</p>
-    <div class="demo-frame">
-      <div class="fallback"><p>The live lesson loads here. If it doesn't, <a href="demo/percent-change.html" target="_blank" rel="noopener">open it in a new tab</a>.</p></div>
-      <iframe src="demo/percent-change.html" title="Live NoteBuilder lesson: Percent change" loading="lazy"></iframe>
-    </div>
-    <div class="demo-links">
-      <a class="btn small solid" href="demo/percent-change.html" target="_blank" rel="noopener">Open full screen</a>
-      <a class="btn small" href="demo/compound-interest.html" target="_blank" rel="noopener">Compound interest</a>
-      <a class="btn small" href="demo/grand-tour.html" target="_blank" rel="noopener">The Grand Tour: every slot type</a>
+    <div class="panel">
+      <div class="panel-head"><span class="t">Shared file · percent-change.html</span><span class="status pulse">Offline</span></div>
+      <div class="demo-frame">
+        <div class="fallback"><p>The live lesson loads here. If it doesn't, <a href="demo/percent-change.html" target="_blank" rel="noopener">open it in a new tab</a>.</p></div>
+        <iframe src="demo/percent-change.html" title="Live NoteBuilder lesson: Percent change" loading="lazy"></iframe>
+      </div>
+      <div class="panel-foot demo-links">
+        <a href="demo/percent-change.html" target="_blank" rel="noopener">Open full screen ↗</a>
+        <a href="demo/compound-interest.html" target="_blank" rel="noopener">Compound interest ↗</a>
+        <a href="demo/grand-tour.html" target="_blank" rel="noopener">The Grand Tour: every slot type ↗</a>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- 8 -->
 <section class="slide" id="trust" data-name="Trust">
-  <div class="wrap">
-    <p class="eyebrow">Built to last</p>
-    <h2>Your notes live on <mark>your machine.</mark></h2>
-    <div class="tiles">
-      <div class="tile"><div class="big num">0</div><p>accounts, servers or trackers</p></div>
-      <div class="tile"><div class="big num">2,718</div><p>automated tests, run on every change</p></div>
-      <div class="tile"><div class="big num">12</div><p>slot types, one published file format</p></div>
-      <div class="tile"><div class="big">MIT</div><p>open source, yours to fork</p></div>
-    </div>
-    <div class="cols">
-      <div><h3>Saves you can trust</h3><p>Every save is one atomic database transaction. Nothing is written until loading has finished, and saves flush when you switch away or close the window.</p></div>
-      <div><h3>Version history</h3><p>Versions are kept automatically while you work. Restore any of them, and undo the restore if you change your mind.</p></div>
-      <div><h3>Your data, readable</h3><p>Export any notebook as plain JSON that follows a published schema, so your lessons outlive the app.</p></div>
+  <div class="wrap center">
+    <p class="eyebrow">08 — Built to last</p>
+    <h2>Your notes live on <span class="accent">your machine.</span></h2>
+    <p class="lede">No account, no server, no tracking. A desktop app that keeps your work safe and your format open.</p>
+    <div class="features">
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <h3>Local and private</h3>
+        <p>Notebooks sit in a database on your Mac. Nothing to sign up for, nothing that phones home.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>
+        <h3>Saves you can trust</h3>
+        <p>Every save is one atomic transaction, flushed when you switch away, close the window or quit.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
+        <h3>Version history</h3>
+        <p>Versions are kept as you work. Restore any of them, and undo the restore if you change your mind.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 0-3 1-3 3v2c0 1.5-1 3-2 3 1 0 2 1.5 2 3v2c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2c0 1.5 1 3 2 3-1 0-2 1.5-2 3v2c0 2-1 3-3 3"/></svg>
+        <h3>An open format</h3>
+        <p>Export plain JSON that follows a published schema, so your lessons outlive the app.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg>
+        <h3>2,718 tests</h3>
+        <p>Run on every change, including real-SQLite tests of every database migration.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg>
+        <h3>MIT licensed</h3>
+        <p>Open source on GitHub. Read it, fork it, keep it.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -531,48 +629,70 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
 <!-- 9 -->
 <section class="slide" id="compare" data-name="Compare">
   <div class="wrap">
-    <p class="eyebrow">Where it fits</p>
-    <h2>Not another flashcard app. <mark>Not another chatbot.</mark></h2>
+    <p class="eyebrow">09 — Where it fits</p>
+    <h2>Not another flashcard app. <span class="accent">Not another chatbot.</span></h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th scope="col">What you need</th><th scope="col" class="us">NoteBuilder</th><th scope="col">Flashcard apps</th><th scope="col">AI chat tutors</th><th scope="col">Slides and docs</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Sliders, formulas and charts that react</th><td class="us">Yes, in every card</td><td>No</td><td>In the chat, then gone</td><td>No</td></tr>
-          <tr><th scope="row">Self-checking quizzes and fresh-number practice</th><td class="us">Yes</td><td>Quizzes, fixed numbers</td><td>On request</td><td>No</td></tr>
-          <tr><th scope="row">Share one file that works offline</th><td class="us">Yes, any browser</td><td>Needs their app</td><td>Needs a login</td><td>Static only</td></tr>
-          <tr><th scope="row">Student progress without accounts</th><td class="us">Yes, saved in their browser</td><td>On their device</td><td>In the provider's cloud</td><td>No</td></tr>
-          <tr><th scope="row">Drafting with any AI you choose</th><td class="us">Yes, then you review</td><td>Via add-ons</td><td>Their own model only</td><td>Varies</td></tr>
+          <tr><th scope="row">Sliders, formulas and charts that react</th><td class="us"><span class="yes">Yes</span>, in every card</td><td>No</td><td>In the chat, then gone</td><td>No</td></tr>
+          <tr><th scope="row">Self-checking quizzes and fresh-number practice</th><td class="us"><span class="yes">Yes</span></td><td>Quizzes, fixed numbers</td><td>On request</td><td>No</td></tr>
+          <tr><th scope="row">Share one file that works offline</th><td class="us"><span class="yes">Yes</span>, any browser</td><td>Needs their app</td><td>Needs a login</td><td>Static only</td></tr>
+          <tr><th scope="row">Student progress without accounts</th><td class="us"><span class="yes">Yes</span>, saved in their browser</td><td>On their device</td><td>In the provider's cloud</td><td>No</td></tr>
+          <tr><th scope="row">Drafting with any AI you choose</th><td class="us"><span class="yes">Yes</span>, then you review</td><td>Via add-ons</td><td>Their own model only</td><td>Varies</td></tr>
           <tr><th scope="row">Spaced-repetition scheduling</th><td class="us"><span class="soon">Coming next</span></td><td>Yes, their core strength</td><td>Rarely</td><td>No</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="fine" style="margin-top:12px">We list what NoteBuilder doesn't do yet, too. A spaced-repetition review queue is the next thing we're building.</p>
+    <p class="fine" style="margin-top:14px">We list what NoteBuilder doesn't do yet, too. A spaced-repetition review queue is the next thing we're building.</p>
   </div>
 </section>
 
 <!-- 10 -->
-<section class="slide get" id="get" data-name="Get it">
-  <div class="wrap">
-    <p class="eyebrow">Get NoteBuilder</p>
+<section class="slide" id="get" data-name="Get it">
+  <div class="wrap center">
+    <p class="eyebrow">10 — Get NoteBuilder</p>
     <h2>Make your first <mark>living lesson</mark> tonight.</h2>
-    <p class="lede">Free, open source and private by design. Start in the browser demo or build the Mac app in a few minutes.</p>
-    <div class="row">
-      <a class="btn solid" href="https://github.com/YuZh98/notebuilder/releases/latest">Download for macOS</a>
-      <a class="btn" href="#demo">Try it in the browser</a>
-      <a class="btn ghost" href="https://github.com/YuZh98/notebuilder">Star on GitHub</a>
-    </div>
-    <div class="install">
-      <div class="card"><h3>Mac app</h3><p class="fine" style="margin:0">Download the DMG from Releases (Apple silicon) and drag NoteBuilder to Applications. It isn't notarized yet, so the first launch takes one extra step: on macOS 15 or later, click Done, then Open Anyway in System Settings → Privacy &amp; Security; on older macOS, right-click the app and choose Open. <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/install-macos.md">Install guide</a></p></div>
-      <div class="card"><h3>Build from source</h3><code>git clone https://github.com/YuZh98/notebuilder
-cd notebuilder/v2 &amp;&amp; npm ci
-npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, Rust and Xcode Command Line Tools.</p></div>
-      <div class="card"><h3>Write a lesson with AI</h3><p class="fine" style="margin:0">Choose ＋ then From AI…, copy the prompt into any chat AI, paste the reply back, and review the drafts.</p></div>
+    <p class="lede">Free, open source and private by design.</p>
+    <div class="panel get-panel">
+      <div class="tabs" role="tablist" aria-label="Ways to start">
+        <button role="tab" id="tab-mac" aria-controls="tp-mac" aria-selected="true" type="button">Mac app</button>
+        <button role="tab" id="tab-src" aria-controls="tp-src" aria-selected="false" type="button" tabindex="-1">From source</button>
+        <button role="tab" id="tab-ai" aria-controls="tp-ai" aria-selected="false" type="button" tabindex="-1">With any AI</button>
+        <button role="tab" id="tab-file" aria-controls="tp-file" aria-selected="false" type="button" tabindex="-1">Got a lesson file?</button>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-mac" aria-labelledby="tab-mac">
+        <p>For Apple silicon Macs (M1 or later) on macOS 11 or newer.</p>
+        <div class="row" style="margin-bottom:14px">
+          <a class="btn primary" href="https://github.com/YuZh98/notebuilder/releases/download/v0.3.0/notebuilder_0.3.0_aarch64.dmg">Download 0.3.0 <span class="arr">↓</span></a>
+          <a class="btn" href="https://github.com/YuZh98/notebuilder/releases">All releases</a>
+        </div>
+        <p class="fine" style="margin:0">NoteBuilder isn't notarized yet, so the first launch takes one extra step. On macOS 15 or later, click Done, then Open Anyway in System Settings → Privacy &amp; Security. On older macOS, right-click the app and choose Open. <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/install-macos.md">Install guide</a></p>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-src" aria-labelledby="tab-src" hidden>
+        <div class="cmd"><code id="srcCmd">git clone https://github.com/YuZh98/notebuilder &amp;&amp; cd notebuilder/v2 &amp;&amp; npm ci &amp;&amp; npm run tauri dev</code><button class="btn small" type="button" data-copy="srcCmd">Copy</button></div>
+        <p class="fine" style="margin:0">Needs Node 20+, Rust and Xcode Command Line Tools.</p>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-ai" aria-labelledby="tab-ai" hidden>
+        <ol>
+          <li>In NoteBuilder, choose ＋ then <i>From AI…</i> and describe your topic.</li>
+          <li>Copy the prompt into ChatGPT, Claude, Gemini or any chat AI.</li>
+          <li>Paste the reply back. NoteBuilder shows exactly what to fix.</li>
+          <li>Review the drafts, then Share.</li>
+        </ol>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-file" aria-labelledby="tab-file" hidden>
+        <p style="margin:0">Got a <code>.html</code> lesson from a teacher? Just open it in any browser, on any device. No install, no account. Your progress is saved in that browser, and <i>My results</i> lets you send your answers back.</p>
+      </div>
     </div>
     <footer class="foot">
-      <span>NoteBuilder 0.3.0 · MIT license</span>
-      <a href="https://github.com/YuZh98/notebuilder">Source on GitHub</a>
-      <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/FORMAT.md">Notebook format</a>
-      <a href="https://github.com/YuZh98/notebuilder/blob/main/CHANGELOG.md">What's new</a>
+      <span>NoteBuilder 0.3.0 · MIT License</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/YuZh98/notebuilder">GitHub</a>
+        <a href="https://github.com/YuZh98/notebuilder/releases">Releases</a>
+        <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/FORMAT.md">Notebook format</a>
+        <a href="https://github.com/YuZh98/notebuilder/blob/main/CHANGELOG.md">What's new</a>
+      </nav>
     </footer>
   </div>
 </section>
@@ -582,10 +702,33 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
 <script>
 (() => {
   'use strict';
-  document.documentElement.classList.add('js');
+  const root = document.documentElement;
+  root.classList.add('js');
   const $ = (s, r = document) => r.querySelector(s);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+  /* ---------- theme: automatic → light → dark ---------- */
+  const THEME_KEY = 'nb-site-theme';
+  const THEME_ICONS = {
+    auto: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/>',
+    light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    dark: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  };
+  const themeBtn = $('#themeBtn');
+  function setTheme(t, save) {
+    if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = t;
+    $('#themeIcon').innerHTML = THEME_ICONS[t];
+    const name = { auto: 'automatic', light: 'light', dark: 'dark' }[t];
+    themeBtn.setAttribute('aria-label', 'Theme: ' + name + '. Change theme');
+    themeBtn.title = 'Theme: ' + name;
+    if (save) { try { if (t === 'auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch (e) {} }
+  }
+  setTheme(root.dataset.theme || 'auto', false);
+  themeBtn.addEventListener('click', () => {
+    const order = ['auto', 'light', 'dark'];
+    setTheme(order[(order.indexOf(root.dataset.theme || 'auto') + 1) % order.length], true);
+  });
 
   /* ---------- 1: the live card ---------- */
   const p = $('#p'), r = $('#r');
@@ -627,7 +770,7 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
     svg.append(el('path', { d: d + `L${x(years)} ${B} L${x(0)} ${B} Z`, class: 'area' }));
     svg.append(el('path', { d, class: 'curve' }));
     svg.append(el('line', { x1: x(10), x2: x(10), y1: B, y2: y(A(10)), class: 'pinline' }));
-    svg.append(el('circle', { cx: x(10), cy: y(A(10)), r: 4.5, class: 'pin' }));
+    svg.append(el('circle', { cx: x(10), cy: y(A(10)), r: 4, class: 'pin' }));
   }
   p.addEventListener('input', drawCard); r.addEventListener('input', drawCard);
   drawCard();
@@ -657,21 +800,21 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
     text: '<div class="bar"></div><div class="bar short"></div>',
     slider: '<span class="num">r = <b class="live">5%</b></span><div class="track"></div>',
     formula: '<span class="num">A = P·(1 + r/100)<sup>t</sup> = <b class="live">$1,629</b></span>',
-    chart: '<svg viewBox="0 0 200 50" style="width:100%;height:46px"><path d="M2 46 C 60 44, 120 36, 198 6" fill="none" stroke="var(--live)" stroke-width="2.5"/></svg>',
+    chart: '<svg viewBox="0 0 200 50" style="width:100%;height:46px"><path d="M2 46 C 60 44, 120 36, 198 6" fill="none" stroke="var(--live)" stroke-width="2"/></svg>',
     quiz: '<div class="opts"><span>exactly doubles</span><span class="ok">more than doubles ✓</span><span>less than doubles</span></div>',
     problem: '<span>What is 15% of 240?</span> <span class="num live">→ 36 ✓</span>',
     checklist: '<span class="num">☑ Read the rule&nbsp;&nbsp;☑ Try the slider&nbsp;&nbsp;☐ Quiz</span>',
     table: '<span class="num">rule │ formula<br>power │ n·x<sup>n−1</sup></span>',
     code: '<span class="num">def area(r): return pi * r**2</span>',
-    image: '<svg viewBox="0 0 200 50" style="width:100%;height:46px"><rect x="1" y="1" width="198" height="48" rx="6" fill="none" stroke="var(--edge)"/><path d="M10 44l40-26 30 18 24-14 40 22" fill="none" stroke="var(--ink-soft)" stroke-width="2"/></svg>',
+    image: '<svg viewBox="0 0 200 50" style="width:100%;height:46px"><rect x="1" y="1" width="198" height="48" fill="none" stroke="var(--rule-strong)"/><path d="M10 44l40-26 30 18 24-14 40 22" fill="none" stroke="var(--ink-faint)" stroke-width="1.5"/></svg>',
     answer: '<span class="fine">Why does doubling the rate more than double the interest?</span><div class="bar" style="margin-top:6px"></div>',
-    progress: '<span class="num">3 / 4 done</span><div class="bar" style="margin-top:6px;background:linear-gradient(90deg,var(--live) 75%,var(--edge) 75%)"></div>',
+    progress: '<span class="num">3 / 4 done</span><div class="bar" style="margin-top:6px;background:linear-gradient(90deg,var(--live) 75%,var(--rule) 75%)"></div>',
   };
   let built = ['text', 'slider', 'formula', 'chart'];
   const slotsBox = $('#slots'), builder = $('#builder');
   function renderBuilder() {
-    builder.innerHTML = '<p class="card-title"><span>Your card</span><span class="live">' + built.length + ' slot' + (built.length === 1 ? '' : 's') + '</span></p>';
-    if (!built.length) { builder.insertAdjacentHTML('beforeend', '<p class="empty-builder">tap a block to start</p>'); }
+    $('#slotCount').textContent = built.length + ' slot' + (built.length === 1 ? '' : 's');
+    builder.innerHTML = built.length ? '' : '<p class="empty-builder">tap a block to start</p>';
     for (const id of built) {
       const name = SLOTS.find((s) => s[0] === id)[1];
       builder.insertAdjacentHTML('beforeend', '<div class="mini"><small>' + name + '</small>' + MINI[id] + '</div>');
@@ -692,10 +835,10 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
 
   /* ---------- 4: From AI walkthrough ---------- */
   const SCREENS = [
-    { title: 'New notebook from AI', html: '<p class="fine" style="margin-top:0">Topic</p><pre>Percent change for 8th grade, 6 cards</pre><p class="fine">The prompt NoteBuilder wrote for you</p><pre>You are writing a NoteBuilder notebook.\nReturn ONLY a JSON object, version 2.\nSlot catalog: text, slider, compute, chart,\nchoice, problem, list, table, …\nVariables never cross cards.\n-x^2 means (-x)^2: write -(x^2).</pre><button class="btn small solid" type="button" tabindex="-1">Copy prompt ✓</button>' },
-    { title: 'Paste the reply', html: '<pre>Sure! Here is your notebook:\n```json\n{ "version": 2,\n  "notebook": { "name": "Percent change",\n    "sections": [ { "name": "Warm-up",\n      "cards": [ { "slots": [\n        { "type": "quizz", … } ] } ] } ] } }\n```</pre><button class="btn small solid" type="button" tabindex="-1">Check</button>' },
+    { title: 'New notebook from AI', html: '<p class="label" style="margin:0 0 6px">Topic</p><pre>Percent change for 8th grade, 6 cards</pre><p class="label" style="margin:0 0 6px">The prompt NoteBuilder wrote for you</p><pre>You are writing a NoteBuilder notebook.\nReturn ONLY a JSON object, version 2.\nSlot catalog: text, slider, compute, chart,\nchoice, problem, list, table, …\nVariables never cross cards.\n-x^2 means (-x)^2: write -(x^2).</pre><button class="btn small primary" type="button" tabindex="-1">Copy prompt ✓</button>' },
+    { title: 'Paste the reply', html: '<pre>Sure! Here is your notebook:\n```json\n{ "version": 2,\n  "notebook": { "name": "Percent change",\n    "sections": [ { "name": "Warm-up",\n      "cards": [ { "slots": [\n        { "type": "quizz", … } ] } ] } ] } }\n```</pre><button class="btn small primary" type="button" tabindex="-1">Check</button>' },
     { title: 'Fix 1 problem', html: '<div class="issue"><div class="where">Section "Warm-up" › card 1 › slot 1 › type</div><div>Unknown slot type <b>"quizz"</b>.</div><div class="fix">Fix: did you mean <b>"choice"</b>? It is the multiple-choice quiz slot.</div></div><div class="row"><button class="btn small" type="button" tabindex="-1">Copy fix request for your AI</button><span class="fine">Paste it back; the AI returns corrected JSON.</span></div>' },
-    { title: 'Percent change · 6 drafts', html: '<div class="draft ok"><span>What is a percent change?</span><em>REVIEWED</em></div><div class="draft"><span>Quiz: up 25%, then down 20%</span><em>DRAFT</em></div><div class="draft"><span>Practice set: percent increase</span><em>DRAFT</em></div><div class="draft"><span>Guided explore: up p%, down p%</span><em>DRAFT</em></div><p class="hand" style="font-size:24px;margin:10px 0 0">check each one, then share</p>' },
+    { title: 'Percent change · 6 drafts', html: '<div class="draft ok"><span>What is a percent change?</span><em>REVIEWED</em></div><div class="draft"><span>Quiz: up 25%, then down 20%</span><em>DRAFT</em></div><div class="draft"><span>Practice set: percent increase</span><em>DRAFT</em></div><div class="draft"><span>Guided explore: up p%, down p%</span><em>DRAFT</em></div><p class="hand" style="font-size:24px;margin:12px 0 0">check each one, then share</p>' },
   ];
   const steps = [...document.querySelectorAll('#steps li')];
   let step = 2, timer = null;
@@ -708,7 +851,7 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
   steps.forEach((li, k) => {
     li.tabIndex = 0;
     li.addEventListener('click', () => { stopPlay(); showStep(k); });
-    li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stopPlay(); showStep(k); } });
+    li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); stopPlay(); showStep(k); } });
   });
   const playBtn = $('#aiPlay');
   function stopPlay() { clearInterval(timer); timer = null; playBtn.textContent = 'Play'; playBtn.setAttribute('aria-pressed', 'false'); }
@@ -729,7 +872,7 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
   }
 
   /* ---------- 5: practice problem ---------- */
-  let seed = (() => { try { const s = +localStorage.getItem('nb-site-seed'); return s || 1 + Math.floor(Math.random() * 1e6); } catch { return 7; } })();
+  let seed = (() => { try { const s = +localStorage.getItem('nb-site-seed'); return s || 1 + Math.floor(Math.random() * 1e6); } catch (e) { return 7; } })();
   function rng(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   let prob, correct = 0, revealed = false;
   function draw() {
@@ -766,13 +909,46 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
       fb.className = 'feedback no';
     }
   });
-  $('#pnew').addEventListener('click', () => { seed++; try { localStorage.setItem('nb-site-seed', String(seed)); } catch {} draw(); $('#pin').focus(); });
+  $('#pnew').addEventListener('click', () => { seed++; try { localStorage.setItem('nb-site-seed', String(seed)); } catch (e) {} draw(); $('#pin').focus(); });
   $('#pshow').addEventListener('click', () => {
     revealed = true;
     $('#pfb').textContent = 'Answer: (' + prob.n + ' − ' + prob.o + ') ÷ ' + prob.o + ' × 100 = ' + prob.pct + '%.';
     $('#pfb').className = 'feedback';
   });
   draw(); paintStreak();
+
+  /* ---------- 10: install tabs and copy ---------- */
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  function selectTab(t, focus) {
+    for (const x of tabs) {
+      const on = x === t;
+      x.setAttribute('aria-selected', String(on));
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+    }
+    if (focus) t.focus();
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => selectTab(t, false));
+    t.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); selectTab(tabs[(i + 1) % tabs.length], true); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); selectTab(tabs[(i - 1 + tabs.length) % tabs.length], true); }
+    });
+  });
+  for (const b of document.querySelectorAll('[data-copy]')) {
+    b.addEventListener('click', async () => {
+      const src = document.getElementById(b.dataset.copy);
+      let label = 'Copied';
+      try { await navigator.clipboard.writeText(src.textContent); }
+      catch (e) {
+        const range = document.createRange(); range.selectNodeContents(src);
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        label = 'Press ⌘C';
+      }
+      b.textContent = label;
+      setTimeout(() => { b.textContent = 'Copy'; }, 1800);
+    });
+  }
 
   /* ---------- deck navigation ---------- */
   const deck = $('#deck'), slides = [...document.querySelectorAll('.slide')], dots = $('#dots');
@@ -788,7 +964,7 @@ npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, R
     slides[i].classList.add('seen');
     if (slides[i].id === 'ai') autoplayAi();
     [...dots.children].forEach((d, k) => d.setAttribute('aria-current', String(k === i)));
-    $('#pageno').textContent = 'p. ' + String(i + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0') + ' · ' + slides[i].dataset.name;
+    $('#pageno').textContent = String(i + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0') + ' — ' + slides[i].dataset.name;
   }
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting) setCurrent(slides.indexOf(e.target));
