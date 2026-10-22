@@ -84,10 +84,34 @@ are incremental and take well under a minute.
 
 Two artifacts land under `v2/src-tauri/target/release/bundle/`:
 
-- `macos/notebuilder.app`, about 14 MB, ad hoc signed
-- `dmg/notebuilder_0.2.0_aarch64.dmg`, about 6.6 MB
+- `macos/notebuilder.app`, ad hoc signed
+- `dmg/notebuilder_<version>_aarch64.dmg`, for example `notebuilder_0.3.0_aarch64.dmg`
 
 The version in the file name follows `version` in `v2/src-tauri/tauri.conf.json`.
+
+### If the build stops at `bundle_dmg.sh`
+
+The app bundle is already built; what failed is the step where an AppleScript has Finder lay out
+the installer window. Tauri hides the script's own error, so rerun with
+`npm run tauri build -- --verbose` to see it.
+
+The usual one is `Not authorized to send Apple events to Finder. (-1743)`: the app you build from
+(Terminal, iTerm, VS Code, ...) may not control Finder. Allow it under System Settings → Privacy &
+Security → Automation → Finder. If that app is not listed, reset its permission and trigger the
+prompt, then click Allow:
+
+```bash
+tccutil reset AppleEvents com.apple.Terminal   # or your terminal's bundle id
+osascript -e 'tell application "Finder" to get name of startup disk'
+```
+
+Delete what the failed run left behind, then build again:
+
+```bash
+rm -f src-tauri/target/release/bundle/dmg/*.dmg src-tauri/target/release/bundle/macos/rw.*.dmg
+```
+
+A Finder window opens and closes during a successful build; that is the layout step.
 
 ### Where the installer window styling comes from
 
@@ -111,7 +135,7 @@ alongside the script change.
 ### Check a build
 
 ```bash
-hdiutil attach v2/src-tauri/target/release/bundle/dmg/notebuilder_0.2.0_aarch64.dmg
+hdiutil attach v2/src-tauri/target/release/bundle/dmg/notebuilder_0.3.0_aarch64.dmg
 open /Volumes/notebuilder
 ```
 

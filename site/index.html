@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NoteBuilder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Build study lessons from live cards: sliders, formulas, charts, quizzes and practice problems. Share one file that works offline on any device and remembers each student's progress.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap">
+<script>try { const t = localStorage.getItem('nb-site-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+/* A quiet study notebook: warm dotted paper, italic serif headlines, book serif text, small
+   letter-spaced mono for the interface, hairline frames with square corners. Live values are
+   teal; margin notes are red pen. Panels are "specimens": the product, framed and captioned. */
+:root {
+  --paper: #eeece6;
+  --panel: #f7f6f2;
+  --panel-head: #ebe9e3;
+  --dot: rgba(50, 46, 38, 0.22);
+  --ink: #25282e;
+  --ink-soft: #555a63;
+  --ink-faint: #82868d;
+  --rule: rgba(37, 40, 46, 0.15);
+  --rule-strong: rgba(37, 40, 46, 0.34);
+  --live: #2b786e;
+  --live-tint: rgba(43, 120, 110, 0.09);
+  --pen: #ad4639;
+  --marker: rgba(244, 204, 74, 0.6);
+  --lift: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 18px 40px -26px rgba(37, 40, 46, 0.38);
+  --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #16181b; --panel: #1d2024; --panel-head: #22252a; --dot: rgba(231, 226, 214, 0.09);
+    --ink: #e8e4db; --ink-soft: #aba79f; --ink-faint: #7f7d77; --rule: rgba(232, 228, 219, 0.12);
+    --rule-strong: rgba(232, 228, 219, 0.28); --live: #74c8ba; --live-tint: rgba(116, 200, 186, 0.09);
+    --pen: #e8907f; --marker: rgba(236, 192, 72, 0.42); --lift: 0 20px 44px -26px rgba(0, 0, 0, 0.9);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #16181b; --panel: #1d2024; --panel-head: #22252a; --dot: rgba(231, 226, 214, 0.09);
+  --ink: #e8e4db; --ink-soft: #aba79f; --ink-faint: #7f7d77; --rule: rgba(232, 228, 219, 0.12);
+  --rule-strong: rgba(232, 228, 219, 0.28); --live: #74c8ba; --live-tint: rgba(116, 200, 186, 0.09);
+  --pen: #e8907f; --marker: rgba(236, 192, 72, 0.42); --lift: 0 20px 44px -26px rgba(0, 0, 0, 0.9);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 18px/1.6 var(--serif);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+body::before { /* dotted notebook paper */
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(circle, var(--dot) 0.9px, transparent 1.2px);
+  background-size: 20px 20px; background-position: 10px 10px;
+}
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: var(--rule-strong); }
+a:hover { text-decoration-color: currentColor; }
+:focus-visible { outline: 2px solid var(--live); outline-offset: 3px; }
+::selection { background: var(--marker); }
+mark {
+  color: inherit; padding: 0 0.06em;
+  background: linear-gradient(transparent 66%, var(--marker) 66%, var(--marker) 91%, transparent 91%) no-repeat;
+  background-size: 100% 100%;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+p { margin: 0 0 14px; }
+code { font: 400 0.8em/1.4 var(--mono); padding: 2px 6px; border: 1px solid var(--rule); background: var(--panel); }
+.label { font: 500 11.5px/1.3 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.accent { color: var(--live); }
+.fine { font-size: 15px; color: var(--ink-faint); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hand { font-family: var(--hand); font-weight: 600; color: var(--pen); line-height: 1; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.live { color: var(--live); font-weight: 600; }
+
+/* ---------- chrome ---------- */
+.nav {
+  position: fixed; z-index: 30;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1180px; margin-inline: auto; height: 52px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 8px 0 16px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--lift);
+}
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 600 12.5px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; }
+.brand svg { width: 22px; height: 22px; flex: none; }
+.nav-links { display: flex; gap: 24px; }
+.nav-links a { font: 500 11.5px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); text-decoration: none; }
+.nav-links a:hover { color: var(--ink); }
+.nav-end { display: flex; gap: 6px; align-items: center; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid transparent; background: transparent; color: var(--ink-soft); cursor: pointer; padding: 0; }
+.icon-btn:hover { border-color: var(--rule); color: var(--ink); }
+.icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.progress { position: absolute; left: -1px; bottom: -1px; height: 1px; width: 0; background: var(--live); transition: width 0.2s linear; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  font: 500 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none;
+  color: var(--ink); background: var(--panel); border: 1px solid var(--rule-strong);
+  padding: 13px 16px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.btn:hover { border-color: var(--ink); background: var(--panel-head); }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.primary:hover { background: color-mix(in srgb, var(--ink) 86%, var(--live)); }
+.btn.small { padding: 9px 12px; font-size: 11px; }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.btn.quiet:hover { color: var(--ink); border-color: var(--rule); }
+.btn .arr { opacity: 0.65; }
+
+.dots { position: fixed; z-index: 20; right: max(18px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 12px; }
+.dots a { width: 7px; height: 7px; border: 1px solid var(--ink-faint); display: block; box-sizing: border-box; }
+.dots a[aria-current="true"] { background: var(--live); border-color: var(--live); }
+.pageno {
+  position: fixed; z-index: 20; left: max(18px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  font: 500 11px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint);
+}
+
+/* ---------- deck ---------- */
+.deck { position: relative; z-index: 1; height: 100%; overflow-y: auto; scroll-snap-type: y proximity; scroll-behavior: smooth; }
+@media (min-width: 960px) and (min-height: 820px) { .deck { scroll-snap-type: y mandatory; } }
+.slide {
+  min-height: 100%; box-sizing: border-box; scroll-snap-align: start;
+  display: grid; grid-template-columns: minmax(0, 1fr); align-items: center;
+  padding-block: calc(100px + env(safe-area-inset-top, 0px)) 64px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(48px, env(safe-area-inset-right, 0px));
+}
+.wrap { width: 100%; max-width: 1140px; margin-inline: auto; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: clamp(32px, 6vw, 88px); align-items: center; }
+.split.media-left { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .split, .split.media-left { grid-template-columns: minmax(0, 1fr); } }
+
+.eyebrow { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; font: 500 11.5px/1.3 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+.eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--ink-faint); flex: none; }
+h1, h2, h3 { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(46px, 6.4vw, 94px); line-height: 1.0; letter-spacing: -0.025em; margin-bottom: 24px; }
+h2 { font-size: clamp(36px, 4.6vw, 64px); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 22px; }
+h3 { font-size: 23px; line-height: 1.2; letter-spacing: -0.005em; margin-bottom: 8px; }
+.lede { font-size: clamp(18.5px, 1.45vw, 21px); line-height: 1.55; color: var(--ink-soft); max-width: 33em; margin: 0 0 30px; }
+.center { text-align: center; }
+.center .lede { margin-inline: auto; }
+.center .eyebrow { justify-content: center; }
+
+/* specimen panels */
+.panel { position: relative; background: var(--panel); border: 1px solid var(--rule); box-shadow: var(--lift); }
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--panel-head);
+  font: 500 11px/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft);
+}
+.panel-head .t { display: flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.panel-head .t::before { content: ""; flex: none; width: 7px; height: 7px; background: var(--live); }
+.status { color: var(--live); display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.status.pulse::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+.panel-body { padding: 20px 22px; }
+.panel-foot { padding: 10px 14px; border-top: 1px solid var(--rule); font: 400 12px/1.5 var(--mono); color: var(--ink-faint); }
+
+/* ---------- 1: start ---------- */
+.news { margin: 0 0 26px; font-style: italic; font-size: 16.5px; color: var(--ink-soft); }
+.news .tag { margin-right: 8px; }
+.news a { white-space: nowrap; }
+.tag { display: inline-block; font: 600 10px/1 var(--mono); font-style: normal; letter-spacing: 0.14em; text-transform: uppercase; color: var(--live); border: 1px solid currentColor; padding: 4px 6px; position: relative; top: -2px; }
+.hero-card { width: 100%; max-width: 540px; justify-self: end; }
+.ctl { display: grid; grid-template-columns: 3.2em 1fr 5.6em; gap: 14px; align-items: center; margin-bottom: 12px; }
+.ctl label { font: 500 13px/1 var(--mono); color: var(--ink-soft); }
+.ctl output { font: 600 14px/1 var(--mono); color: var(--live); text-align: right; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--live); margin: 0; }
+.formula { font: 400 14px/1.45 var(--mono); padding: 10px 12px; margin: 8px 0 14px; border: 1px solid var(--rule); background: var(--panel-head); overflow-x: auto; white-space: nowrap; }
+.formula sup { font-size: 0.72em; }
+.prose { margin: 0 0 10px; font-size: 17.5px; color: var(--ink-soft); }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--ink-faint); font: 400 10px var(--mono); }
+.chart .axis { stroke: var(--rule); stroke-width: 1; }
+.chart .curve { fill: none; stroke: var(--live); stroke-width: 2; }
+.chart .area { fill: var(--live); opacity: 0.08; }
+.chart .pin { fill: var(--pen); }
+.chart .pinline { stroke: var(--pen); stroke-dasharray: 2 3; }
+.note { position: absolute; font-size: 24px; white-space: nowrap; pointer-events: none; }
+.note svg { position: absolute; overflow: visible; }
+.note path { fill: none; stroke: var(--pen); stroke-width: 1.6; stroke-linecap: round; }
+.note-drag { left: -152px; top: 50px; transform: rotate(-5deg); }
+.note-live { right: -6px; bottom: -40px; transform: rotate(-2deg); }
+@media (max-width: 1100px) { .note-drag { left: auto; right: 14px; top: -32px; } .note-drag svg { display: none; } }
+@media (max-width: 560px) { .note-live { right: 0; bottom: -36px; font-size: 20px; } .formula { white-space: normal; font-size: 13px; } }
+
+/* ---------- 2: why ---------- */
+.evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 30px 0 26px; border-top: 1px solid var(--rule-strong); }
+.ev { padding: 22px 26px 4px 0; }
+.ev + .ev { padding-left: 26px; border-left: 1px solid var(--rule); }
+.ev .big { font: italic 400 clamp(34px, 3.6vw, 50px)/1 var(--serif); letter-spacing: -0.02em; margin-bottom: 14px; }
+.ev p { color: var(--ink-soft); font-size: 17px; }
+.ev cite { display: block; font: 400 11.5px/1.5 var(--mono); font-style: normal; color: var(--ink-faint); }
+@media (max-width: 860px) {
+  .evidence { grid-template-columns: minmax(0, 1fr); }
+  .ev, .ev + .ev { padding: 18px 0 4px; border-left: 0; }
+  .ev + .ev { border-top: 1px solid var(--rule); }
+}
+.maps { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 500 12px/1 var(--mono); padding: 9px 12px; border: 1px solid var(--rule-strong); background: var(--panel); }
+.chip i { font-style: normal; color: var(--live); }
+
+/* ---------- 3: cards ---------- */
+.slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 26px 0 16px; }
+@media (max-width: 480px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.slot-btn {
+  display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+  font: 400 15.5px/1.15 var(--serif); color: var(--ink-soft);
+  padding: 10px 11px; border: 1px dashed var(--rule-strong); background: transparent;
+}
+.slot-btn svg { flex: none; width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+.slot-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.slot-btn[aria-pressed="true"] { border-style: solid; border-color: var(--live); color: var(--ink); background: var(--panel); }
+.slot-btn[aria-pressed="true"] svg { stroke: var(--live); }
+.builder-body { min-height: 330px; display: flex; flex-direction: column; gap: 8px; }
+.mini { border: 1px solid var(--rule); background: var(--paper); padding: 10px 12px; animation: drop 0.35s ease both; }
+.mini small { display: block; font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px; }
+.bar { height: 6px; background: var(--rule); }
+.bar.short { width: 60%; margin-top: 6px; }
+.track { height: 2px; background: var(--rule-strong); position: relative; margin: 10px 0 6px; }
+.track::after { content: ""; position: absolute; left: 42%; top: -6px; width: 14px; height: 14px; border-radius: 50%; background: var(--live); }
+.opts { display: grid; gap: 4px; }
+.opts span { font-size: 15px; padding: 4px 8px; border: 1px solid var(--rule); background: var(--panel); }
+.opts span.ok { border-color: var(--live); color: var(--live); }
+.empty-builder { font-family: var(--hand); font-size: 26px; color: var(--pen); text-align: center; margin: auto; }
+@keyframes drop { from { transform: translateY(-6px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+
+/* ---------- 4: from AI ---------- */
+.steps { list-style: none; padding: 0; margin: 26px 0 18px; display: grid; gap: 2px; counter-reset: step; }
+.steps li {
+  counter-increment: step; display: grid; grid-template-columns: 36px 1fr; gap: 10px;
+  padding: 12px 14px 12px 12px; cursor: pointer; border: 1px solid transparent; border-left: 2px solid transparent;
+}
+.steps li::before { content: counter(step, decimal-leading-zero); font: 500 12px/2 var(--mono); letter-spacing: 0.08em; color: var(--ink-faint); }
+.steps li[aria-current="step"] { background: var(--panel); border-color: var(--rule); border-left-color: var(--live); }
+.steps li[aria-current="step"]::before { color: var(--live); }
+.steps b { display: block; font: italic 400 21px/1.3 var(--serif); color: var(--ink); }
+.steps span { color: var(--ink-soft); font-size: 16px; }
+.win-body { min-height: 300px; font-size: 16px; }
+.win-body pre { font: 400 12.5px/1.55 var(--mono); background: var(--panel-head); border: 1px solid var(--rule); padding: 12px; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; color: var(--ink); }
+.issue { border-left: 2px solid var(--pen); padding: 10px 12px; background: var(--panel-head); margin-bottom: 12px; }
+.issue .where { font: 500 11.5px/1.4 var(--mono); color: var(--ink-faint); margin-bottom: 4px; }
+.issue .fix b { color: var(--live); }
+.draft { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed var(--rule-strong); padding: 10px 12px; margin-bottom: 6px; }
+.draft em { font: 600 10.5px/1 var(--mono); font-style: normal; letter-spacing: 0.12em; color: var(--pen); border: 1px dashed currentColor; padding: 4px 6px; white-space: nowrap; }
+.draft.ok { border-style: solid; border-color: var(--live); }
+.draft.ok em { color: var(--live); border-style: solid; }
+
+/* ---------- 5: practice ---------- */
+.problem .q { font: italic 400 clamp(22px, 2.1vw, 27px)/1.3 var(--serif); margin: 0 0 18px; }
+.answer-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.answer-row label { flex-basis: 100%; }
+.answer-row input {
+  flex: 1 1 9em; min-width: 0; font: 500 17px/1 var(--mono); padding: 12px 14px; border-radius: 0;
+  border: 1px solid var(--rule-strong); background: var(--paper); color: var(--ink);
+}
+.answer-row input:focus { outline: none; border-color: var(--live); box-shadow: 0 0 0 3px var(--live-tint); }
+.feedback { min-height: 26px; margin: 14px 0 8px; font-size: 16.5px; }
+.feedback.ok { color: var(--live); }
+.feedback.no { color: var(--pen); }
+.streak { display: flex; gap: 6px; align-items: center; font: 500 11.5px/1 var(--mono); letter-spacing: 0.08em; color: var(--ink-faint); }
+.streak i { width: 18px; height: 6px; background: var(--rule); }
+.streak i.on { background: var(--live); }
+.points { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 18px; }
+.points li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; color: var(--ink-soft); }
+.points li::before { content: attr(data-k); font: 500 12px/1.9 var(--mono); color: var(--live); }
+.points b { color: var(--ink); font-weight: 600; }
+
+/* ---------- 6: share ---------- */
+.file { display: inline-flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--rule); background: var(--panel); box-shadow: var(--lift); font: 500 13.5px/1.4 var(--mono); }
+.file svg { width: 26px; height: 32px; flex: none; }
+.file small { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-faint); letter-spacing: 0.04em; }
+.devices { display: flex; align-items: flex-end; gap: clamp(12px, 2vw, 26px); margin-top: 28px; flex-wrap: wrap; }
+.dev { border: 1px solid var(--rule-strong); background: var(--panel); position: relative; overflow: hidden; }
+.dev .scr { position: absolute; inset: 7px; background: var(--paper); border: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.dev .tick { font: 500 10.5px/1.2 var(--mono); color: var(--live); letter-spacing: 0.04em; }
+.laptop { width: min(250px, 60vw); height: 158px; }
+.tablet { width: 118px; height: 158px; }
+.phone { width: 68px; height: 128px; border-radius: 12px; }
+
+/* ---------- 7: demo ---------- */
+#demo h2 { font-size: clamp(32px, 4vw, 54px); }
+#demo .lede { margin-bottom: 22px; }
+.demo-frame { height: clamp(340px, calc(100vh - 445px), 620px); position: relative; background: var(--paper); }
+.demo-frame iframe { width: 100%; height: 100%; border: 0; display: block; position: relative; z-index: 1; }
+.demo-frame .fallback { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--ink-faint); }
+.demo-links { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
+.demo-links a { font: 500 11.5px/1.5 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+@media (max-width: 700px) { .demo-frame { height: 66vh; } }
+
+/* ---------- 8: trust ---------- */
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 48px; margin-top: 44px; }
+.feature svg { width: 30px; height: 30px; stroke: var(--ink-soft); fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 12px; }
+.feature p { color: var(--ink-soft); font-size: 16.5px; max-width: 24em; margin: 0 auto; }
+@media (max-width: 860px) { .features { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
+
+/* ---------- 9: compare ---------- */
+.table-wrap { overflow-x: auto; margin-top: 28px; border: 1px solid var(--rule); background: var(--panel); box-shadow: var(--lift); }
+table { border-collapse: collapse; width: 100%; min-width: 660px; font-size: 16.5px; }
+th, td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+td { color: var(--ink-soft); }
+thead th { font: 500 11px/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); background: var(--panel-head); }
+tbody th { font-weight: 400; font-style: italic; color: var(--ink); }
+.us { background: var(--live-tint); }
+thead th.us { color: var(--live); }
+td.us { color: var(--ink); }
+td .yes { color: var(--live); }
+td .soon { color: var(--pen); font-style: italic; }
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+
+/* ---------- 10: get ---------- */
+.get-panel { max-width: 780px; margin: 34px auto 0; text-align: left; }
+.tabs { display: flex; border-bottom: 1px solid var(--rule); background: var(--panel-head); overflow-x: auto; }
+.tabs button {
+  font: 500 11px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; cursor: pointer;
+  color: var(--ink-faint); background: transparent; border: 0; border-right: 1px solid var(--rule);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 14px 18px;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--ink); background: var(--panel); border-bottom-color: var(--ink); }
+.tabpanel { padding: 22px 24px 24px; color: var(--ink-soft); }
+@media (max-width: 560px) { .tabs { display: grid; grid-template-columns: 1fr 1fr; } .tabs button { white-space: normal; line-height: 1.3; border-bottom: 1px solid var(--rule); margin-bottom: 0; } .tabs button[aria-selected="true"] { border-bottom-color: var(--ink); } .tabpanel { padding: 18px 16px 20px; } }
+.tabpanel[hidden] { display: none; }
+.tabpanel ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.cmd { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--rule); background: var(--paper); padding: 8px 8px 8px 14px; margin: 4px 0 12px; }
+.cmd code { border: 0; background: none; padding: 0; font-size: 13px; white-space: nowrap; overflow-x: auto; color: var(--ink); min-width: 0; }
+.cmd code::before { content: "$ "; color: var(--ink-faint); }
+.foot {
+  margin: 56px auto 0; max-width: 1140px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px 24px;
+  border-top: 1px solid var(--rule); padding-top: 18px; text-align: left;
+  font: 400 12px/1.6 var(--mono); letter-spacing: 0.03em; color: var(--ink-faint);
+}
+.foot nav { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px) { .nav-links { display: none; } }
+@media (max-width: 700px) {
+  .dots, .pageno { display: none; }
+  .slide { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .split.rev > :first-child { order: 2; }
+  .hide-sm { display: none; }
+}
+@media (max-height: 780px) and (min-width: 701px) {
+  .slide { padding-block: calc(84px + env(safe-area-inset-top, 0px)) 40px; }
+  h1 { font-size: clamp(42px, 5.6vw, 80px); }
+  h2 { font-size: clamp(32px, 4vw, 54px); }
+  .lede { margin-bottom: 20px; }
+  .features { margin-top: 28px; gap: 26px 40px; }
+}
+
+/* entrances: only with JS and when motion is welcome; without either, everything is simply visible */
+@media (prefers-reduced-motion: no-preference) {
+  .js .slide .wrap { transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .js .slide:not(.seen) .wrap { opacity: 0; transform: translateY(16px); }
+  .js mark { transition: background-size 0.9s cubic-bezier(0.6, 0, 0.3, 1) 0.45s; }
+  .js .slide:not(.seen) mark { background-size: 0% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#start" aria-label="NoteBuilder, back to start">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="2.5" width="15" height="19" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 15.5 L10 11.5 L12.5 13.5 L16 8" fill="none" stroke="var(--live)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.5" fill="var(--pen)"/></svg>
+    <span>NoteBuilder</span>
+  </a>
+  <nav class="nav-links" aria-label="Site">
+    <a href="#demo">Live demo</a>
+    <a href="#cards">How it works</a>
+    <a href="#ai">From AI</a>
+    <a href="https://github.com/YuZh98/notebuilder">GitHub</a>
+  </nav>
+  <div class="nav-end">
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Theme: automatic. Change theme"><svg viewBox="0 0 24 24" aria-hidden="true" id="themeIcon"></svg></button>
+    <a class="btn small primary" href="#get">Get it free</a>
+  </div>
+  <div class="progress" id="progress"></div>
+</header>
+
+<nav class="dots" id="dots" aria-label="Pages"></nav>
+<div class="pageno" id="pageno" aria-hidden="true">01 / 10 — Start</div>
+
+<main class="deck" id="deck">
+
+<!-- 1 -->
+<section class="slide" id="start" data-name="Start">
+  <div class="wrap split">
+    <div>
+      <p class="news"><span class="tag">New in 0.3.0</span>Shared lessons now remember each student's progress. <a href="https://github.com/YuZh98/notebuilder/blob/main/CHANGELOG.md">What's new</a></p>
+      <h1>Study notes that <mark>do something.</mark></h1>
+      <p class="lede">Build lessons from live cards: sliders, formulas, charts, quizzes and practice problems that react to each other. Then share one file that opens offline on any device and remembers each student's progress.</p>
+      <div class="row">
+        <a class="btn primary" href="#demo">Try a live lesson <span class="arr">→</span></a>
+        <a class="btn" href="https://github.com/YuZh98/notebuilder/releases/latest">Download for macOS <span class="arr">↓</span></a>
+      </div>
+      <p class="label" style="margin:22px 0 0">Free · MIT licensed · No account · No cloud</p>
+    </div>
+
+    <div class="panel hero-card" aria-label="A live NoteBuilder card: compound interest">
+      <span class="note hand note-drag" aria-hidden="true">drag me
+        <svg width="70" height="30" style="left:84px;top:8px"><path d="M2 14 C 22 2, 44 26, 66 12 M58 6 L66 12 L57 17"/></svg>
+      </span>
+      <div class="panel-head"><span class="t">Card · Compound interest</span><span class="status pulse">Live</span></div>
+      <div class="panel-body">
+        <div class="ctl"><label for="p">P</label><input id="p" type="range" min="100" max="5000" step="100" value="1000"><output id="pOut" for="p">$1,000</output></div>
+        <div class="ctl"><label for="r">r %</label><input id="r" type="range" min="0.5" max="15" step="0.5" value="5"><output id="rOut" for="r">5.0%</output></div>
+        <div class="formula" aria-label="A equals P times one plus r over 100, to the power t">A = P · (1 + r/100)<sup>t</sup> &nbsp;→&nbsp; A(10) = <span class="live" id="a10">$1,629</span></div>
+        <p class="prose" id="prose">At <b class="live">5%</b>, <b class="live">$1,000</b> grows to <b class="live">$1,629</b> in 10 years and <b class="live">$4,322</b> in 30.</p>
+        <svg class="chart" id="chart" viewBox="0 0 340 170" role="img" aria-label="Growth of the balance over 30 years"></svg>
+      </div>
+      <div class="panel-foot">Drag either slider. The formula, the sentence and the chart are wired together.</div>
+      <span class="note hand note-live" aria-hidden="true">every number here is live</span>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="slide" id="why" data-name="Why">
+  <div class="wrap">
+    <p class="eyebrow">02 — The problem with notes</p>
+    <h2>Rereading feels like studying. <span class="accent">Testing yourself is studying.</span></h2>
+    <p class="lede">Learning research is unusually clear about what works. Static notes support almost none of it.</p>
+    <div class="evidence">
+      <div class="ev">
+        <div class="big">High utility</div>
+        <p>Practice testing and spaced practice were the two techniques rated most useful, out of ten common study techniques reviewed. Highlighting and rereading rated low.</p>
+        <cite>Dunlosky et al., 2013 · Psychological Science in the Public Interest</cite>
+      </div>
+      <div class="ev">
+        <div class="big">g ≈ 0.85</div>
+        <p>Simulation-based learning showed large effects across 145 studies in higher education, and helped most when the simulation was guided.</p>
+        <cite>Chernikova et al., 2020 · Review of Educational Research</cite>
+      </div>
+      <div class="ev">
+        <div class="big">g ≈ 0.48</div>
+        <p>Studying worked examples improved mathematics performance, especially when learners explain each step to themselves.</p>
+        <cite>Barbieri et al., 2023 · Educational Psychology Review</cite>
+      </div>
+    </div>
+    <p style="margin:0 0 12px;color:var(--ink-soft)">So the built-in card types are those techniques, ready to drop into any lesson:</p>
+    <div class="maps">
+      <span class="chip">Quiz <i>→ retrieval practice</i></span>
+      <span class="chip">Practice Set <i>→ varied, repeated practice</i></span>
+      <span class="chip">Guided Explore <i>→ guided simulation</i></span>
+      <span class="chip">Worked Example <i>→ self-explanation</i></span>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="slide" id="cards" data-name="Cards">
+  <div class="wrap split">
+    <div>
+      <p class="eyebrow">03 — How it works</p>
+      <h2>Twelve building blocks. <span class="accent">Endless lessons.</span></h2>
+      <p class="lede">A card is a small stack of slots. Slots in the same card share variables, so a slider drives a formula, the formula drives a chart, and the text quotes the result. Tap the blocks to build a card.</p>
+      <div class="slots" id="slots" role="group" aria-label="Slot types"></div>
+      <p class="fine">Cycles and missing values are caught when you import, before anyone sees the lesson.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="t">Card · Your card</span><span class="status" id="slotCount">4 slots</span></div>
+      <div class="panel-body builder-body" id="builder" aria-live="polite" aria-label="Card being built"></div>
+      <div class="panel-foot">Slots in one card share variables. Cards never touch each other.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide" id="ai" data-name="From AI">
+  <div class="wrap split">
+    <div>
+      <p class="eyebrow">04 — New notebook from AI</p>
+      <h2>Any chat AI drafts it. <span class="accent">You stay the author.</span></h2>
+      <ol class="steps" id="steps">
+        <li data-step="0"><div><b>Copy the prompt</b><span>NoteBuilder writes it for you: the format, every slot with an example, the formula rules.</span></div></li>
+        <li data-step="1"><div><b>Paste the reply</b><span>Code fences and chatter around the JSON are fine.</span></div></li>
+        <li data-step="2"><div><b>See what to fix</b><span>Each problem says where it is, what is wrong and how to fix it, with a fix request to paste back.</span></div></li>
+        <li data-step="3"><div><b>Review the drafts</b><span>Every AI-made card arrives as a draft. Share reminds you while drafts remain.</span></div></li>
+      </ol>
+      <button class="btn small" id="aiPlay" type="button" aria-pressed="false">Play</button>
+    </div>
+    <div class="panel" aria-live="polite">
+      <div class="panel-head"><span class="t" id="winTitle">New notebook from AI</span><span class="status">From AI</span></div>
+      <div class="panel-body win-body" id="winBody"></div>
+      <div class="panel-foot">Works with ChatGPT, Claude, Gemini or any chat AI. No AI runs inside the app.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide" id="practice" data-name="Practice">
+  <div class="wrap split media-left rev">
+    <div class="panel problem" aria-label="A live practice problem">
+      <div class="panel-head"><span class="t">Practice set · Percent change</span><span class="status">Problem slot</span></div>
+      <div class="panel-body">
+        <p class="q" id="pq">A price rises from $40 to $50. By what percent did it rise?</p>
+        <form class="answer-row" id="pform" autocomplete="off">
+          <label class="label" for="pin">Your answer, in %</label>
+          <input id="pin" inputmode="text" placeholder="e.g. 25">
+          <button class="btn primary" type="submit">Check</button>
+          <button class="btn" type="button" id="pnew">New numbers</button>
+        </form>
+        <p class="feedback" id="pfb" aria-live="polite"></p>
+        <div class="row" style="justify-content:space-between">
+          <div class="streak" id="pstreak" aria-label="0 of 3 correct"><i></i><i></i><i></i><span>0 / 3 correct</span></div>
+          <button class="btn small quiet" type="button" id="pshow">Show answer</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="eyebrow">05 — Practice problems</p>
+      <h2>Fresh numbers, <span class="accent">every attempt.</span></h2>
+      <ul class="points">
+        <li data-k="→"><span>You write the problem once with ranges and a formula. Every attempt draws new numbers, so students practise the idea, not the answer.</span></li>
+        <li data-k="→"><span>Each student gets their own sequence, so one shared answer list doesn't help anyone.</span></li>
+        <li data-k="→"><span>Peek at an answer and those numbers earn no credit. Done means done for real.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="slide" id="share" data-name="Share">
+  <div class="wrap split">
+    <div>
+      <p class="eyebrow">06 — Sharing</p>
+      <h2>One file. Opens anywhere. <span class="accent">Remembers everything.</span></h2>
+      <ul class="points">
+        <li data-k="✓"><span><b>No install, no account, no internet.</b> Email it, drop it in your course page, put it on a USB stick. It opens in any browser on any phone or laptop.</span></li>
+        <li data-k="✓"><span><b>Progress stays with the student.</b> Answers, ticks and practice streaks are saved in their browser and come back when they reopen the file.</span></li>
+        <li data-k="✓"><span><b>My results for the teacher.</b> Students copy or download a summary of their progress and graded answers, and send it to you.</span></li>
+        <li data-k="✓"><span><b>Nothing is sent anywhere.</b> The file itself makes no network requests, not even for fonts.</span></li>
+      </ul>
+    </div>
+    <div>
+      <div class="file">
+        <svg viewBox="0 0 28 34" aria-hidden="true"><path d="M2 2h16l8 8v22H2z" fill="var(--panel)" stroke="var(--ink-soft)" stroke-width="1.4"/><path d="M18 2v8h8" fill="none" stroke="var(--ink-soft)" stroke-width="1.4"/><path d="M7 24l4-5 3 3 5-7" fill="none" stroke="var(--live)" stroke-width="1.8"/></svg>
+        <span>percent-change.html<small>907 KB · works offline</small></span>
+      </div>
+      <div class="devices" aria-hidden="true">
+        <div class="dev laptop"><div class="scr"><div class="bar"></div><div class="bar short"></div><div class="track"></div><span class="tick">✓ 3 / 4 cards done</span></div></div>
+        <div class="dev tablet"><div class="scr"><div class="bar"></div><div class="track"></div><span class="tick">✓ saved</span></div></div>
+        <div class="dev phone"><div class="scr"><div class="bar"></div><div class="bar short"></div><span class="tick">✓</span></div></div>
+      </div>
+      <p class="hand" style="font-size:25px;margin:20px 0 0;transform:rotate(-2deg)">same file, every screen</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="slide" id="demo" data-name="Demo">
+  <div class="wrap">
+    <p class="eyebrow">07 — Live demo</p>
+    <h2>This is the real thing. <span class="accent">Go ahead, break it.</span></h2>
+    <p class="lede">Below is an actual shared lesson made with NoteBuilder. Make a prediction, drag the slider, solve a problem, then reload the page: your progress is still there.</p>
+    <div class="panel">
+      <div class="panel-head"><span class="t">Shared file · percent-change.html</span><span class="status pulse">Offline</span></div>
+      <div class="demo-frame">
+        <div class="fallback"><p>The live lesson loads here. If it doesn't, <a href="demo/percent-change.html" target="_blank" rel="noopener">open it in a new tab</a>.</p></div>
+        <iframe src="demo/percent-change.html" title="Live NoteBuilder lesson: Percent change" loading="lazy"></iframe>
+      </div>
+      <div class="panel-foot demo-links">
+        <a href="demo/percent-change.html" target="_blank" rel="noopener">Open full screen ↗</a>
+        <a href="demo/compound-interest.html" target="_blank" rel="noopener">Compound interest ↗</a>
+        <a href="demo/grand-tour.html" target="_blank" rel="noopener">The Grand Tour: every slot type ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="slide" id="trust" data-name="Trust">
+  <div class="wrap center">
+    <p class="eyebrow">08 — Built to last</p>
+    <h2>Your notes live on <span class="accent">your machine.</span></h2>
+    <p class="lede">No account, no server, no tracking. A desktop app that keeps your work safe and your format open.</p>
+    <div class="features">
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <h3>Local and private</h3>
+        <p>Notebooks sit in a database on your Mac. Nothing to sign up for, nothing that phones home.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>
+        <h3>Saves you can trust</h3>
+        <p>Every save is one atomic transaction, flushed when you switch away, close the window or quit.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
+        <h3>Version history</h3>
+        <p>Versions are kept as you work. Restore any of them, and undo the restore if you change your mind.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 0-3 1-3 3v2c0 1.5-1 3-2 3 1 0 2 1.5 2 3v2c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2c0 1.5 1 3 2 3-1 0-2 1.5-2 3v2c0 2-1 3-3 3"/></svg>
+        <h3>An open format</h3>
+        <p>Export plain JSON that follows a published schema, so your lessons outlive the app.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg>
+        <h3>2,718 tests</h3>
+        <p>Run on every change, including real-SQLite tests of every database migration.</p>
+      </div>
+      <div class="feature">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg>
+        <h3>MIT licensed</h3>
+        <p>Open source on GitHub. Read it, fork it, keep it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="slide" id="compare" data-name="Compare">
+  <div class="wrap">
+    <p class="eyebrow">09 — Where it fits</p>
+    <h2>Not another flashcard app. <span class="accent">Not another chatbot.</span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">What you need</th><th scope="col" class="us">NoteBuilder</th><th scope="col">Flashcard apps</th><th scope="col">AI chat tutors</th><th scope="col">Slides and docs</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Sliders, formulas and charts that react</th><td class="us"><span class="yes">Yes</span>, in every card</td><td>No</td><td>In the chat, then gone</td><td>No</td></tr>
+          <tr><th scope="row">Self-checking quizzes and fresh-number practice</th><td class="us"><span class="yes">Yes</span></td><td>Quizzes, fixed numbers</td><td>On request</td><td>No</td></tr>
+          <tr><th scope="row">Share one file that works offline</th><td class="us"><span class="yes">Yes</span>, any browser</td><td>Needs their app</td><td>Needs a login</td><td>Static only</td></tr>
+          <tr><th scope="row">Student progress without accounts</th><td class="us"><span class="yes">Yes</span>, saved in their browser</td><td>On their device</td><td>In the provider's cloud</td><td>No</td></tr>
+          <tr><th scope="row">Drafting with any AI you choose</th><td class="us"><span class="yes">Yes</span>, then you review</td><td>Via add-ons</td><td>Their own model only</td><td>Varies</td></tr>
+          <tr><th scope="row">Spaced-repetition scheduling</th><td class="us"><span class="soon">Coming next</span></td><td>Yes, their core strength</td><td>Rarely</td><td>No</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine" style="margin-top:14px">We list what NoteBuilder doesn't do yet, too. A spaced-repetition review queue is the next thing we're building.</p>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide" id="get" data-name="Get it">
+  <div class="wrap center">
+    <p class="eyebrow">10 — Get NoteBuilder</p>
+    <h2>Make your first <mark>living lesson</mark> tonight.</h2>
+    <p class="lede">Free, open source and private by design.</p>
+    <div class="panel get-panel">
+      <div class="tabs" role="tablist" aria-label="Ways to start">
+        <button role="tab" id="tab-mac" aria-controls="tp-mac" aria-selected="true" type="button">Mac app</button>
+        <button role="tab" id="tab-src" aria-controls="tp-src" aria-selected="false" type="button" tabindex="-1">From source</button>
+        <button role="tab" id="tab-ai" aria-controls="tp-ai" aria-selected="false" type="button" tabindex="-1">With any AI</button>
+        <button role="tab" id="tab-file" aria-controls="tp-file" aria-selected="false" type="button" tabindex="-1">Got a lesson file?</button>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-mac" aria-labelledby="tab-mac">
+        <p>For Apple silicon Macs (M1 or later) on macOS 11 or newer.</p>
+        <div class="row" style="margin-bottom:14px">
+          <a class="btn primary" href="https://github.com/YuZh98/notebuilder/releases/download/v0.3.0/notebuilder_0.3.0_aarch64.dmg">Download 0.3.0 <span class="arr">↓</span></a>
+          <a class="btn" href="https://github.com/YuZh98/notebuilder/releases">All releases</a>
+        </div>
+        <p class="fine" style="margin:0">NoteBuilder isn't notarized yet, so the first launch takes one extra step. On macOS 15 or later, click Done, then Open Anyway in System Settings → Privacy &amp; Security. On older macOS, right-click the app and choose Open. <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/install-macos.md">Install guide</a></p>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-src" aria-labelledby="tab-src" hidden>
+        <div class="cmd"><code id="srcCmd">git clone https://github.com/YuZh98/notebuilder &amp;&amp; cd notebuilder/v2 &amp;&amp; npm ci &amp;&amp; npm run tauri dev</code><button class="btn small" type="button" data-copy="srcCmd">Copy</button></div>
+        <p class="fine" style="margin:0">Needs Node 20+, Rust and Xcode Command Line Tools.</p>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-ai" aria-labelledby="tab-ai" hidden>
+        <ol>
+          <li>In NoteBuilder, choose ＋ then <i>From AI…</i> and describe your topic.</li>
+          <li>Copy the prompt into ChatGPT, Claude, Gemini or any chat AI.</li>
+          <li>Paste the reply back. NoteBuilder shows exactly what to fix.</li>
+          <li>Review the drafts, then Share.</li>
+        </ol>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="tp-file" aria-labelledby="tab-file" hidden>
+        <p style="margin:0">Got a <code>.html</code> lesson from a teacher? Just open it in any browser, on any device. No install, no account. Your progress is saved in that browser, and <i>My results</i> lets you send your answers back.</p>
+      </div>
+    </div>
+    <footer class="foot">
+      <span>NoteBuilder 0.3.0 · MIT License</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/YuZh98/notebuilder">GitHub</a>
+        <a href="https://github.com/YuZh98/notebuilder/releases">Releases</a>
+        <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/FORMAT.md">Notebook format</a>
+        <a href="https://github.com/YuZh98/notebuilder/blob/main/CHANGELOG.md">What's new</a>
+      </nav>
+    </footer>
+  </div>
+</section>
+
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  root.classList.add('js');
+  const $ = (s, r = document) => r.querySelector(s);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+  /* ---------- theme: automatic → light → dark ---------- */
+  const THEME_KEY = 'nb-site-theme';
+  const THEME_ICONS = {
+    auto: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/>',
+    light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    dark: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  };
+  const themeBtn = $('#themeBtn');
+  function setTheme(t, save) {
+    if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = t;
+    $('#themeIcon').innerHTML = THEME_ICONS[t];
+    const name = { auto: 'automatic', light: 'light', dark: 'dark' }[t];
+    themeBtn.setAttribute('aria-label', 'Theme: ' + name + '. Change theme');
+    themeBtn.title = 'Theme: ' + name;
+    if (save) { try { if (t === 'auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch (e) {} }
+  }
+  setTheme(root.dataset.theme || 'auto', false);
+  themeBtn.addEventListener('click', () => {
+    const order = ['auto', 'light', 'dark'];
+    setTheme(order[(order.indexOf(root.dataset.theme || 'auto') + 1) % order.length], true);
+  });
+
+  /* ---------- 1: the live card ---------- */
+  const p = $('#p'), r = $('#r');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function niceStep(v) {
+    const pow = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const s of [1, 2, 2.5, 5]) if (s * pow >= v) return s * pow;
+    return 10 * pow;
+  }
+  const kLabel = (v) => (v >= 1000 ? '$' + +(v / 1000).toFixed(1) + 'k' : '$' + Math.round(v));
+  function el(tag, attrs, text) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function drawCard() {
+    const P = +p.value, R = +r.value, A = (t) => P * Math.pow(1 + R / 100, t);
+    $('#pOut').textContent = money.format(P);
+    $('#rOut').textContent = R.toFixed(1) + '%';
+    $('#a10').textContent = money.format(A(10));
+    $('#prose').innerHTML = '';
+    const parts = ['At ', [R.toFixed(1).replace(/\.0$/, '') + '%'], ', ', [money.format(P)], ' grows to ', [money.format(A(10))], ' in 10 years and ', [money.format(A(30))], ' in 30.'];
+    for (const part of parts) {
+      if (Array.isArray(part)) { const b = document.createElement('b'); b.className = 'live'; b.textContent = part[0]; $('#prose').append(b); }
+      else $('#prose').append(part);
+    }
+    const svg = $('#chart'); svg.textContent = '';
+    const L = 46, Rr = 326, T = 10, B = 146, years = 30, step = niceStep(A(years) / 4), ticks = Math.ceil(A(years) / step), top = ticks * step;
+    const x = (t) => L + (t / years) * (Rr - L), y = (v) => B - (v / top) * (B - T);
+    for (let i = 0; i <= ticks; i++) {
+      const v = step * i, yy = y(v);
+      svg.append(el('line', { x1: L, x2: Rr, y1: yy, y2: yy, class: 'axis' }));
+      svg.append(el('text', { x: L - 6, y: yy + 3, 'text-anchor': 'end' }, kLabel(v)));
+    }
+    for (const t of [0, 10, 20, 30]) svg.append(el('text', { x: x(t), y: B + 16, 'text-anchor': t === 30 ? 'end' : 'middle' }, t + ' yr'));
+    let d = '';
+    for (let t = 0; t <= years; t += 0.5) d += (t ? 'L' : 'M') + x(t).toFixed(1) + ' ' + y(A(t)).toFixed(1) + ' ';
+    svg.append(el('path', { d: d + `L${x(years)} ${B} L${x(0)} ${B} Z`, class: 'area' }));
+    svg.append(el('path', { d, class: 'curve' }));
+    svg.append(el('line', { x1: x(10), x2: x(10), y1: B, y2: y(A(10)), class: 'pinline' }));
+    svg.append(el('circle', { cx: x(10), cy: y(A(10)), r: 4, class: 'pin' }));
+  }
+  p.addEventListener('input', drawCard); r.addEventListener('input', drawCard);
+  drawCard();
+
+  /* ---------- 3: slot builder ---------- */
+  const ICONS = {
+    text: '<path d="M4 6h16M4 11h16M4 16h10"/>',
+    slider: '<path d="M3 12h18"/><circle cx="10" cy="12" r="3"/>',
+    formula: '<path d="M5 6h6M8 6v12M14 9l6 6M20 9l-6 6"/>',
+    chart: '<path d="M3 19h18M5 16l4-5 4 3 6-8"/>',
+    quiz: '<circle cx="6" cy="7" r="2"/><circle cx="6" cy="13" r="2"/><circle cx="6" cy="19" r="2"/><path d="M11 7h9M11 13h9M11 19h9"/>',
+    problem: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h4M15 15l2 2 3-4"/>',
+    checklist: '<path d="M4 7l2 2 3-4M4 15l2 2 3-4M12 7h8M12 15h8"/>',
+    table: '<path d="M3 5h18v14H3zM3 10h18M10 5v14"/>',
+    code: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4"/>',
+    image: '<path d="M3 5h18v14H3z"/><path d="M3 16l5-5 4 4 3-3 6 6"/>',
+    answer: '<path d="M4 15h16M4 9h10"/><path d="M17 6l3 3-6 6h-3v-3z"/>',
+    progress: '<path d="M3 12h18"/><path d="M3 12h11" stroke-width="4"/>',
+  };
+  const SLOTS = [
+    ['text', 'Text and math'], ['slider', 'Slider'], ['formula', 'Formula'],
+    ['chart', 'Chart'], ['quiz', 'Quiz'], ['problem', 'Practice problem'],
+    ['checklist', 'List and checklist'], ['table', 'Table'], ['code', 'Code'],
+    ['image', 'Image'], ['answer', 'Written answer'], ['progress', 'Progress'],
+  ];
+  const MINI = {
+    text: '<div class="bar"></div><div class="bar short"></div>',
+    slider: '<span class="num">r = <b class="live">5%</b></span><div class="track"></div>',
+    formula: '<span class="num">A = P·(1 + r/100)<sup>t</sup> = <b class="live">$1,629</b></span>',
+    chart: '<svg viewBox="0 0 200 50" style="width:100%;height:46px"><path d="M2 46 C 60 44, 120 36, 198 6" fill="none" stroke="var(--live)" stroke-width="2"/></svg>',
+    quiz: '<div class="opts"><span>exactly doubles</span><span class="ok">more than doubles ✓</span><span>less than doubles</span></div>',
+    problem: '<span>What is 15% of 240?</span> <span class="num live">→ 36 ✓</span>',
+    checklist: '<span class="num">☑ Read the rule&nbsp;&nbsp;☑ Try the slider&nbsp;&nbsp;☐ Quiz</span>',
+    table: '<span class="num">rule │ formula<br>power │ n·x<sup>n−1</sup></span>',
+    code: '<span class="num">def area(r): return pi * r**2</span>',
+    image: '<svg viewBox="0 0 200 50" style="width:100%;height:46px"><rect x="1" y="1" width="198" height="48" fill="none" stroke="var(--rule-strong)"/><path d="M10 44l40-26 30 18 24-14 40 22" fill="none" stroke="var(--ink-faint)" stroke-width="1.5"/></svg>',
+    answer: '<span class="fine">Why does doubling the rate more than double the interest?</span><div class="bar" style="margin-top:6px"></div>',
+    progress: '<span class="num">3 / 4 done</span><div class="bar" style="margin-top:6px;background:linear-gradient(90deg,var(--live) 75%,var(--rule) 75%)"></div>',
+  };
+  let built = ['text', 'slider', 'formula', 'chart'];
+  const slotsBox = $('#slots'), builder = $('#builder');
+  function renderBuilder() {
+    $('#slotCount').textContent = built.length + ' slot' + (built.length === 1 ? '' : 's');
+    builder.innerHTML = built.length ? '' : '<p class="empty-builder">tap a block to start</p>';
+    for (const id of built) {
+      const name = SLOTS.find((s) => s[0] === id)[1];
+      builder.insertAdjacentHTML('beforeend', '<div class="mini"><small>' + name + '</small>' + MINI[id] + '</div>');
+    }
+    for (const b of slotsBox.children) b.setAttribute('aria-pressed', String(built.includes(b.dataset.id)));
+  }
+  for (const [id, name] of SLOTS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'slot-btn'; b.dataset.id = id;
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[id] + '</svg><span>' + name + '</span>';
+    b.addEventListener('click', () => {
+      built = built.includes(id) ? built.filter((x) => x !== id) : [...built, id].slice(-6);
+      renderBuilder();
+    });
+    slotsBox.append(b);
+  }
+  renderBuilder();
+
+  /* ---------- 4: From AI walkthrough ---------- */
+  const SCREENS = [
+    { title: 'New notebook from AI', html: '<p class="label" style="margin:0 0 6px">Topic</p><pre>Percent change for 8th grade, 6 cards</pre><p class="label" style="margin:0 0 6px">The prompt NoteBuilder wrote for you</p><pre>You are writing a NoteBuilder notebook.\nReturn ONLY a JSON object, version 2.\nSlot catalog: text, slider, compute, chart,\nchoice, problem, list, table, …\nVariables never cross cards.\n-x^2 means (-x)^2: write -(x^2).</pre><button class="btn small primary" type="button" tabindex="-1">Copy prompt ✓</button>' },
+    { title: 'Paste the reply', html: '<pre>Sure! Here is your notebook:\n```json\n{ "version": 2,\n  "notebook": { "name": "Percent change",\n    "sections": [ { "name": "Warm-up",\n      "cards": [ { "slots": [\n        { "type": "quizz", … } ] } ] } ] } }\n```</pre><button class="btn small primary" type="button" tabindex="-1">Check</button>' },
+    { title: 'Fix 1 problem', html: '<div class="issue"><div class="where">Section "Warm-up" › card 1 › slot 1 › type</div><div>Unknown slot type <b>"quizz"</b>.</div><div class="fix">Fix: did you mean <b>"choice"</b>? It is the multiple-choice quiz slot.</div></div><div class="row"><button class="btn small" type="button" tabindex="-1">Copy fix request for your AI</button><span class="fine">Paste it back; the AI returns corrected JSON.</span></div>' },
+    { title: 'Percent change · 6 drafts', html: '<div class="draft ok"><span>What is a percent change?</span><em>REVIEWED</em></div><div class="draft"><span>Quiz: up 25%, then down 20%</span><em>DRAFT</em></div><div class="draft"><span>Practice set: percent increase</span><em>DRAFT</em></div><div class="draft"><span>Guided explore: up p%, down p%</span><em>DRAFT</em></div><p class="hand" style="font-size:24px;margin:12px 0 0">check each one, then share</p>' },
+  ];
+  const steps = [...document.querySelectorAll('#steps li')];
+  let step = 2, timer = null;
+  function showStep(i) {
+    step = (i + SCREENS.length) % SCREENS.length;
+    steps.forEach((li, k) => { if (k === step) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); });
+    $('#winTitle').textContent = SCREENS[step].title;
+    $('#winBody').innerHTML = SCREENS[step].html;
+  }
+  steps.forEach((li, k) => {
+    li.tabIndex = 0;
+    li.addEventListener('click', () => { stopPlay(); showStep(k); });
+    li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); stopPlay(); showStep(k); } });
+  });
+  const playBtn = $('#aiPlay');
+  function stopPlay() { clearInterval(timer); timer = null; playBtn.textContent = 'Play'; playBtn.setAttribute('aria-pressed', 'false'); }
+  playBtn.addEventListener('click', () => {
+    if (timer) return stopPlay();
+    showStep(0);
+    playBtn.textContent = 'Pause'; playBtn.setAttribute('aria-pressed', 'true');
+    timer = setInterval(() => showStep(step + 1), 2600);
+  });
+  showStep(2);
+  let aiPlayed = reduced;
+  function autoplayAi() {
+    if (aiPlayed) return;
+    aiPlayed = true;
+    showStep(0);
+    playBtn.textContent = 'Pause'; playBtn.setAttribute('aria-pressed', 'true');
+    timer = setInterval(() => { showStep(step + 1); if (step === SCREENS.length - 1) stopPlay(); }, 2600);
+  }
+
+  /* ---------- 5: practice problem ---------- */
+  let seed = (() => { try { const s = +localStorage.getItem('nb-site-seed'); return s || 1 + Math.floor(Math.random() * 1e6); } catch (e) { return 7; } })();
+  function rng(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  let prob, correct = 0, revealed = false;
+  function draw() {
+    const g = rng(seed);
+    const k = 1 + Math.floor(g() * 9), j = 1 + Math.floor(g() * 15);
+    const o = 20 * k, pct = 5 * j, n = o + (o * pct) / 100;
+    prob = { o, n, pct };
+    revealed = false;
+    $('#pq').textContent = `A price rises from $${o} to $${n}. By what percent did it rise?`;
+    $('#pin').value = ''; $('#pfb').textContent = ''; $('#pfb').className = 'feedback';
+  }
+  function parseAnswer(s) {
+    const t = s.trim().replace(/%$/, '').trim();
+    if (!/^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(t)) return null;
+    return Number(t);
+  }
+  function paintStreak() {
+    const bars = $('#pstreak').querySelectorAll('i');
+    bars.forEach((b, i) => b.classList.toggle('on', i < Math.min(correct, 3)));
+    $('#pstreak').querySelector('span').textContent = Math.min(correct, 3) + ' / 3 correct';
+    $('#pstreak').setAttribute('aria-label', Math.min(correct, 3) + ' of 3 correct');
+  }
+  $('#pform').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = parseAnswer($('#pin').value), fb = $('#pfb');
+    if (v === null) { fb.textContent = 'Type a number, like 25 or 25%.'; fb.className = 'feedback no'; return; }
+    if (Math.abs(v - prob.pct) < 1e-9) {
+      if (revealed) { fb.textContent = '✓ Right, but the answer was shown, so this one earns no credit. Try new numbers.'; fb.className = 'feedback ok'; return; }
+      correct++; paintStreak();
+      fb.textContent = correct >= 3 ? '✓ Correct. Problem done: 3 correct answers.' : '✓ Correct. Change ÷ old price × 100 = ' + prob.pct + '%.';
+      fb.className = 'feedback ok';
+    } else {
+      fb.textContent = '✗ ' + v + '% is not right. Hint: divide the change by the old price.';
+      fb.className = 'feedback no';
+    }
+  });
+  $('#pnew').addEventListener('click', () => { seed++; try { localStorage.setItem('nb-site-seed', String(seed)); } catch (e) {} draw(); $('#pin').focus(); });
+  $('#pshow').addEventListener('click', () => {
+    revealed = true;
+    $('#pfb').textContent = 'Answer: (' + prob.n + ' − ' + prob.o + ') ÷ ' + prob.o + ' × 100 = ' + prob.pct + '%.';
+    $('#pfb').className = 'feedback';
+  });
+  draw(); paintStreak();
+
+  /* ---------- 10: install tabs and copy ---------- */
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  function selectTab(t, focus) {
+    for (const x of tabs) {
+      const on = x === t;
+      x.setAttribute('aria-selected', String(on));
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+    }
+    if (focus) t.focus();
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => selectTab(t, false));
+    t.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); selectTab(tabs[(i + 1) % tabs.length], true); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); selectTab(tabs[(i - 1 + tabs.length) % tabs.length], true); }
+    });
+  });
+  for (const b of document.querySelectorAll('[data-copy]')) {
+    b.addEventListener('click', async () => {
+      const src = document.getElementById(b.dataset.copy);
+      let label = 'Copied';
+      try { await navigator.clipboard.writeText(src.textContent); }
+      catch (e) {
+        const range = document.createRange(); range.selectNodeContents(src);
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        label = 'Press ⌘C';
+      }
+      b.textContent = label;
+      setTimeout(() => { b.textContent = 'Copy'; }, 1800);
+    });
+  }
+
+  /* ---------- deck navigation ---------- */
+  const deck = $('#deck'), slides = [...document.querySelectorAll('.slide')], dots = $('#dots');
+  slides.forEach((s, i) => {
+    const a = document.createElement('a');
+    a.href = '#' + s.id; a.setAttribute('aria-label', (i + 1) + '. ' + s.dataset.name);
+    a.title = s.dataset.name;
+    dots.append(a);
+  });
+  let current = 0;
+  function setCurrent(i) {
+    current = i;
+    slides[i].classList.add('seen');
+    if (slides[i].id === 'ai') autoplayAi();
+    [...dots.children].forEach((d, k) => d.setAttribute('aria-current', String(k === i)));
+    $('#pageno').textContent = String(i + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0') + ' — ' + slides[i].dataset.name;
+  }
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) setCurrent(slides.indexOf(e.target));
+  }, { root: deck, threshold: 0.55 });
+  const reveal = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) e.target.classList.add('seen');
+  }, { root: deck, threshold: 0.2 });
+  slides.forEach((s) => reveal.observe(s));
+  slides.forEach((s) => io.observe(s));
+  deck.addEventListener('scroll', () => {
+    const max = deck.scrollHeight - deck.clientHeight;
+    $('#progress').style.width = (max > 0 ? (deck.scrollTop / max) * 100 : 0) + '%';
+  }, { passive: true });
+  function go(i) { const t = slides[Math.max(0, Math.min(slides.length - 1, i))]; t.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    const t = document.getElementById(a.getAttribute('href').slice(1));
+    if (t && t.classList.contains('slide')) { e.preventDefault(); go(slides.indexOf(t)); }
+  });
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['input', 'textarea', 'select', 'button'].includes(tag) || e.target.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (['ArrowDown', 'PageDown', 'ArrowRight'].includes(e.key) || (e.key === ' ' && !e.shiftKey)) { e.preventDefault(); go(current + 1); }
+    else if (['ArrowUp', 'PageUp', 'ArrowLeft'].includes(e.key) || (e.key === ' ' && e.shiftKey)) { e.preventDefault(); go(current - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+  setCurrent(0);
+})();
+</script>
+</body>
+</html>

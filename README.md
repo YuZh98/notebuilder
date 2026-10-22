@@ -9,6 +9,8 @@
 
 **Study material that does something. Build notebooks from reactive cards, drill them in Study mode, and hand them to anyone as a single offline file.**
 
+**[Download for macOS](https://github.com/YuZh98/notebuilder/releases/latest)** (Apple silicon) · **[Website and live demo](https://yuzh98.github.io/notebuilder/)** · [Install guide](docs/install-macos.md)
+
 Drag a slider, and the formula, the prose, and the chart in that card recompute together; export the notebook and those same live cards keep running inside one offline `.html` file, where nothing the reader answers ever comes back to you.
 
 NoteBuilder is a local-first macOS desktop app. Your notebooks live in a local SQLite database. No account, no cloud, no backend.
