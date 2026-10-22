@@ -562,10 +562,10 @@ footer.foot { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 8px 18px; f
       <a class="btn ghost" href="https://github.com/YuZh98/notebuilder">Star on GitHub</a>
     </div>
     <div class="install">
-      <div class="card"><h3>Mac app</h3><p class="fine" style="margin:0">Download from Releases. The app isn't notarized yet, so the first time, right-click NoteBuilder and choose Open.</p></div>
+      <div class="card"><h3>Mac app</h3><p class="fine" style="margin:0">Download the DMG from Releases (Apple silicon) and drag NoteBuilder to Applications. It isn't notarized yet, so the first launch takes one extra step: on macOS 15 or later, click Done, then Open Anyway in System Settings → Privacy &amp; Security; on older macOS, right-click the app and choose Open. <a href="https://github.com/YuZh98/notebuilder/blob/main/docs/install-macos.md">Install guide</a></p></div>
       <div class="card"><h3>Build from source</h3><code>git clone https://github.com/YuZh98/notebuilder
 cd notebuilder/v2 &amp;&amp; npm ci
-npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 22 and Rust.</p></div>
+npm run tauri dev</code><p class="fine" style="margin:8px 0 0">Needs Node 20+, Rust and Xcode Command Line Tools.</p></div>
       <div class="card"><h3>Write a lesson with AI</h3><p class="fine" style="margin:0">Choose ＋ then From AI…, copy the prompt into any chat AI, paste the reply back, and review the drafts.</p></div>
     </div>
     <footer class="foot">
