@@ -10,7 +10,7 @@ Drop-in notebooks you can import to see NoteBuilder in action.
 
 ## Files
 
-- [`grand-tour.json`](grand-tour.json) — the tutorial notebook: every one of the eleven slot
+- [`grand-tour.json`](grand-tour.json) — the tutorial notebook: every one of the twelve slot
   types, live, in one rocket mission. Sliders drive the Tsiolkovsky equation, a hidden slot
   reveals itself at escape velocity, flashcards flip, quizzes grade themselves, a checklist and
   flight log feed a notebook-wide progress meter, and the final section documents the notebook's
